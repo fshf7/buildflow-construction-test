@@ -54,6 +54,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # gen types запускает контейнер postgres-meta; анонимные pull из ECR Public на раннерах
+      # упираются в лимит (toomanyrequests). Тянем заранее с повторами, иначе — копию с Docker Hub.
+      # Версия образа привязана к версии CLI выше (2.108.0 → postgres-meta v0.96.1).
+      - name: Образ postgres-meta
+        run: |
+          IMG=public.ecr.aws/supabase/postgres-meta:v0.96.1
+          for i in 1 2 3; do docker pull "$IMG" && exit 0; sleep $((i * 15)); done
+          docker pull supabase/postgres-meta:v0.96.1
+          docker tag supabase/postgres-meta:v0.96.1 "$IMG"
       - name: Типы БД соответствуют миграциям
         run: |
           npm run db:types
