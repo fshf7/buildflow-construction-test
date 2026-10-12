@@ -1,7 +1,7 @@
 # BuildFlow — архитектура данных и проведения документов
 
 > Статус: **согласовано 12.10.2026** с изменениями из `docs/DECISIONS.md` (Д-xx). При расхождении приоритет у DECISIONS.md.
-> Источник: ТЗ «BuildFlow — предварительная спецификация MVP v0.9» (`docs/TZ_v0.9.pdf`) + `CLAUDE.md`.
+> Источник: ТЗ «BuildFlow — предварительная спецификация MVP v0.9» (`docs/TZ_v1.0.pdf`) + `CLAUDE.md`.
 > Проект с нуля: старый BuildFlow (схема, код, Supabase-проект) не используется.
 > Всё, что помечено **[Решение]**, — моё предложение там, где ТЗ молчит. Всё, что помечено **[TZ-open]**, —
 > открытый вопрос ТЗ, реализуемый минимально и расширяемо. Полный список — в разделе 8.
@@ -42,11 +42,12 @@
 id              uuid        PK default gen_random_uuid()
 organization_id uuid        NOT NULL FK organizations(id)
 created_at      timestamptz NOT NULL default now()
-created_by      uuid        NULL FK auth.users(id)       -- триггер private.set_created_by(): = auth.uid(), значение клиента игнорируется (Д-14)
+created_by      uuid        NULL FK auth.users(id)       -- триггер private.set_created_by(): = auth.uid(), значение клиента игнорируется
 updated_at      timestamptz NOT NULL default now()      -- триггер private.touch_updated_at()
 ```
 
-`created_by` после вставки не меняется (нет UPDATE-гранта) — на нём держится запрет самосогласования.
+`created_by` после вставки не меняется (нет UPDATE-гранта) — на нём держится запрет самосогласования
+`payment_requests` и `work_completion_acts` (Д-14); у остальных документов это просто «автор».
 Индекс по `organization_id` — на каждой таблице.
 
 ### 1.3 Колонки документа (далее — `DOC`)
@@ -201,8 +202,7 @@ supplier_invoices   -- STD + DOC («Накладная»); status supplier_invoi
   supplier_doc_number text NOT NULL, supplier_doc_date date NOT NULL   -- номер/дата поставщика
   currency char(3) NOT NULL
   total_amount numeric(18,2) NOT NULL default 0     -- 🔒 кэш суммы строк, пересчитывается триггером
-  confirmed_at timestamptz, confirmed_by uuid FK auth.users
-  CHECK (confirmed_by IS NULL OR confirmed_by <> created_by)   -- Д-14: подтверждение = согласование
+  confirmed_at timestamptz, confirmed_by uuid FK auth.users   -- подтверждение = сверка; автор может подтвердить сам (Д-14)
   UNIQUE (organization_id, supplier_id, supplier_doc_number, supplier_doc_date) WHERE status <> 'CANCELLED'  -- защита от двойного ввода
   INDEX(supplier_id), (purchase_request_id)
 
@@ -221,7 +221,6 @@ goods_receipts      -- STD + DOC («Акт приёмки»); status goods_recei
   correction_reason text NULL
   CHECK (corrects_receipt_id IS NULL OR length(trim(correction_reason)) > 0)   -- причина обязательна всегда
   correction_approved_at timestamptz, correction_approved_by uuid FK auth.users
-  CHECK (correction_approved_by IS NULL OR correction_approved_by <> created_by)   -- Д-14
   received_at timestamptz NOT NULL
   -- ЦЕН НЕТ ВООБЩЕ: приёмка — только количества
 
@@ -678,8 +677,8 @@ stateDiagram-v2
 ```
 
 Всё делает `supplier_invoices.manage`. `UNDER_REVIEW` = сверка с приёмками (кол-во) и заявкой (цены).
-Подтверждение = согласование оплаты (Д-13): создаётся `payable` (SUPPLIER), кассир платит без `payment_request`.
-Подтверждает **не** тот, кто ввёл накладную (Д-14, CHECK `confirmed_by <> created_by`).
+Подтверждение — сверка документа и основание оплаты (Д-13): создаётся `payable` (SUPPLIER), кассир платит без
+`payment_request`. Это не согласование: бухгалтер может подтвердить накладную, которую сам ввёл (Д-14).
 Строки редактируемы только в ENTERED.
 
 ### 4.3 Акт приёмки (`goods_receipts`) — Д-06
@@ -698,7 +697,7 @@ stateDiagram-v2
     [*] --> DRAFT : create_receipt_correction (склад) — копия строк исходного акта
     DRAFT --> POSTED : post (склад) — если заявки нет или она до ACCOUNTING_REVIEW
     DRAFT --> CORRECTION_APPROVAL : submit (склад) — если заявка в ACCOUNTING_REVIEW / DISCREPANCY / CLOSED
-    CORRECTION_APPROVAL --> POSTED : approve (бух, не автор) — проведение
+    CORRECTION_APPROVAL --> POSTED : approve (бух) — проведение
     CORRECTION_APPROVAL --> DRAFT : return (бух), комментарий обязателен
 ```
 

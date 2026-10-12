@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/**/*.test.mts"],
     // `server-only` бросает исключение вне react-server; в юнит-тестах подменяем пустым модулем.
     alias: { "server-only": new URL("./src/test/server-only-stub.ts", import.meta.url).pathname },
   },

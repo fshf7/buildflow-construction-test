@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-// Пользователь из supabase/seed.sql (только локально и в CI).
-const EMAIL = "admin@buildflow.local";
-const PASSWORD = "buildflow-local";
+import { LOCAL_ADMIN } from "../scripts/local-admin.mts";
+
+// Пользователь из scripts/seed-local.mts (только локальная БД).
+const EMAIL = LOCAL_ADMIN.email;
+const PASSWORD = LOCAL_ADMIN.password;
 
 test("неавторизованного пользователя ведёт на вход", async ({ page }) => {
   await page.goto("/");

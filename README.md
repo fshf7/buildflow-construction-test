@@ -3,7 +3,7 @@
 Учёт материальных и денежных потоков строительной компании: объекты, склады, закупки, касса, бригады, задачи.
 Next.js 16 (App Router) + Supabase (Postgres, Auth, Storage, RLS), деплой на Vercel.
 
-- ТЗ: [docs/TZ_v0.9.pdf](docs/TZ_v0.9.pdf)
+- ТЗ: [docs/TZ_v1.0.pdf](docs/TZ_v1.0.pdf)
 - Архитектура данных, статусы, RLS, проведение: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Принятые решения: [docs/DECISIONS.md](docs/DECISIONS.md)
 - Правила работы: [CLAUDE.md](CLAUDE.md)
@@ -24,7 +24,8 @@ cp .env.example .env.local       # вставьте PUBLISHABLE_KEY из выв�
 npm run dev                      # http://localhost:3000
 ```
 
-Вход в локальное приложение: `admin@buildflow.local` / `buildflow-local` (создаётся `supabase/seed.sql`, только локально).
+Вход в локальное приложение: `admin@buildflow.local` / `buildflow-local` — создаётся `npm run db:reset`
+(или отдельно `npm run db:seed:local`), только в локальной БД, см. «Seed и окружения».
 
 Полезные адреса: Studio — http://127.0.0.1:54423, почта (Mailpit) — http://127.0.0.1:54424.
 
@@ -39,7 +40,8 @@ npm run dev                      # http://localhost:3000
 | `test` | Vitest — юнит-тесты бизнес-логики |
 | `test:e2e` | Playwright (нужны `db:start` и `npx playwright install chromium`) |
 | `db:start` / `db:stop` | локальный Supabase |
-| `db:reset` | пересоздать локальную БД: все миграции + `seed.sql` |
+| `db:reset` | пересоздать локальную БД: все миграции + `seed.sql` + `db:seed:local` |
+| `db:seed:local` | локальный пользователь для разработки и E2E (идемпотентно; только локальная БД) |
 | `db:types` | сгенерировать `src/lib/supabase/database.types.ts` — **после каждой миграции** |
 | `db:test` | pgTAP-тесты из `supabase/tests` |
 
@@ -93,4 +95,17 @@ npm run dev                      # http://localhost:3000
 4. После первого production-деплоя миграции только добавляются; деструктивные (DROP, смена типа с потерей данных) —
    только после явного согласования (CLAUDE.md, правило 4).
 
-`seed.sql` в staging/production не применяется (`db push` его не выполняет).
+## Seed и окружения
+
+| Что | Где выполняется | Содержимое |
+|---|---|---|
+| `supabase/seed.sql` | `supabase db reset` — локально и в CI | только справочные данные, безопасные для любого окружения (сейчас пуст) |
+| `scripts/seed-local.mts` (`npm run db:seed:local`) | только локальная БД | тестовый пользователь `admin@buildflow.local` |
+
+Почему тестовый пользователь не попадёт в staging/production:
+- его нет в `seed.sql` — поэтому ни `db push --include-seed`, ни Supabase Branching его не создадут;
+- скрипт берёт адрес и ключ из `supabase status` (локальный Docker), а не из env, и отказывается работать,
+  если адрес не `127.0.0.1`/`localhost` или `NEXT_PUBLIC_APP_ENV` = `staging`/`production` (покрыто тестом
+  `scripts/local-supabase.test.mts`).
+
+В staging/production пользователей заводят только `npm run org:create` (первый `org_admin`) и приглашения — появятся в фазе Foundation.

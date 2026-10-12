@@ -18,7 +18,8 @@
     "test:e2e": "playwright test",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
-    "db:reset": "supabase db reset",
+    "db:reset": "supabase db reset && npm run db:seed:local",
+    "db:seed:local": "node scripts/seed-local.mts",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts && prettier --write src/lib/supabase/database.types.ts",
     "db:test": "supabase test db"
   },
