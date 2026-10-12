@@ -11,3 +11,22 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const PASSWORD_MIN_LENGTH = 10;
+
+export const setPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH, { error: `Не короче ${PASSWORD_MIN_LENGTH} символов` })
+      .max(72, { error: "Не длиннее 72 символов" }),
+    confirm: z.string(),
+  })
+  .refine((v) => v.password === v.confirm, { error: "Пароли не совпадают", path: ["confirm"] });
+
+export type SetPasswordInput = z.infer<typeof setPasswordSchema>;
+
+export const totpCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, { error: "Введите 6 цифр из приложения" });

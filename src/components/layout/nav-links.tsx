@@ -7,12 +7,20 @@ import { cn } from "@/lib/utils";
 
 import { isActive, NAV_ITEMS } from "./nav-items";
 
-export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+export function NavLinks({
+  allowedHrefs,
+  onNavigate,
+}: {
+  /** Отобраны на сервере по правам пользователя (иконки нельзя передать с сервера — фильтруем здесь). */
+  allowedHrefs: readonly string[];
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
+  const items = NAV_ITEMS.filter((item) => allowedHrefs.includes(item.href));
 
   return (
     <nav aria-label="Основная навигация" className="flex flex-col gap-1">
-      {NAV_ITEMS.map(({ href, label, icon: Icon, ready }) => {
+      {items.map(({ href, label, icon: Icon, ready }) => {
         const base =
           "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors";
         if (!ready) {

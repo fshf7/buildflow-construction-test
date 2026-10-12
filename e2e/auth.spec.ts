@@ -1,10 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { LOCAL_ADMIN } from "../scripts/local-admin.mts";
-
-// Пользователь из scripts/seed-local.mts (только локальная БД).
-const EMAIL = LOCAL_ADMIN.email;
-const PASSWORD = LOCAL_ADMIN.password;
+import { LOCAL_ADMIN, LOCAL_FOREMAN, login, logout, submitLogin } from "./helpers/accounts";
 
 test("неавторизованного пользователя ведёт на вход", async ({ page }) => {
   await page.goto("/");
@@ -13,31 +9,35 @@ test("неавторизованного пользователя ведёт н�
 });
 
 test("неверный пароль показывает ошибку", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(EMAIL);
-  await page.getByLabel("Пароль").fill("wrong-password");
-  await page.getByRole("button", { name: "Войти" }).click();
+  await submitLogin(page, LOCAL_FOREMAN.email, "wrong-password");
   // role="alert" есть и у служебного анонсера маршрутов Next.js — фильтруем по тексту.
   await expect(
     page.getByRole("alert").filter({ hasText: "Неверный email или пароль" }),
   ).toBeVisible();
 });
 
-test("вход, главная, выход", async ({ page, isMobile }) => {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(EMAIL);
-  await page.getByLabel("Пароль").fill(PASSWORD);
-  await page.getByRole("button", { name: "Войти" }).click();
-
-  await expect(page).toHaveURL(/\/$/);
+test("прораб входит без MFA и видит только свои разделы", async ({ page, isMobile }) => {
+  await login(page, LOCAL_FOREMAN.email, LOCAL_FOREMAN.password);
   await expect(page.getByRole("heading", { name: "Главная" })).toBeVisible();
 
-  if (isMobile) {
-    await page.getByRole("button", { name: "Открыть меню" }).click();
-    await expect(page.getByRole("dialog").getByRole("link", { name: "Главная" })).toBeVisible();
-    await page.keyboard.press("Escape");
-  }
+  if (isMobile) await page.getByRole("button", { name: "Открыть меню" }).click();
+  const nav = page.getByRole("navigation", { name: "Основная навигация" }).last();
+  await expect(nav.getByRole("link", { name: "Объекты" })).toBeVisible();
+  await expect(nav.getByText("Участники")).toHaveCount(0);
+  await expect(nav.getByText("Журнал аудита")).toHaveCount(0);
+  if (isMobile) await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Выйти" }).click();
-  await expect(page).toHaveURL(/\/login/);
+  // Прямой переход в чужой раздел — экран «Нет доступа» (данные защищает ещё и RLS).
+  await page.goto("/admin/members");
+  await expect(page).toHaveURL(/\/no-access\?reason=forbidden/);
+
+  await page.goto("/");
+  await logout(page);
+});
+
+test("администратор без второго фактора не попадает в приложение (Д-29)", async ({ page }) => {
+  await login(page, LOCAL_ADMIN.email, LOCAL_ADMIN.password);
+  await expect(page).toHaveURL(/\/mfa/);
+  await page.goto("/admin/members");
+  await expect(page).toHaveURL(/\/mfa\?next=%2Fadmin%2Fmembers/);
 });

@@ -27,7 +27,10 @@ describe("parsePublicEnv", () => {
 });
 
 describe("parseServerEnv", () => {
-  it("секретный ключ необязателен на этом этапе", () => {
-    expect(parseServerEnv({})).toEqual({});
+  it("требует секретный ключ", () => {
+    expect(() => parseServerEnv({})).toThrow(/SUPABASE_SECRET_KEY/);
+    expect(parseServerEnv({ SUPABASE_SECRET_KEY: "sb_secret_x" }).SUPABASE_SECRET_KEY).toBe(
+      "sb_secret_x",
+    );
   });
 });

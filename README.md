@@ -20,14 +20,22 @@ Next.js 16 (App Router) + Supabase (Postgres, Auth, Storage, RLS), деплой 
 nvm use
 npm install
 npm run db:start                 # поднимает Supabase в Docker (порты 544xx)
-cp .env.example .env.local       # вставьте PUBLISHABLE_KEY из вывода db:start (или `npx supabase status`)
+cp .env.example .env.local       # вставьте PUBLISHABLE_KEY и SECRET_KEY из `npx supabase status -o env`
+npm run db:reset                 # миграции + локальные данные (scripts/seed-local.mts)
 npm run dev                      # http://localhost:3000
 ```
 
-Вход в локальное приложение: `admin@buildflow.local` / `buildflow-local` — создаётся `npm run db:reset`
-(или отдельно `npm run db:seed:local`), только в локальной БД, см. «Seed и окружения».
+> Не держите проект в iCloud (`~/Desktop`, `~/Documents` при включённой синхронизации): iCloud выгружает файлы
+> `node_modules`, и сборка зависает.
 
-Полезные адреса: Studio — http://127.0.0.1:54423, почта (Mailpit) — http://127.0.0.1:54424.
+Локальные учётные записи (организация «Демо-стройка»), только в локальной БД:
+
+| Email | Пароль | Роль | MFA |
+|---|---|---|---|
+| `admin@buildflow.local` | `buildflow-local` | Администратор организации | обязательна: при первом входе подключите TOTP-приложение |
+| `foreman@buildflow.local` | `buildflow-local` | Прораб | нет |
+
+Письма (приглашения) локально не уходят наружу — смотрите их в Mailpit: http://127.0.0.1:54424. Studio — http://127.0.0.1:54423.
 
 ## Скрипты
 
@@ -41,7 +49,8 @@ npm run dev                      # http://localhost:3000
 | `test:e2e` | Playwright (нужны `db:start` и `npx playwright install chromium`) |
 | `db:start` / `db:stop` | локальный Supabase |
 | `db:reset` | пересоздать локальную БД: все миграции + `seed.sql` + `db:seed:local` |
-| `db:seed:local` | локальный пользователь для разработки и E2E (идемпотентно; только локальная БД) |
+| `db:seed:local` | локальная организация и пользователи (идемпотентно; только локальная БД). `-- --reset-mfa` сбрасывает второй фактор администратора |
+| `org:create` | создать организацию и её первого администратора (см. «Организации и участники») |
 | `db:types` | сгенерировать `src/lib/supabase/database.types.ts` — **после каждой миграции** |
 | `db:test` | pgTAP-тесты из `supabase/tests` |
 
@@ -58,6 +67,22 @@ npm run dev                      # http://localhost:3000
 См. [.env.example](.env.example). Публичные переменные проверяются zod-схемой при сборке, серверные — при старте сервера.
 `NEXT_PUBLIC_*` вшиваются в клиентский бандл **на этапе сборки**: после их изменения в Vercel нужен новый деплой.
 `SUPABASE_SECRET_KEY` — только сервер, никогда с префиксом `NEXT_PUBLIC_`.
+
+## Организации и участники
+
+Самостоятельной регистрации нет (Д-37, Д-41).
+
+1. **Организация и первый администратор** — только серверным скриптом:
+   ```bash
+   # локально (пароль сразу, без письма):
+   npm run org:create -- --name "СК Восток" --admin-email owner@example.tj --admin-name "Иванов И. И." --password '…'
+   # staging/production (письмо-приглашение; --yes подтверждает нелокальную БД):
+   NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SECRET_KEY=<secret> NEXT_PUBLIC_SITE_URL=https://<домен> \
+     npm run org:create -- --name "СК Восток" --admin-email owner@example.tj --admin-name "Иванов И. И." --yes
+   ```
+2. **Остальные участники** — администратор приглашает в разделе «Участники»: роли, объекты, письмо со ссылкой.
+   Приглашённый задаёт пароль; бухгалтер, кассир и администратор затем подключают второй фактор (TOTP).
+3. В организации всегда остаётся хотя бы один активный администратор (Д-43).
 
 ## CI
 
@@ -79,9 +104,12 @@ npm run dev                      # http://localhost:3000
 1. Создать проект Supabase (регион ближе к пользователям) и сразу включить MFA (TOTP) в Auth.
 2. Auth → URL Configuration: Site URL = домен окружения, Redirect URLs = `https://<домен>/**`.
    Отключить самостоятельную регистрацию (Sign-ups) — пользователей заводит администратор.
-3. В Vercel задать переменные окружения для нужной среды (Production / Preview `staging`):
+3. Auth → Email Templates → **Invite user**: тема «Приглашение в BuildFlow», тело — из `supabase/templates/invite.html`
+   (ссылка должна вести на `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/set-password`).
+   Для реальной почты настройте собственный SMTP (встроенный в Supabase ограничен несколькими письмами в час).
+4. В Vercel задать переменные окружения для нужной среды (Production / Preview `staging`):
    `NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
-   при необходимости `SUPABASE_SECRET_KEY` (Sensitive).
+   `SUPABASE_SECRET_KEY` (Sensitive — нужен для приглашений).
 
 ### Выкладка
 

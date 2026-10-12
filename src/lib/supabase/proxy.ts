@@ -5,11 +5,22 @@ import { env } from "@/env";
 
 import type { Database } from "./database.types";
 
-/** Пути, доступные без входа. */
-export const PUBLIC_PATHS = ["/login"] as const;
+/** Пути, доступные без входа. /auth/confirm принимает ссылку из письма-приглашения. */
+export const PUBLIC_PATHS = ["/login", "/auth"] as const;
+
+/** Пути, доступные вошедшему пользователю без второго фактора (иначе его негде подключить). */
+export const MFA_EXEMPT_PATHS = ["/mfa", "/set-password", "/no-access", "/auth"] as const;
+
+function matches(paths: readonly string[], pathname: string): boolean {
+  return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 export function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return matches(PUBLIC_PATHS, pathname);
+}
+
+export function isMfaExemptPath(pathname: string): boolean {
+  return matches(MFA_EXEMPT_PATHS, pathname) || isPublicPath(pathname);
 }
 
 /**
@@ -52,7 +63,15 @@ export async function updateSession(request: NextRequest) {
     return redirectPreservingCookies(request, response, "/");
   }
 
-  // TODO(foundation): Д-29 — для org_admin/accountant/cashier при aal1 вести на подтверждение TOTP.
+  // Д-29: org_admin / accountant / cashier без второго фактора — только на экран MFA.
+  // RLS и так не отдаст им данные без aal2; редирект — чтобы человек понял, что делать.
+  if (isSignedIn && data?.claims?.aal !== "aal2" && !isMfaExemptPath(pathname)) {
+    const { data: requiresMfa, error } = await supabase.rpc("current_user_requires_mfa");
+    if (error || requiresMfa) {
+      return redirectPreservingCookies(request, response, "/mfa", pathname);
+    }
+  }
+
   return response;
 }
 

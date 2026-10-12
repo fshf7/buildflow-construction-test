@@ -14,8 +14,8 @@ export const publicEnvSchema = z.object({
 });
 
 export const serverEnvSchema = z.object({
-  // service_role / secret key: только сервер, пока не используется (появится для админ-операций).
-  SUPABASE_SECRET_KEY: z.string().min(1).optional(),
+  // service_role / secret key: только сервер (приглашения участников). Никогда NEXT_PUBLIC_.
+  SUPABASE_SECRET_KEY: z.string().min(1),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;

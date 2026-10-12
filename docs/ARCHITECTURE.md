@@ -1127,3 +1127,27 @@ idempotency_keys (
 | Кто назначает управляющих         | `members.manage` (админ)                                                                          |
 | Формы документов                  | печатные формы — P1                                                                               |
 | Импорт истории, offline           | не входит; `OPENING`-движения и `opening_balance` покрывают старт                                 |
+
+---
+
+## 9. Реализовано в Foundation (миграция `20261012010000_foundation.sql`)
+
+Таблицы §2.1–2.3 (кроме складских движений), §2.8 (`audit_logs`, `document_sequences`), хелперы §5.2, нумерация §7.
+Отличия от §2 и дополнения:
+
+| Что | Где | Зачем |
+|---|---|---|
+| `organization_members.email`, `invited_at`, `invited_by` | §2.1 | список участников без доступа к `auth.users`; кто и когда пригласил |
+| Склад создаётся триггером при создании объекта; автор объекта — его участник | §2.2, Д-22, Д-28 | у объекта всегда ровно один склад |
+| `public.my_access()` | RPC | организации, роли, права (с учётом MFA), объекты текущего пользователя — для гарда и меню |
+| `public.current_user_requires_mfa()` | RPC | для `proxy.ts` и входа (Д-42) |
+| `public.create_organization(...)` | RPC, только `service_role` | `npm run org:create` (Д-41) |
+| `public.find_user_id_by_email(...)` | RPC, только `service_role` | приглашение человека с существующей учётной записью |
+| `public.add_member`, `update_member`, `set_member_roles`, `set_member_projects` | RPC, проверяют `members.manage` | доступ и роли меняются только через функции (прямой записи в `member_roles`/`project_members` нет) |
+| `private.permission_catalog()` | функция | матрица прав по умолчанию (§3 с Д-13, Д-26), засеивается в каждую новую организацию |
+| `private.audit_row()` | триггер на всех таблицах Foundation | INSERT/UPDATE/DELETE со снимками old/new и автором |
+| `private.before_update_std()` | триггер | `updated_at`; неизменяемость `id`, `organization_id`, `project_id`, `created_*` (второй рубеж после колоночных грантов, Д-40) |
+
+Гранты (Д-40): `authenticated` получает только перечисленное в разделе 14 миграции; `document_sequences` недоступна,
+`audit_logs` — только SELECT (RLS: `audit.view`). Покрыто `supabase/tests/database/010_foundation.test.sql` (36 проверок).
+

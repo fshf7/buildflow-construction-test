@@ -26,7 +26,7 @@ export function LoginForm({ next }: { next?: string }) {
     startTransition(async () => {
       // При успехе действие делает redirect и сюда не возвращается.
       const result = await signIn(values, next);
-      if (result && !result.ok) setServerError(result.error);
+      if (!result.ok) setServerError(result.error);
     });
   });
 

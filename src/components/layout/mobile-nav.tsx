@@ -15,7 +15,7 @@ import {
 
 import { NavLinks } from "./nav-links";
 
-export function MobileNav() {
+export function MobileNav({ allowedHrefs }: { allowedHrefs: readonly string[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -31,7 +31,7 @@ export function MobileNav() {
           <SheetDescription className="sr-only">Разделы системы</SheetDescription>
         </SheetHeader>
         <div className="p-3">
-          <NavLinks onNavigate={() => setOpen(false)} />
+          <NavLinks allowedHrefs={allowedHrefs} onNavigate={() => setOpen(false)} />
         </div>
       </SheetContent>
     </Sheet>

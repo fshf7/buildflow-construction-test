@@ -17,9 +17,11 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    // Вход администратора с MFA один раз; сессия сохраняется в e2e/.auth (в .gitignore).
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, dependencies: ["setup"] },
     // US-10: ключевые сценарии на смартфоне.
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    { name: "mobile", use: { ...devices["Pixel 7"] }, dependencies: ["setup"] },
   ],
   webServer: {
     command: `npm run dev -- --port ${PORT}`,
