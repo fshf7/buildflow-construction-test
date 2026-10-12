@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: Typecheck, lint, unit-тесты, сборка
+    runs-on: ubuntu-latest
+    env:
+      # Несекретные значения для сборки: публичные env валидируются при `next build`.
+      NEXT_PUBLIC_APP_ENV: local
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54421
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+  db:
+    name: Миграции на чистой БД + pgTAP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.108.0
+      # Только Postgres — быстрее полного стека.
+      - run: supabase db start
+      - name: supabase db reset (все миграции + seed с нуля)
+        run: supabase db reset
+      - name: pgTAP
+        run: supabase test db
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Типы БД соответствуют миграциям
+        run: |
+          npm run db:types
+          git diff --exit-code -- src/lib/supabase/database.types.ts \
+            || (echo "::error::Типы устарели — выполните npm run db:types и закоммитьте" && exit 1)
