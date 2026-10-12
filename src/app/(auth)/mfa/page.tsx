@@ -17,8 +17,9 @@ export default async function MfaPage({ searchParams }: PageProps<"/mfa">) {
   const nextPath = safeNextPath(Array.isArray(next) ? next[0] : next);
 
   const supabase = await createClient();
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal?.currentLevel === "aal2") redirect(nextPath);
+  // Уровень входа — из проверенного JWT (getClaims), а не из непроверенной сессии в cookie.
+  const { data: claims } = await supabase.auth.getClaims();
+  if (claims?.claims.aal === "aal2") redirect(nextPath);
 
   const { data: factors } = await supabase.auth.mfa.listFactors();
   const verified = factors?.totp.find((f) => f.status === "verified");
