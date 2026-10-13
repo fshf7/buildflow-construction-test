@@ -5,7 +5,7 @@ type LocalAccount = {
   email: string;
   password: string;
   fullName: string;
-  role: "org_admin" | "foreman" | "accountant" | "warehouse";
+  role: "org_admin" | "foreman" | "accountant" | "warehouse" | "cashier";
 };
 
 export const LOCAL_ADMIN = {
@@ -39,4 +39,17 @@ export const LOCAL_STOREKEEPER = {
   role: "warehouse",
 } as const satisfies LocalAccount;
 
-export const LOCAL_MEMBERS = [LOCAL_FOREMAN, LOCAL_ACCOUNTANT, LOCAL_STOREKEEPER] as const;
+/** Кассир: роль с обязательной MFA — E2E сброса второго фактора (бухгалтер занят закупками). */
+export const LOCAL_CASHIER = {
+  email: "cashier@buildflow.local",
+  password: "buildflow-local",
+  fullName: "Кассир Демо",
+  role: "cashier",
+} as const satisfies LocalAccount;
+
+export const LOCAL_MEMBERS = [
+  LOCAL_FOREMAN,
+  LOCAL_ACCOUNTANT,
+  LOCAL_STOREKEEPER,
+  LOCAL_CASHIER,
+] as const;

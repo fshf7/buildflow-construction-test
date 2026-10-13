@@ -32,7 +32,7 @@ export function AppShell({
   return (
     <div className="flex min-h-dvh flex-1">
       {/* Боковое меню — планшет и десктоп */}
-      <aside className="hidden w-64 shrink-0 border-r bg-muted/30 md:flex md:flex-col">
+      <aside className="hidden w-64 shrink-0 border-r bg-muted/30 md:flex md:flex-col print:hidden">
         <Link href="/" className="flex h-14 items-center gap-2 border-b px-4 font-semibold">
           <Building className="size-5" aria-hidden />
           BuildFlow
@@ -43,7 +43,7 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-2 backdrop-blur md:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-2 backdrop-blur md:px-6 print:hidden">
           <MobileNav allowedHrefs={allowedHrefs} />
           <div className="flex min-w-0 items-center gap-2">
             <OrgSwitcher current={currentOrg} organizations={organizations} />
@@ -65,7 +65,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-8">{children}</main>
+        <main className="flex-1 px-4 py-6 md:px-8 print:p-0">{children}</main>
       </div>
     </div>
   );

@@ -1,0 +1,112 @@
+import { devices, expect, test } from "@playwright/test";
+
+import { ACCOUNTANT_STATE, LOCAL_STOREKEEPER, login } from "./helpers/accounts";
+import { createWarehouseFixture } from "./helpers/fixture";
+
+// Сквозной сценарий фазы 2 (US-01…US-04): бухгалтер — десктоп, склад — смартфон.
+test("заявка → приёмка 21 из 20 → выдача → минус запрещён → возврат → накладная", async ({
+  browser,
+  isMobile,
+}) => {
+  test.skip(isMobile, "один сквозной сценарий; склад внутри теста — на смартфоне");
+  test.setTimeout(120_000);
+  const fx = await createWarehouseFixture();
+
+  // ---- US-01: бухгалтер создаёт заявку с двумя поставщиками и выдаёт её в работу ----
+  const accCtx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
+  const acc = await accCtx.newPage();
+  await acc.goto("/procurement/requests/new");
+  await acc.getByLabel("Объект").selectOption({ label: fx.projectLabel });
+  await acc.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
+  await acc.getByLabel("Количество, строка 1").fill("20");
+  await acc.getByLabel("Поставщик, строка 1").selectOption({ label: fx.s1 });
+  await acc.getByLabel("Цена, строка 1").fill("1,5");
+  await acc.getByRole("button", { name: "Добавить строку" }).click();
+  await acc.getByLabel("Материал, строка 2").selectOption({ label: `${fx.sand} (кг)` });
+  await acc.getByLabel("Количество, строка 2").fill("10");
+  await acc.getByLabel("Поставщик, строка 2").selectOption({ label: fx.s2 });
+  await acc.getByLabel("Цена, строка 2").fill("0,8");
+  await expect(acc.getByText("Итого: 38,00 TJS")).toBeVisible();
+  await acc.getByRole("button", { name: "Сохранить черновик" }).click();
+  await expect(acc.getByRole("heading", { name: "Черновик заявки" })).toBeVisible();
+  const requestUrl = acc.url();
+
+  await acc.getByRole("button", { name: "Выдать в работу" }).click();
+  await expect(acc.getByRole("heading", { name: /^Заявка ЗК-\d{4}-\d{6}$/ })).toBeVisible();
+  await expect(acc.getByText("Передана", { exact: true })).toBeVisible();
+  await acc.getByRole("link", { name: "Печать" }).click();
+  await expect(acc.getByRole("heading", { name: /Заявка на закупку № ЗК-/ })).toBeVisible();
+  await expect(acc.getByText("38,00 TJS")).toBeVisible();
+
+  // ---- US-02: склад с телефона принимает 21 кг при заказе 20 ----
+  const whCtx = await browser.newContext({
+    ...devices["Pixel 7"],
+    locale: "ru-RU",
+    storageState: { cookies: [], origins: [] },
+  });
+  const wh = await whCtx.newPage();
+  await login(wh, LOCAL_STOREKEEPER.email, LOCAL_STOREKEEPER.password);
+  await wh.goto(`/warehouse?project=${fx.projectId}`);
+  await wh.getByRole("link", { name: "Принять" }).click(); // касание 1
+  await wh.getByRole("link", { name: new RegExp(fx.s1) }).click(); // касание 2
+  await wh.getByLabel(`Принято: ${fx.cement}`).fill("21");
+  await wh.getByRole("button", { name: "Провести приёмку" }).click(); // касание 3
+  await expect(wh.getByRole("heading", { name: /^Приёмка ПРМ-/ })).toBeVisible();
+  await expect(wh.getByText("Принято 21 кг · заказано 20 кг")).toBeVisible();
+  await wh.goto(`/warehouse?project=${fx.projectId}`);
+  await expect(wh.getByRole("link", { name: new RegExp(`${fx.cement}\\s*21 кг`) })).toBeVisible();
+
+  // ---- US-03: выдача бригаде — объект, блок, этаж, бригада ----
+  await wh.getByRole("link", { name: "Выдать" }).click();
+  await wh.getByLabel("Бригада").selectOption({ label: fx.crew });
+  await wh.getByLabel("Блок").selectOption({ label: fx.block });
+  await wh.getByLabel("Этаж").selectOption({ label: fx.floor });
+  await wh.getByLabel(`Выдать: ${fx.cement}`).fill("15");
+  await wh.getByRole("button", { name: "Провести выдачу" }).click();
+  await expect(wh.getByRole("heading", { name: /^Выдача ВДЧ-/ })).toBeVisible();
+  await expect(wh.getByText(`${fx.crew} · ${fx.block}, этаж ${fx.floor}`)).toBeVisible();
+
+  // Минус запрещён (Д-19): ошибка с текущим остатком; бригада/блок/этаж запомнились на устройстве.
+  await wh.goto(`/warehouse/issue?project=${fx.projectId}`);
+  await expect(wh.getByLabel("Бригада")).toHaveValue(/.+/);
+  await wh.getByLabel(`Выдать: ${fx.cement}`).fill("10");
+  await wh.getByRole("button", { name: "Провести выдачу" }).click();
+  await expect(
+    wh
+      .getByRole("alert")
+      .filter({ hasText: `Недостаточно на складе: ${fx.cement} — есть 6 кг, нужно 10 кг` }),
+  ).toBeVisible();
+
+  // ---- US-04: возврат связан с выдачей ----
+  await wh.goto(`/warehouse/return?project=${fx.projectId}`);
+  await wh.getByRole("link", { name: new RegExp(fx.crew) }).click();
+  await wh.getByLabel(`Вернуть: ${fx.cement}`).fill("5");
+  await wh.getByRole("button", { name: "Провести возврат" }).click();
+  await expect(wh.getByRole("heading", { name: /^Возврат ВЗВ-/ })).toBeVisible();
+  await expect(wh.getByRole("link", { name: /По выдаче ВДЧ-/ })).toBeVisible();
+  await wh.goto(`/warehouse?project=${fx.projectId}`);
+  await expect(wh.getByRole("link", { name: new RegExp(`${fx.cement}\\s*11 кг`) })).toBeVisible();
+
+  // Склад видит заявку, но без цен (§5.4).
+  await wh.goto(requestUrl);
+  await expect(wh.getByRole("heading", { name: /^Заявка ЗК-/ })).toBeVisible();
+  await expect(wh.getByRole("columnheader", { name: "Цена" })).toHaveCount(0);
+  await expect(wh.getByText("TJS")).toHaveCount(0);
+  await whCtx.close();
+
+  // ---- BP-03: накладная из заявки → проверка → подтверждение → обязательство ----
+  await acc.goto(requestUrl);
+  await expect(acc.getByText("Частично получена", { exact: true })).toBeVisible();
+  await acc.getByRole("link", { name: `Ввести накладную: ${fx.s1}` }).click();
+  await expect(acc.getByLabel("Количество, строка 1")).toHaveValue("21"); // принятое, а не заказанное
+  await acc.getByLabel("№ накладной поставщика").fill(`Н-${Date.now()}`);
+  await acc.getByLabel("Дата накладной").fill("2026-10-14");
+  await acc.getByRole("button", { name: "Сохранить" }).click();
+  await expect(acc.getByRole("heading", { name: "Накладная (введена)" })).toBeVisible();
+  await acc.getByRole("button", { name: "На проверку" }).click();
+  await expect(acc.getByRole("heading", { name: /^Накладная НК-/ })).toBeVisible();
+  await acc.getByRole("button", { name: "Подтвердить" }).click();
+  await expect(acc.getByText("Подтверждена", { exact: true })).toBeVisible();
+  await expect(acc.getByText(/К оплате: 31,50 TJS/)).toBeVisible();
+  await accCtx.close();
+});

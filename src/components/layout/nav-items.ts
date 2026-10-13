@@ -40,14 +40,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Закупки",
     icon: ClipboardList,
     permissions: ["purchase_requests.view", "supplier_invoices.view"],
-    ready: false,
+    ready: true,
   },
   {
     href: "/warehouse",
     label: "Склад",
     icon: Warehouse,
     permissions: ["stock.view", "stock.view_own_crews"],
-    ready: false,
+    ready: true,
   },
   {
     href: "/finance",
@@ -61,7 +61,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Бригады и акты",
     icon: HardHat,
     permissions: ["crews.view", "work_acts.view"],
-    ready: false,
+    ready: true,
   },
   { href: "/tasks", label: "Задачи", icon: ListChecks, permissions: ["tasks.view"], ready: false },
   {

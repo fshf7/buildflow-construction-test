@@ -33,3 +33,25 @@ export function emptyToNull(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
+
+const quantityFmt = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 4 });
+const moneyFmt = new Intl.NumberFormat("ru-RU", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** 12,5 кг. Количество из Postgres numeric приходит строкой или числом. */
+export function formatQuantity(
+  value: number | string | null | undefined,
+  unit?: string | null,
+): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const text = quantityFmt.format(Number(value));
+  return unit ? `${text} ${unit}` : text;
+}
+
+/** 1 234,50 TJS */
+export function formatMoney(value: number | string | null | undefined, currency = "TJS"): string {
+  if (value === null || value === undefined || value === "") return "—";
+  return `${moneyFmt.format(Number(value))} ${currency}`;
+}

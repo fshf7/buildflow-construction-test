@@ -3,6 +3,7 @@ import { expect, type Page } from "@playwright/test";
 export {
   LOCAL_ACCOUNTANT,
   LOCAL_ADMIN,
+  LOCAL_CASHIER,
   LOCAL_FOREMAN,
   LOCAL_STOREKEEPER,
 } from "../../scripts/local-admin.mts";
@@ -27,6 +28,7 @@ export async function logout(page: Page) {
 }
 
 export const ADMIN_STATE = "e2e/.auth/admin.json";
+export const ACCOUNTANT_STATE = "e2e/.auth/accountant.json";
 
 /** Подключение второго фактора на экране /mfa (режим enroll). Возвращает секрет TOTP. */
 export async function enrollMfa(page: Page, totp: (secret: string) => string): Promise<string> {

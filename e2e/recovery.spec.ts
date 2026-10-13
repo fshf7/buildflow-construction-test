@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { LOCAL_STOREKEEPER, login, logout } from "./helpers/accounts";
+import { login, logout } from "./helpers/accounts";
+import { createThrowawayMember } from "./helpers/fixture";
 import { clearMailbox, countMessages, waitForConfirmLink } from "./helpers/mailpit";
 
 /**
@@ -22,11 +23,17 @@ async function requestResetLink(page: Page, email: string): Promise<string> {
   }
 }
 
-// Меняет пароль общего тестового пользователя — один раз, на десктопе (seed возвращает пароль).
+// Восстановление пароля — один раз, на десктопе.
 test.describe("восстановление пароля", () => {
   // Один пользователь и один токен восстановления на всех — строго по очереди.
   test.describe.configure({ mode: "serial" });
   test.skip(({ isMobile }) => isMobile, "проверяем один раз — на десктопе");
+
+  // Свой пользователь: тест меняет пароль, общие тестовые учётки трогать нельзя (параллельные тесты).
+  let user: { email: string; password: string };
+  test.beforeAll(async () => {
+    user = await createThrowawayMember();
+  });
 
   test("неизвестный email: тот же ответ, письма нет", async ({ page }) => {
     const unknown = `nobody-${Date.now()}@buildflow.local`;
@@ -45,7 +52,7 @@ test.describe("восстановление пароля", () => {
   test("повторный запрос сразу — тот же ответ (частота не раскрывает email)", async ({ page }) => {
     for (let i = 0; i < 2; i++) {
       await page.goto("/forgot-password");
-      await page.getByLabel("Email").fill(LOCAL_STOREKEEPER.email);
+      await page.getByLabel("Email").fill(user.email);
       await page.getByRole("button", { name: "Отправить ссылку" }).click();
       await expect(page.getByRole("status")).toContainText("Если учётная запись");
     }
@@ -53,7 +60,7 @@ test.describe("восстановление пароля", () => {
 
   test("письмо → новый пароль → вход с новым паролем", async ({ page }) => {
     const newPassword = `new-pass-${Date.now()}`;
-    await page.goto(await requestResetLink(page, LOCAL_STOREKEEPER.email));
+    await page.goto(await requestResetLink(page, user.email));
     await expect(page).toHaveURL(/\/reset-password/);
     await page.getByLabel("Новый пароль").fill(newPassword);
     await page.getByLabel("Повторите пароль").fill(newPassword);
@@ -62,18 +69,18 @@ test.describe("восстановление пароля", () => {
     await logout(page);
 
     // Старый пароль больше не подходит, новый — подходит.
-    await page.getByLabel("Email").fill(LOCAL_STOREKEEPER.email);
-    await page.getByLabel("Пароль").fill(LOCAL_STOREKEEPER.password);
+    await page.getByLabel("Email").fill(user.email);
+    await page.getByLabel("Пароль").fill(user.password);
     await page.getByRole("button", { name: "Войти" }).click();
     await expect(
       page.getByRole("alert").filter({ hasText: "Неверный email или пароль" }),
     ).toBeVisible();
-    await login(page, LOCAL_STOREKEEPER.email, newPassword);
+    await login(page, user.email, newPassword);
     await expect(page.getByRole("heading", { name: "Главная" })).toBeVisible();
   });
 
   test("ссылку из письма нельзя использовать дважды", async ({ page }) => {
-    const link = await requestResetLink(page, LOCAL_STOREKEEPER.email);
+    const link = await requestResetLink(page, user.email);
     await page.goto(link);
     await expect(page).toHaveURL(/\/reset-password/);
     await page.context().clearCookies();

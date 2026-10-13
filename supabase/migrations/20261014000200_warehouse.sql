@@ -200,6 +200,7 @@ create table public.material_return_items (
   updated_at             timestamptz not null default now(),
   foreign key (material_return_id, organization_id, project_id)
     references public.material_returns (id, organization_id, project_id) on delete cascade,
+  foreign key (material_id, organization_id) references public.materials (id, organization_id),
   unique (material_return_id, line_no),
   unique (material_return_id, material_issue_item_id)
 );

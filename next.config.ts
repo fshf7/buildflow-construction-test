@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   // между пользователями здесь только риск. Включать осознанно, отдельным решением.
   cacheComponents: false,
   poweredByHeader: false,
+  experimental: {
+    // Сканы накладных и фото приёмки (до 10 МБ) загружаются через server action.
+    serverActions: { bodySizeLimit: "11mb" },
+  },
   turbopack: {
     // Корень — каталог проекта (в домашнем каталоге есть посторонний package-lock.json).
     root: path.resolve(__dirname),

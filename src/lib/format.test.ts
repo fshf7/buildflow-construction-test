@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyToNull, formatDate, formatDateTime } from "./format";
+import { emptyToNull, formatDate, formatDateTime, formatMoney, formatQuantity } from "./format";
 
 describe("format", () => {
   it("дата из Postgres без сдвига пояса", () => {
@@ -13,5 +13,15 @@ describe("format", () => {
   it("пустые строки → null", () => {
     expect(emptyToNull("  ")).toBeNull();
     expect(emptyToNull(" a ")).toBe("a");
+  });
+});
+
+describe("количества и деньги", () => {
+  it("количество с единицей, без лишних нулей", () => {
+    expect(formatQuantity("12.5000", "кг")).toBe("12,5 кг");
+    expect(formatQuantity(null)).toBe("—");
+  });
+  it("деньги — два знака и валюта", () => {
+    expect(formatMoney("1234.5")).toBe("1\u00a0234,50 TJS");
   });
 });

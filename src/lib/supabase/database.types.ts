@@ -864,6 +864,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "material_return_items_material_id_organization_id_fkey";
+            columns: ["material_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
             foreignKeyName: "material_return_items_material_issue_item_id_fkey";
             columns: ["material_issue_item_id"];
             isOneToOne: false;

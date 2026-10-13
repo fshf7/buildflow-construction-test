@@ -1164,3 +1164,31 @@ idempotency_keys (
 Восстановление пароля: `/forgot-password` → письмо (`supabase/templates/recovery.html`) → `/auth/confirm` →
 `/reset-password` → проверка MFA (Д-49). Покрыто `supabase/tests/database/020_mfa_reset.test.sql` (19 проверок).
 
+## 11. Фаза 2 — закупки и склад (миграции `20261014000000…000200`)
+
+**Инфраструктура проведения** (`_posting_core`): `idempotency_keys` + `private.idempotency_begin/finish`;
+`private.guard_document()` (статус/номер/проведение — только при `bf.in_posting`, переходы — по
+`private.allowed_transition`); `private.guard_lines()` (строки — только в начальном статусе);
+`stock_movements` (append-only) и `stock_balances`; `private.add_movement` → `private.apply_movements(ids)` →
+`private.apply_balance_delta` (минус → `BF_NEGATIVE_STOCK` с остатком в detail, Д-19, Д-59);
+`check_stock_consistency(org)`; `recalculate_stock_balances(warehouse)` (service_role); Д-21 — триггер на
+`materials.unit_id`.
+
+**Документы** — запись только функциями (Д-58):
+
+| Документ | Черновик | Переходы |
+|---|---|---|
+| Заявка | `save_purchase_request_draft` | `issue_ / cancel_ / start_purchase_review / mark_ / resolve_purchase_discrepancy / close_` |
+| Накладная | `save_supplier_invoice_draft` | `submit_ / return_ / confirm_ (→ payable) / cancel_supplier_invoice` |
+| Приёмка | `save_goods_receipt_draft` | `post_goods_receipt`, `create_ / submit_ / approve_ / return_receipt_correction` |
+| Выдача | `save_material_issue_draft` | `post_ / reverse_material_issue` |
+| Возврат | `save_material_return_draft` | `post_ / reverse_material_return` |
+| Любой черновик | `delete_document_draft` | — |
+
+Все переходы принимают `p_key` (idempotency key). Цены: колонки `price/amount/total_amount` недоступны через
+таблицы; `*_priced` views с `prices.view`. Вложения: `add_document_attachment` + политики `storage.objects` (Д-60).
+`purchase_request_fulfillment` — заказано/принято/осталось/расхождение по строке (без цен, `security_invoker`).
+
+Тесты: pgTAP `030_procurement` (26), `040_warehouse` (54), `050_prices` (27); интеграционные
+`tests/integration` (параллельность, цены через REST/Storage); E2E `procurement-warehouse.spec.ts`.
+

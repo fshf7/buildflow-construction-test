@@ -1,0 +1,144 @@
+import { AlertTriangle, Printer } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { RequestActions } from "@/features/procurement/components/request-actions";
+import { RequestLinesTable } from "@/features/procurement/components/request-lines-table";
+import {
+  INVOICE_STATUS_LABELS,
+  REQUEST_STATUS_LABELS,
+  REQUEST_STATUS_TONE,
+} from "@/features/procurement/labels";
+import { getRequest } from "@/features/procurement/queries";
+import { RECEIPT_STATUS_LABELS, type ReceiptStatus } from "@/features/warehouse/labels";
+import { requirePermission } from "@/lib/auth/access";
+import { hasPermission } from "@/lib/auth/access-model";
+import { formatDate } from "@/lib/format";
+
+export const metadata: Metadata = { title: "Заявка" };
+
+export default async function RequestPage({ params }: PageProps<"/procurement/requests/[id]">) {
+  const org = await requirePermission("purchase_requests.view");
+  const { id } = await params;
+  const withPrices = hasPermission(org, "prices.view");
+  const request = await getRequest(org.id, id, withPrices);
+  if (!request) notFound();
+  const canManage = hasPermission(org, "purchase_requests.manage");
+  const canInvoice =
+    hasPermission(org, "supplier_invoices.manage") &&
+    !["DRAFT", "CANCELLED"].includes(request.status);
+  const suppliers = [
+    ...new Map(
+      request.lines.filter((l) => l.supplierId).map((l) => [l.supplierId!, l.supplierName!]),
+    ),
+  ];
+
+  return (
+    <>
+      <PageHeader
+        title={request.number ? `Заявка ${request.number}` : "Черновик заявки"}
+        description={`${request.projectLabel} · от ${formatDate(request.docDate)}${request.neededBy ? ` · нужно к ${formatDate(request.neededBy)}` : ""}`}
+        actions={
+          <>
+            {request.status === "DRAFT" && canManage ? (
+              <Link
+                href={`/procurement/requests/${id}/edit`}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                Редактировать
+              </Link>
+            ) : null}
+            {request.number ? (
+              <Link
+                href={`/procurement/requests/${id}/print`}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                <Printer />
+                Печать
+              </Link>
+            ) : null}
+          </>
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={REQUEST_STATUS_TONE[request.status]}>
+          {REQUEST_STATUS_LABELS[request.status]}
+        </Badge>
+        {request.hasDiscrepancy ? (
+          <span className="flex items-center gap-1 text-sm text-amber-700">
+            <AlertTriangle className="size-4" aria-hidden />
+            Есть расхождение заказа и приёмки
+          </span>
+        ) : null}
+        {request.statusComment ? (
+          <span className="text-sm text-muted-foreground">
+            Комментарий: {request.statusComment}
+          </span>
+        ) : null}
+      </div>
+
+      {canManage ? <RequestActions id={request.id} status={request.status} /> : null}
+
+      <RequestLinesTable request={request} withPrices={withPrices} />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <section className="flex flex-col gap-2">
+          <h2 className="font-semibold">Накладные</h2>
+          {request.invoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Пока нет</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-sm">
+              {request.invoices.map((v) => (
+                <li key={v.id}>
+                  <Link
+                    href={`/procurement/invoices/${v.id}`}
+                    className="underline underline-offset-4"
+                  >
+                    {v.number ?? "Введена"} · {v.supplierName} · № {v.supplierDocNumber}
+                  </Link>{" "}
+                  — {INVOICE_STATUS_LABELS[v.status]}
+                </li>
+              ))}
+            </ul>
+          )}
+          {canInvoice
+            ? suppliers.map(([supplierId, name]) => (
+                <Link
+                  key={supplierId}
+                  href={`/procurement/invoices/new?request=${id}&supplier=${supplierId}`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  Ввести накладную: {name}
+                </Link>
+              ))
+            : null}
+        </section>
+        <section className="flex flex-col gap-2">
+          <h2 className="font-semibold">Приёмки склада</h2>
+          {request.receipts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Пока нет</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-sm">
+              {request.receipts.map((g) => (
+                <li key={g.id}>
+                  <Link
+                    href={`/warehouse/receipts/${g.id}`}
+                    className="underline underline-offset-4"
+                  >
+                    {g.number ?? "Черновик"} · {g.supplierName} · {formatDate(g.docDate)}
+                  </Link>{" "}
+                  — {RECEIPT_STATUS_LABELS[g.status as ReceiptStatus]}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}

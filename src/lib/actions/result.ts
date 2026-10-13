@@ -17,6 +17,28 @@ export function fail(
 
 type PgLikeError = { code?: string; message?: string; details?: string | null } | null | undefined;
 
+const qty = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 4 });
+const q = (v: unknown, unit?: unknown) =>
+  `${qty.format(Number(v))}${unit ? ` ${String(unit)}` : ""}`;
+
+/** Ошибки с подробностями в detail (JSON из БД) — сообщение с цифрами (Д-19). */
+function detailedMessage(message: string, details: string | null | undefined): string | null {
+  if (!details) return null;
+  let d: Record<string, unknown>;
+  try {
+    d = JSON.parse(details) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (message === "BF_NEGATIVE_STOCK") {
+    return `Недостаточно на складе: ${String(d.material)} — есть ${q(d.available, d.unit)}, нужно ${q(d.required, d.unit)}`;
+  }
+  if (message === "BF_RETURN_EXCEEDS_ISSUED") {
+    return `Нельзя вернуть больше выданного: ${String(d.material)} — выдано ${q(d.issued, d.unit)}, уже возвращено ${q(d.returned, d.unit)}, к возврату ${q(d.requested, d.unit)}`;
+  }
+  return null;
+}
+
 /** Коды BF_* из Postgres-функций → сообщения на русском. */
 const BF_MESSAGES: Record<string, string> = {
   BF_FORBIDDEN: "Недостаточно прав для этого действия",
@@ -28,10 +50,36 @@ const BF_MESSAGES: Record<string, string> = {
   BF_SELF_MFA_RESET:
     "Свой второй фактор сбросить нельзя — обратитесь к другому администратору или используйте npm run mfa:reset",
   BF_REASON_REQUIRED: "Укажите причину (не короче 3 символов)",
+  BF_NOT_FOUND: "Документ не найден или недоступен",
+  BF_INVALID_STATUS: "Документ уже в другом статусе — обновите страницу",
+  BF_DOCUMENT_LOCKED: "Документ уже нельзя изменить",
+  BF_NO_LINES: "Добавьте хотя бы одну строку",
+  BF_LINE_INCOMPLETE: "У каждой строки должны быть поставщик и цена",
+  BF_HAS_RECEIPTS: "По заявке уже есть приёмки — отмена невозможна",
+  BF_HAS_DRAFT_RECEIPTS:
+    "Сначала проведите или удалите черновики приёмок и корректировки на согласовании",
+  BF_OPEN_INVOICES: "Есть неподтверждённые накладные по заявке",
+  BF_ZERO_AMOUNT: "Сумма накладной должна быть больше нуля",
+  BF_HAS_PAYMENTS: "По накладной есть оплаты — отмена невозможна",
+  BF_REQUEST_NOT_OPEN: "Заявка не в работе — приёмка по ней невозможна",
+  BF_LINE_MISMATCH: "Строки не соответствуют заявке или поставщику",
+  BF_CORRECTION_NEEDS_APPROVAL: "Заявка уже на сверке — корректировку нужно отправить бухгалтеру",
+  BF_CORRECTION_NO_APPROVAL_NEEDED: "Согласование не требуется — проведите корректировку",
+  BF_CORRECTION_EXISTS: "По этой приёмке уже есть корректировка",
+  BF_CREW_INACTIVE: "Бригада в архиве",
+  BF_HAS_RETURNS: "Сначала сторнируйте возвраты по этой выдаче",
+  BF_ISSUE_NOT_POSTED: "Выдача не проведена или сторнирована",
+  BF_IDEMPOTENCY_KEY_REUSED: "Повторный запрос не совпадает с исходным — обновите страницу",
+  BF_UNIT_LOCKED: "По материалу уже есть движения — единицу измерения менять нельзя",
+  BF_NO_WAREHOUSE: "У объекта нет склада",
+  BF_NEGATIVE_STOCK: "Недостаточно материала на складе",
+  BF_RETURN_EXCEEDS_ISSUED: "Нельзя вернуть больше выданного",
 };
 
 export function dbErrorMessage(error: PgLikeError): string {
   if (!error) return "Неизвестная ошибка";
+  const detailed = error.message ? detailedMessage(error.message, error.details) : null;
+  if (detailed) return detailed;
   if (error.message && BF_MESSAGES[error.message]) return BF_MESSAGES[error.message];
   switch (error.code) {
     case "42501":

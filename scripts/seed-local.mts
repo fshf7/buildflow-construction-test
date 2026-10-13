@@ -10,7 +10,15 @@ import { pathToFileURL } from "node:url";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { LOCAL_ACCOUNTANT, LOCAL_ADMIN, LOCAL_MEMBERS, LOCAL_ORG_NAME } from "./local-admin.mts";
+import {
+  LOCAL_ACCOUNTANT,
+  LOCAL_ADMIN,
+  LOCAL_CASHIER,
+  LOCAL_FOREMAN,
+  LOCAL_MEMBERS,
+  LOCAL_ORG_NAME,
+  LOCAL_STOREKEEPER,
+} from "./local-admin.mts";
 import { readLocalSupabase } from "./local-supabase.mts";
 
 type Account = { email: string; password: string; fullName: string; role: string };
@@ -62,7 +70,7 @@ async function ensureMember(
       user_id: userId,
       full_name: account.fullName,
       email: account.email,
-      all_projects: account.role === "accountant",
+      all_projects: account.role === "accountant" || account.role === "cashier",
       created_by: adminId,
     })
     .select("id")
@@ -91,6 +99,119 @@ async function deleteFactors(admin: SupabaseClient, userId: string): Promise<voi
   for (const factor of data.factors) {
     await admin.auth.admin.mfa.deleteFactor({ userId, id: factor.id });
   }
+}
+
+/**
+ * Демо-объект для ручной проверки склада: блоки и этажи, бригада, материалы, поставщики;
+ * кладовщик и прораб назначены на объект. Создаётся один раз.
+ */
+async function ensureDemoProject(
+  admin: SupabaseClient,
+  orgId: string,
+  adminId: string,
+): Promise<void> {
+  const { data: existing } = await admin
+    .from("projects")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("code", "DEMO")
+    .maybeSingle();
+  if (existing) return;
+
+  const one = async <T,>(
+    q: PromiseLike<{ data: T; error: { message: string } | null }>,
+  ): Promise<NonNullable<T>> => {
+    const { data, error } = await q;
+    if (error || !data) throw new Error(error?.message ?? "пустой ответ");
+    return data as NonNullable<T>;
+  };
+
+  const project = await one(
+    admin
+      .from("projects")
+      .insert({ organization_id: orgId, code: "DEMO", name: "ЖК Демо", created_by: adminId })
+      .select("id")
+      .single(),
+  );
+  const block = await one(
+    admin
+      .from("blocks")
+      .insert({ organization_id: orgId, project_id: project.id, name: "Блок А" })
+      .select("id")
+      .single(),
+  );
+  await one(
+    admin
+      .from("floors")
+      .insert(
+        ["1", "2", "3"].map((name, i) => ({
+          organization_id: orgId,
+          project_id: project.id,
+          block_id: block.id,
+          name,
+          sort_order: i,
+        })),
+      )
+      .select("id"),
+  );
+  const members = await one(
+    admin
+      .from("organization_members")
+      .select("id, email")
+      .eq("organization_id", orgId)
+      .in("email", [LOCAL_STOREKEEPER.email, LOCAL_FOREMAN.email]),
+  );
+  await one(
+    admin
+      .from("project_members")
+      .insert(
+        members.map((m) => ({ organization_id: orgId, project_id: project.id, member_id: m.id })),
+      )
+      .select("id"),
+  );
+  const foreman = members.find((m) => m.email === LOCAL_FOREMAN.email);
+  await one(
+    admin
+      .from("crews")
+      .insert({
+        organization_id: orgId,
+        name: "Бригада Демо",
+        leader_name: "Каримов",
+        foreman_member_id: foreman?.id,
+      })
+      .select("id"),
+  );
+
+  const units = await one(
+    admin.from("units_of_measure").select("id, code").eq("organization_id", orgId),
+  );
+  const unit = (code: string) => units.find((u) => u.code === code)!.id;
+  await one(
+    admin
+      .from("materials")
+      .insert([
+        { organization_id: orgId, name: "Цемент М400", unit_id: unit("меш"), category: "Сыпучие" },
+        { organization_id: orgId, name: "Песок речной", unit_id: unit("т"), category: "Сыпучие" },
+        {
+          organization_id: orgId,
+          name: "Арматура А500 12 мм",
+          unit_id: unit("т"),
+          category: "Металл",
+        },
+        { organization_id: orgId, name: "Кирпич М150", unit_id: unit("шт"), category: "Стеновые" },
+      ])
+      .select("id"),
+  );
+  await one(
+    admin
+      .from("suppliers")
+      .insert([
+        { organization_id: orgId, name: "ООО «СтройСнаб»", phone: "+992 900 00 00 01" },
+        { organization_id: orgId, name: "ИП «Карьер»", phone: "+992 900 00 00 02" },
+      ])
+      .select("id"),
+  );
+  console.log("Создан демо-объект DEMO с бригадой, материалами и поставщиками");
 }
 
 export async function seedLocal({ resetMfa = false }: { resetMfa?: boolean } = {}): Promise<void> {
@@ -123,9 +244,12 @@ export async function seedLocal({ resetMfa = false }: { resetMfa?: boolean } = {
     await ensureMember(admin, org.id, adminId, account);
   }
 
+  await ensureDemoProject(admin, org.id, adminId);
+
   if (resetMfa) {
     await deleteFactors(admin, adminId);
     await deleteFactors(admin, await ensureUser(admin, LOCAL_ACCOUNTANT));
+    await deleteFactors(admin, await ensureUser(admin, LOCAL_CASHIER));
   }
 }
 

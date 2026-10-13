@@ -43,8 +43,18 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.108.0
-      # Только Postgres — быстрее полного стека.
-      - run: supabase db start
+      # Postgres + Storage: миграции создают bucket и политики storage.objects (вложения).
+      # Образы ECR Public иногда упираются в лимит — повторяем, последняя попытка через Docker Hub.
+      - name: Supabase (БД и хранилище)
+        run: |
+          EXCLUDE=realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+          for i in 1 2 3; do
+            if [ "$i" = 3 ]; then export SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io; fi
+            supabase start -x "$EXCLUDE" && exit 0
+            supabase stop --no-backup || true
+            sleep $((i * 20))
+          done
+          exit 1
       - name: supabase db reset (все миграции + seed с нуля)
         run: supabase db reset
       - name: pgTAP
@@ -88,9 +98,9 @@ jobs:
 
       # Чистая БД: миграции + seed.sql. Лишние сервисы не поднимаем (быстрее и меньше образов).
       # Образы с ECR Public иногда упираются в лимит — повторяем, последняя попытка через Docker Hub.
-      - name: Supabase (БД, Auth, REST, Mailpit)
+      - name: Supabase (БД, Auth, REST, Storage, Mailpit)
         run: |
-          EXCLUDE=realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta
+          EXCLUDE=realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta
           for i in 1 2 3; do
             if [ "$i" = 3 ]; then export SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io; fi
             supabase start -x "$EXCLUDE" && exit 0
@@ -112,6 +122,10 @@ jobs:
 
       - name: Браузер Playwright
         run: npx playwright install --with-deps chromium
+
+      # Параллельные проведения и «склад не видит цен ни в одном API» — против живого Supabase.
+      - name: Интеграционные тесты
+        run: npm run test:integration
 
       # Локальные пользователи и организация — в global-setup (seed-local.mts --reset-mfa).
       - name: E2E

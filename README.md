@@ -36,6 +36,10 @@ npm run dev                      # http://localhost:3000
 | `foreman@buildflow.local` | `buildflow-local` | Прораб | нет |
 | `accountant@buildflow.local` | `buildflow-local` | Материальный бухгалтер | обязательна |
 | `storekeeper@buildflow.local` | `buildflow-local` | Заведующий складом | нет |
+| `cashier@buildflow.local` | `buildflow-local` | Кассир | обязательна |
+
+Seed создаёт и демо-объект `DEMO — ЖК Демо` (блок, этажи, бригада, материалы, поставщики): кладовщик и прораб
+назначены на него — можно сразу пройти заявку → приёмку → выдачу.
 
 Письма (приглашения) локально не уходят наружу — смотрите их в Mailpit: http://127.0.0.1:54424. Studio — http://127.0.0.1:54423.
 
@@ -48,6 +52,7 @@ npm run dev                      # http://localhost:3000
 | `lint` | ESLint |
 | `format` / `format:check` | Prettier (markdown не форматируется) |
 | `test` | Vitest — юнит-тесты бизнес-логики |
+| `test:integration` | интеграционные тесты против локального Supabase: параллельное проведение, «склад не видит цен» через API |
 | `test:e2e` | Playwright (нужны `db:start` и `npx playwright install chromium`) |
 | `db:start` / `db:stop` | локальный Supabase |
 | `db:reset` | пересоздать локальную БД: все миграции + `seed.sql` + `db:seed:local` |
@@ -100,7 +105,7 @@ npm run dev                      # http://localhost:3000
 `.github/workflows/ci.yml` на каждый push в `main` и на pull request:
 - **app** — typecheck, lint, format:check, Vitest, `next build`;
 - **db** — `supabase db reset` на чистой БД, pgTAP, проверка актуальности типов;
-- **e2e** — Playwright (десктоп + смартфон) против production-сборки на чистом локальном Supabase с `seed-local`;
+- **e2e** — интеграционные тесты и Playwright (десктоп + смартфон) против production-сборки на чистом локальном Supabase с `seed-local`;
   при падении — артефакт `playwright-report` (HTML-отчёт, трейсы, скриншоты, видео) в разделе Actions.
 
 ## Окружения и деплой
