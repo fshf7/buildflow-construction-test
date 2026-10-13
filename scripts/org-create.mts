@@ -85,6 +85,18 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // 0. Повторный запуск не должен создать вторую организацию с тем же названием — проверяем до любых записей.
+  const { data: sameName, error: sameNameError } = await admin
+    .from("organizations")
+    .select("id")
+    .ilike("name", args.name.replace(/[%_\\]/g, "\\$&"));
+  if (sameNameError) throw sameNameError;
+  if (sameName.length > 0) {
+    throw new Error(
+      `Организация «${args.name}» уже существует (organization_id = ${sameName[0]!.id}). Ничего не создано.`,
+    );
+  }
+
   // 1. Пользователь: существующий (например, уже в другой организации) или новый.
   const { data: existingId, error: findError } = await admin.rpc("find_user_id_by_email", {
     p_email: args.adminEmail,
@@ -92,6 +104,8 @@ async function main() {
   if (findError) throw findError;
 
   let userId = existingId as string | null;
+  // Пользователь, созданный этим запуском, — откатываем, если организация не создастся.
+  let createdUserId: string | null = null;
   const password =
     args.password ?? (!userId && args.promptPassword ? await promptNewPassword() : undefined);
   if (!userId && password) {
@@ -103,6 +117,7 @@ async function main() {
     });
     if (error) throw error;
     userId = data.user.id;
+    createdUserId = userId;
   } else if (!userId) {
     const { data, error } = await admin.auth.admin.inviteUserByEmail(args.adminEmail, {
       data: { full_name: args.adminName },
@@ -110,6 +125,7 @@ async function main() {
     });
     if (error) throw error;
     userId = data.user.id;
+    createdUserId = userId;
     console.log(
       "Отправлено письмо-приглашение: администратор задаст пароль и подключит второй фактор.",
     );
@@ -124,12 +140,29 @@ async function main() {
     p_admin_full_name: args.adminName,
     p_admin_email: args.adminEmail,
   });
-  if (error) throw error;
+  if (error) {
+    if (createdUserId) {
+      const { error: rollbackError } = await admin.auth.admin.deleteUser(createdUserId);
+      console.error(
+        rollbackError
+          ? `Организация не создана; пользователя ${args.adminEmail} удалить не удалось: ${rollbackError.message}`
+          : `Организация не создана; созданный пользователь ${args.adminEmail} удалён.`,
+      );
+    }
+    throw error;
+  }
 
   console.log(`Готово. organization_id = ${orgId as string}`);
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.message : err);
+  // Ошибки Supabase — простые объекты с message, не Error: печатаем текст в любом случае.
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === "object" && err && "message" in err
+        ? String((err as { message: unknown }).message)
+        : String(err);
+  console.error(`Ошибка: ${message || "неизвестная"}`);
   process.exit(1);
 });
