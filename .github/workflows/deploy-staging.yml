@@ -31,6 +31,15 @@ jobs:
         with:
           # Ровно тот коммит, на котором прошёл CI.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      # Защита от путаницы окружений: строка подключения должна вести в проект SUPABASE_PROJECT_REF
+      # (в pooler-URL пользователь — postgres.<ref>). Значения не печатаются.
+      - name: Сверка БД с окружением
+        run: |
+          test -n "$REF" || { echo "::error::Не задана переменная SUPABASE_PROJECT_REF окружения"; exit 1; }
+          case "$STAGING_DB_URL" in *"$REF"*) ;; *) echo "::error::STAGING_DB_URL не от проекта SUPABASE_PROJECT_REF"; exit 1;; esac
+        env:
+          REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
       - uses: supabase/setup-cli@v1
         with:
           version: 2.108.0
@@ -64,5 +73,14 @@ jobs:
       # Переменные окружения (NEXT_PUBLIC_*, SUPABASE_SECRET_KEY) хранятся в Vercel и
       # подтягиваются при сборке: NEXT_PUBLIC_* вшиваются в бандл на этапе build.
       - run: npx --yes vercel@63.1.2 pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      # Проект Vercel должен быть настроен именно на это окружение (иначе — стоп до сборки).
+      - name: Сверка переменных Vercel с окружением
+        run: |
+          f=.vercel/.env.production.local
+          grep -qx "NEXT_PUBLIC_APP_ENV=\"\?$APP_ENV\"\?" "$f" || { echo "::error::NEXT_PUBLIC_APP_ENV в Vercel ≠ $APP_ENV"; exit 1; }
+          grep -qx "NEXT_PUBLIC_SUPABASE_URL=\"\?$SUPABASE_URL\"\?" "$f" || { echo "::error::NEXT_PUBLIC_SUPABASE_URL в Vercel ≠ переменной окружения"; exit 1; }
+        env:
+          APP_ENV: ${{ vars.NEXT_PUBLIC_APP_ENV }}
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
       - run: npx --yes vercel@63.1.2 build --prod --token="${{ secrets.VERCEL_TOKEN }}"
       - run: npx --yes vercel@63.1.2 deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"

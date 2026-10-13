@@ -1,0 +1,74 @@
+name: Deploy production
+
+# Только вручную: Actions → Deploy production → Run workflow, в поле подтверждения ввести «production».
+# Обязательный ревьюер окружения на текущем плане GitHub для приватного репозитория недоступен,
+# поэтому защита — ручной запуск + подтверждение + окружение production (только ветка main)
+# + переменная PRODUCTION_ENABLED=true. Порядок как в staging: миграции, затем код.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Введите production, чтобы подтвердить деплой"
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # миграции не прерываем
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Миграции → Supabase production
+    if: vars.PRODUCTION_ENABLED == 'true' && inputs.confirm == 'production' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.108.0
+      - name: Сверка БД с окружением
+        run: |
+          test -n "$REF" || { echo "::error::Не задана переменная SUPABASE_PROJECT_REF окружения"; exit 1; }
+          case "$PRODUCTION_DB_URL" in *"$REF"*) ;; *) echo "::error::PRODUCTION_DB_URL не от проекта SUPABASE_PROJECT_REF"; exit 1;; esac
+        env:
+          REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+      # PRODUCTION_DB_URL — Session pooler (IPv4). Деструктивные миграции — только после явного «да» (CLAUDE.md).
+      - name: Список неприменённых миграций
+        run: supabase migration list --db-url "$PRODUCTION_DB_URL"
+        env:
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+      - name: supabase db push
+        run: supabase db push --db-url "$PRODUCTION_DB_URL" --yes
+        env:
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+
+  deploy:
+    name: Код → Vercel (production)
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npx --yes vercel@63.1.2 pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Сверка переменных Vercel с окружением
+        run: |
+          f=.vercel/.env.production.local
+          grep -qx "NEXT_PUBLIC_APP_ENV=\"\?$APP_ENV\"\?" "$f" || { echo "::error::NEXT_PUBLIC_APP_ENV в Vercel ≠ $APP_ENV"; exit 1; }
+          grep -qx "NEXT_PUBLIC_SUPABASE_URL=\"\?$SUPABASE_URL\"\?" "$f" || { echo "::error::NEXT_PUBLIC_SUPABASE_URL в Vercel ≠ переменной окружения"; exit 1; }
+        env:
+          APP_ENV: ${{ vars.NEXT_PUBLIC_APP_ENV }}
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      - run: npx --yes vercel@63.1.2 build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+      - run: npx --yes vercel@63.1.2 deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
