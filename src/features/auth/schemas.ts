@@ -12,6 +12,15 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.email({ error: "Введите корректный email" })),
+});
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
 export const PASSWORD_MIN_LENGTH = 10;
 
 export const setPasswordSchema = z

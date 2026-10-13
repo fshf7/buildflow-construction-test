@@ -24,11 +24,19 @@ export const getCurrentOrg = cache(async (): Promise<OrgAccess | null> => {
   return pickOrganization(access, cookieStore.get(CURRENT_ORG_COOKIE)?.value);
 });
 
-/** Страницы: нет организации → экран «Нет доступа». */
+/**
+ * Страницы: нет организации → экран «Нет доступа». Но сначала отличаем «сессию завершили»
+ * (сброс MFA, выход на всех устройствах — Д-47): JWT ещё валиден, а сессии уже нет.
+ * Auth-сервер это знает — такого пользователя отправляем на вход.
+ */
 export async function requireOrg(): Promise<OrgAccess> {
   const org = await getCurrentOrg();
-  if (!org) redirect("/no-access");
-  return org;
+  if (org) return org;
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.getUser();
+  if (error) redirect("/auth/signout");
+  redirect("/no-access");
 }
 
 /** Страницы: нет права → экран «Нет доступа». Данные дополнительно защищены RLS. */

@@ -85,9 +85,7 @@ test.describe("администратор", () => {
     // Новый человек: свой браузерный контекст без сессии администратора.
     const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const invited = await ctx.newPage();
-    // Ссылка строится от site_url Supabase (порт 3000); тестовый сервер — на своём порту.
-    const link = new URL(await waitForConfirmLink(email));
-    await invited.goto(link.pathname + link.search);
+    await invited.goto(await waitForConfirmLink(email));
     await expect(invited).toHaveURL(/\/set-password/);
     await invited.getByLabel("Новый пароль").fill("warehouse-pass-1");
     await invited.getByLabel("Повторите пароль").fill("warehouse-pass-1");

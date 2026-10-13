@@ -24,6 +24,10 @@ const BF_MESSAGES: Record<string, string> = {
   BF_ROLE_REQUIRED: "Выберите хотя бы одну роль",
   BF_UNKNOWN_ROLE: "Неизвестная роль",
   BF_ALREADY_MEMBER: "Этот пользователь уже состоит в организации",
+  BF_MFA_REQUIRED: "Действие доступно только после входа со вторым фактором",
+  BF_SELF_MFA_RESET:
+    "Свой второй фактор сбросить нельзя — обратитесь к другому администратору или используйте npm run mfa:reset",
+  BF_REASON_REQUIRED: "Укажите причину (не короче 3 символов)",
 };
 
 export function dbErrorMessage(error: PgLikeError): string {

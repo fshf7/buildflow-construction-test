@@ -744,7 +744,22 @@ export type Database = {
       };
       current_user_requires_mfa: { Args: never; Returns: boolean };
       find_user_id_by_email: { Args: { p_email: string }; Returns: string };
+      member_mfa_status: {
+        Args: { p_org: string };
+        Returns: {
+          has_mfa: boolean;
+          member_id: string;
+        }[];
+      };
       my_access: { Args: never; Returns: Json };
+      reset_member_mfa: {
+        Args: { p_member_id: string; p_reason: string };
+        Returns: number;
+      };
+      reset_user_mfa_by_service: {
+        Args: { p_email: string; p_reason: string };
+        Returns: number;
+      };
       set_member_projects: {
         Args: {
           p_all_projects: boolean;

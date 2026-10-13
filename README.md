@@ -3,7 +3,7 @@
 Учёт материальных и денежных потоков строительной компании: объекты, склады, закупки, касса, бригады, задачи.
 Next.js 16 (App Router) + Supabase (Postgres, Auth, Storage, RLS), деплой на Vercel.
 
-- ТЗ: [docs/TZ_v1.0.pdf](docs/TZ_v1.0.pdf)
+- ТЗ: [docs/TZ_v0.9.pdf](docs/TZ_v0.9.pdf)
 - Архитектура данных, статусы, RLS, проведение: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Принятые решения: [docs/DECISIONS.md](docs/DECISIONS.md)
 - Правила работы: [CLAUDE.md](CLAUDE.md)
@@ -34,6 +34,8 @@ npm run dev                      # http://localhost:3000
 |---|---|---|---|
 | `admin@buildflow.local` | `buildflow-local` | Администратор организации | обязательна: при первом входе подключите TOTP-приложение |
 | `foreman@buildflow.local` | `buildflow-local` | Прораб | нет |
+| `accountant@buildflow.local` | `buildflow-local` | Материальный бухгалтер | обязательна |
+| `storekeeper@buildflow.local` | `buildflow-local` | Заведующий складом | нет |
 
 Письма (приглашения) локально не уходят наружу — смотрите их в Mailpit: http://127.0.0.1:54424. Studio — http://127.0.0.1:54423.
 
@@ -49,6 +51,7 @@ npm run dev                      # http://localhost:3000
 | `test:e2e` | Playwright (нужны `db:start` и `npx playwright install chromium`) |
 | `db:start` / `db:stop` | локальный Supabase |
 | `db:reset` | пересоздать локальную БД: все миграции + `seed.sql` + `db:seed:local` |
+| `mfa:reset` | сбросить второй фактор пользователю (серверный скрипт, `--yes` обязателен) |
 | `db:seed:local` | локальная организация и пользователи (идемпотентно; только локальная БД). `-- --reset-mfa` сбрасывает второй фактор администратора |
 | `org:create` | создать организацию и её первого администратора (см. «Организации и участники») |
 | `db:types` | сгенерировать `src/lib/supabase/database.types.ts` — **после каждой миграции** |
@@ -83,45 +86,89 @@ npm run dev                      # http://localhost:3000
 2. **Остальные участники** — администратор приглашает в разделе «Участники»: роли, объекты, письмо со ссылкой.
    Приглашённый задаёт пароль; бухгалтер, кассир и администратор затем подключают второй фактор (TOTP).
 3. В организации всегда остаётся хотя бы один активный администратор (Д-43).
+4. **Потерян телефон (второй фактор)**: администратор открывает участника → «Сбросить второй фактор», указывает
+   причину. Участник выходит на всех устройствах сразу (Д-47) и при следующем входе подключает MFA заново.
+   Себе сбросить нельзя — другой администратор или серверный скрипт:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SECRET_KEY=… npm run mfa:reset -- --email admin@example.tj --reason "Потерян телефон, заявка №…" --yes
+   ```
+5. **Забыли пароль**: ссылка «Забыли пароль?» на экране входа → письмо → новый пароль. Ответ одинаковый для любого
+   email (не раскрывает, есть ли учётная запись); второй фактор новый пароль не отменяет.
 
 ## CI
 
-`.github/workflows/ci.yml` на каждый push в `main`/`staging` и на pull request:
+`.github/workflows/ci.yml` на каждый push в `main` и на pull request:
 - **app** — typecheck, lint, format:check, Vitest, `next build`;
-- **db** — `supabase db reset` на чистой БД, pgTAP, проверка актуальности типов.
+- **db** — `supabase db reset` на чистой БД, pgTAP, проверка актуальности типов;
+- **e2e** — Playwright (десктоп + смартфон) против production-сборки на чистом локальном Supabase с `seed-local`;
+  при падении — артефакт `playwright-report` (HTML-отчёт, трейсы, скриншоты, видео) в разделе Actions.
 
 ## Окружения и деплой
 
 | | staging | production |
 |---|---|---|
-| Ветка | `staging` | `main` |
-| Supabase | отдельный проект `buildflow-staging` | отдельный проект `buildflow-prod` |
-| Vercel | Preview для ветки `staging` (или Custom Environment «staging») | Production |
+| Источник | ветка `main` после зелёного CI | позже (не настроено) |
+| Supabase | проект `buildflow-staging` | отдельный проект |
+| Vercel | проект `buildflow-staging` (среда Production этого проекта) | отдельный проект |
 | `NEXT_PUBLIC_APP_ENV` | `staging` | `production` |
+| Данные | без `seed-local`; организации — `npm run org:create --yes` | то же |
 
-### Первичная настройка (один раз на окружение)
+### Как выкатывается staging (автоматически)
 
-1. Создать проект Supabase (регион ближе к пользователям) и сразу включить MFA (TOTP) в Auth.
-2. Auth → URL Configuration: Site URL = домен окружения, Redirect URLs = `https://<домен>/**`.
-   Отключить самостоятельную регистрацию (Sign-ups) — пользователей заводит администратор.
-3. Auth → Email Templates → **Invite user**: тема «Приглашение в BuildFlow», тело — из `supabase/templates/invite.html`
-   (ссылка должна вести на `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/set-password`).
-   Для реальной почты настройте собственный SMTP (встроенный в Supabase ограничен несколькими письмами в час).
-4. В Vercel задать переменные окружения для нужной среды (Production / Preview `staging`):
-   `NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
-   `SUPABASE_SECRET_KEY` (Sensitive — нужен для приглашений).
+`.github/workflows/deploy-staging.yml`, после зелёного `CI` на `main`:
 
-### Выкладка
+1. **migrate** — `supabase db push --db-url $STAGING_DB_URL` применяет новые миграции к staging
+   (каждая миграция — в своей транзакции: при ошибке она откатывается целиком, деплой кода не начинается).
+2. **deploy** — `vercel build` + `vercel deploy --prebuilt --prod` того же коммита.
+   Автодеплой Vercel из Git отключён (`vercel.json`): иначе код мог бы опередить миграции.
 
-1. Миграции применяются **до** деплоя кода, сначала в staging:
-   ```bash
-   npx supabase link --project-ref <ref-staging>
-   npx supabase db push            # покажет список миграций и попросит подтверждение
-   ```
-2. Push/merge в `staging` → Vercel собирает preview; проверка руками на staging.
-3. Merge `staging` → `main` → `npx supabase link --project-ref <ref-prod> && npx supabase db push` → Vercel деплоит production.
-4. После первого production-деплоя миграции только добавляются; деструктивные (DROP, смена типа с потерей данных) —
-   только после явного согласования (CLAUDE.md, правило 4).
+Запуск вручную: Actions → Deploy staging → Run workflow. Включение: переменная репозитория `STAGING_ENABLED=true`.
+
+Секреты окружения GitHub `staging`: `STAGING_DB_URL` (Session pooler, IPv4), `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
+`VERCEL_PROJECT_ID`. Переменные приложения (`NEXT_PUBLIC_*`, `SUPABASE_SECRET_KEY`) — в Vercel (Production этого
+проекта); `NEXT_PUBLIC_*` вшиваются при сборке, после их изменения нужен новый деплой.
+
+### Правила миграций (чтобы откат кода был безопасным)
+
+- Миграции **только добавляются**; применённую миграцию не редактируем — исправление = новая миграция.
+- **Expand / contract**: сначала расширяем схему (новая колонка/таблица, старое не трогаем), выкатываем код,
+  и только следующим релизом удаляем старое. Тогда предыдущая версия кода работает с новой схемой, и код можно
+  откатить без отката БД.
+- Деструктивные изменения (DROP, смена типа с потерей данных) — только после явного согласования (CLAUDE.md, п. 4).
+- В конце каждой миграции — комментарий `-- ROLLBACK:` с SQL, который отменяет её (для аварийной обратной миграции).
+
+### Откат
+
+**Код** (быстро, без изменения БД): Vercel → проект → Deployments → предыдущий деплой → **Instant Rollback**
+(или `npx vercel rollback <url> --token …`). Безопасно, если соблюдён expand/contract.
+
+**Миграция** (исправление вперёд):
+1. Новая миграция, отменяющая изменение (SQL — из блока `-- ROLLBACK:` исходной миграции):
+   `npx supabase migration new revert_<имя>`.
+2. Локально: `npm run db:reset && npm run db:test && npm run test:e2e`, затем PR → CI → автоматический `db push` в staging.
+3. Если ошибочная миграция уже удалила данные — восстановление из бэкапа (ниже), а не обратной миграцией.
+
+**Миграция упала при применении**: она откатилась целиком (транзакция). Исправьте её файл (она не применилась — это
+разрешено), прогоните локально, запушьте — `db push` применит её заново. Проверить состояние:
+`npx supabase migration list --db-url "$STAGING_DB_URL"`. Если запись о версии разошлась с реальной схемой (ручные
+правки — запрещены, но всё же): `npx supabase migration repair --status reverted <версия> --db-url …`, затем повторный `db push`.
+
+**Данные** (крайний случай): Dashboard → Database → Backups. На бесплатном плане резервных копий нет;
+для production — Pro-план с ежедневными бэкапами и PITR, восстановление проверяется до запуска (ТЗ §9, §12).
+
+### Первичная настройка staging (один раз)
+
+1. Supabase: проект `buildflow-staging`; Auth → MFA: TOTP включён; Auth → Sign-ups: выключены.
+2. Auth → URL Configuration: Site URL = `https://<домен-staging>`, Redirect URLs = `https://<домен-staging>/**`.
+3. Auth → Email Templates: **Invite user** и **Reset password** — из `supabase/templates/invite.html` и
+   `recovery.html` (ссылки ведут на `{{ .SiteURL }}/auth/confirm?token_hash=…`).
+4. Auth → SMTP: свой SMTP (Resend: `smtp.resend.com:465`, пользователь `resend`, пароль — API-ключ,
+   отправитель — адрес на подтверждённом домене). Встроенная почта Supabase шлёт лишь несколько писем в час.
+5. Vercel: проект `buildflow-staging`, переменные для Production: `NEXT_PUBLIC_APP_ENV=staging`,
+   `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+   `SUPABASE_SECRET_KEY` (Sensitive).
+6. GitHub: окружение `staging` с секретами выше, переменная `STAGING_ENABLED=true`.
+7. Первая организация: `npm run org:create -- … --yes` с env staging (см. «Организации и участники»).
 
 ## Seed и окружения
 

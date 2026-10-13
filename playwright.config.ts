@@ -1,20 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Заготовка E2E. Требует запущенного Supabase (`npm run db:start`) и .env.local.
-// Браузеры: `npx playwright install chromium`.
+// E2E. Требует запущенного локального Supabase (`npm run db:start`) и .env.local;
+// данные готовит global-setup (scripts/seed-local.mts). Браузер: `npx playwright install chromium`.
+// В CI — production-сборка (`build` + `start`), локально — dev-сервер.
 const PORT = Number(process.env.E2E_PORT ?? 3100);
+const CI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  forbidOnly: CI,
+  retries: CI ? 1 : 0,
+  reporter: CI ? [["github"], ["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: "ru-RU",
-    trace: "on-first-retry",
+    timezoneId: "Asia/Dushanbe",
+    // Артефакты для разбора падений (в CI выгружаются в Actions).
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    video: CI ? "retain-on-failure" : "off",
   },
   projects: [
     // Вход администратора с MFA один раз; сессия сохраняется в e2e/.auth (в .gitignore).
@@ -24,9 +30,11 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] }, dependencies: ["setup"] },
   ],
   webServer: {
-    command: `npm run dev -- --port ${PORT}`,
+    command: CI
+      ? `npm run build && npm run start -- --port ${PORT}`
+      : `npm run dev -- --port ${PORT}`,
     url: `http://localhost:${PORT}/login`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: !CI,
+    timeout: 300_000,
   },
 });

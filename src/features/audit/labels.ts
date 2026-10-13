@@ -19,6 +19,7 @@ export const ACTION_LABELS: Record<string, string> = {
   INSERT: "Создание",
   UPDATE: "Изменение",
   DELETE: "Удаление",
+  MFA_RESET: "Сброс второго фактора",
 };
 
 const IGNORED_FIELDS = new Set(["updated_at", "created_at", "created_by", "id", "organization_id"]);
@@ -40,6 +41,18 @@ export function recordTitle(data: Record<string, unknown> | null): string | null
   for (const key of ["name", "full_name", "code", "email"]) {
     const v = data[key];
     if (typeof v === "string" && v) return v;
+  }
+  return null;
+}
+
+/** Пояснение для особых событий (например, причина сброса второго фактора). */
+export function eventDetails(
+  action: string,
+  newData: Record<string, unknown> | null,
+): string | null {
+  if (action === "MFA_RESET" && newData) {
+    const via = newData.via === "script" ? " (серверный скрипт)" : "";
+    return `Причина: ${String(newData.reason ?? "—")}${via}`;
   }
   return null;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
@@ -47,7 +48,12 @@ export function LoginForm({ next }: { next?: string }) {
         </Field>
 
         <Field data-invalid={Boolean(errors.password)}>
-          <FieldLabel htmlFor="password">Пароль</FieldLabel>
+          <div className="flex items-center justify-between">
+            <FieldLabel htmlFor="password">Пароль</FieldLabel>
+            <Link href="/forgot-password" className="text-sm underline-offset-4 hover:underline">
+              Забыли пароль?
+            </Link>
+          </div>
           <Input
             id="password"
             type="password"

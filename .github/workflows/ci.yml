@@ -68,3 +68,61 @@ jobs:
           npm run db:types
           git diff --exit-code -- src/lib/supabase/database.types.ts \
             || (echo "::error::Типы устарели — выполните npm run db:types и закоммитьте" && exit 1)
+
+  e2e:
+    name: E2E (Playwright) на чистой БД
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.108.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # Чистая БД: миграции + seed.sql. Лишние сервисы не поднимаем (быстрее и меньше образов).
+      # Образы с ECR Public иногда упираются в лимит — повторяем, последняя попытка через Docker Hub.
+      - name: Supabase (БД, Auth, REST, Mailpit)
+        run: |
+          EXCLUDE=realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta
+          for i in 1 2 3; do
+            if [ "$i" = 3 ]; then export SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io; fi
+            supabase start -x "$EXCLUDE" && exit 0
+            supabase stop --no-backup || true
+            sleep $((i * 20))
+          done
+          exit 1
+
+      - name: .env.local из локального Supabase
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_APP_ENV=local"
+            echo "NEXT_PUBLIC_SITE_URL=http://localhost:3000"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY"
+            echo "SUPABASE_SECRET_KEY=$SECRET_KEY"
+          } > .env.local
+
+      - name: Браузер Playwright
+        run: npx playwright install --with-deps chromium
+
+      # Локальные пользователи и организация — в global-setup (seed-local.mts --reset-mfa).
+      - name: E2E
+        run: npm run test:e2e
+
+      - name: Отчёт и артефакты падений
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

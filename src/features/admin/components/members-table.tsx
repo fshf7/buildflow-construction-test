@@ -39,6 +39,10 @@ const columns = helper.columns([
     header: "Объекты",
     cell: (info) => (info.getValue() ? "Все" : String(info.row.original.projectIds.length)),
   }),
+  helper.accessor("hasMfa", {
+    header: "2FA",
+    cell: (info) => (info.getValue() ? "Да" : info.getValue() === false ? "Нет" : "—"),
+  }),
   helper.accessor("isActive", {
     header: "Статус",
     cell: (info) =>

@@ -7,3 +7,5 @@ create extension if not exists pgcrypto with schema extensions;
 create extension if not exists btree_gist with schema extensions;
 
 -- pgTAP сюда НЕ ставим: тесты создают его в своей транзакции и откатывают (supabase/tests).
+
+-- ROLLBACK: drop extension btree_gist; (pgcrypto используется Supabase — не удалять)

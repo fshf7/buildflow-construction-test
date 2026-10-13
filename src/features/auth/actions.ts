@@ -3,12 +3,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { fail, type ActionResult } from "@/lib/actions/result";
+import { env } from "@/env";
+import { fail, ok, type ActionResult } from "@/lib/actions/result";
 import { CURRENT_ORG_COOKIE, getAccess } from "@/lib/auth/access";
-import { safeNextPath } from "@/lib/auth/redirect";
+import { redirectAfterAuth } from "@/lib/auth/after-auth";
 import { createClient } from "@/lib/supabase/server";
 
-import { loginSchema, setPasswordSchema } from "./schemas";
+import { forgotPasswordSchema, loginSchema, setPasswordSchema } from "./schemas";
 
 export async function signIn(input: unknown, next?: string): Promise<ActionResult> {
   const parsed = loginSchema.safeParse(input);
@@ -19,24 +20,37 @@ export async function signIn(input: unknown, next?: string): Promise<ActionResul
   // Не раскрываем, что именно неверно: email или пароль.
   if (error) return fail("Неверный email или пароль");
 
-  // Д-29: redirect из server action отдаёт страницу в том же ответе, минуя proxy.ts, —
-  // поэтому привилегированных пользователей отправляем на второй фактор прямо отсюда.
-  const target = safeNextPath(next);
-  const { data: requiresMfa } = await supabase.rpc("current_user_requires_mfa");
-  if (requiresMfa) {
-    redirect(target === "/" ? "/mfa" : `/mfa?next=${encodeURIComponent(target)}`);
-  }
-  redirect(target);
+  return redirectAfterAuth(next);
 }
 
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // Только эта сессия: «Выйти» на телефоне не должно выкидывать с компьютера.
+  // Выход везде — побочный эффект сброса MFA (Д-45).
+  await supabase.auth.signOut({ scope: "local" });
   (await cookies()).delete(CURRENT_ORG_COOKIE);
   redirect("/login");
 }
 
-/** После приглашения: пользователь задаёт пароль (сессия уже есть — из ссылки письма). */
+/**
+ * «Забыли пароль»: письмо со ссылкой (шаблон supabase/templates/recovery.html).
+ * Ответ всегда одинаковый — нельзя узнать, зарегистрирован ли email.
+ */
+export async function requestPasswordReset(input: unknown): Promise<ActionResult> {
+  const parsed = forgotPasswordSchema.safeParse(input);
+  if (!parsed.success) return fail("Введите корректный email");
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+  });
+  // Любую ошибку (включая 429) не показываем: Supabase ограничивает частоту только для
+  // СУЩЕСТВУЮЩИХ адресов, и отдельное сообщение раскрыло бы, что учётная запись есть.
+  if (error) console.warn("resetPasswordForEmail:", error.status, error.code);
+  return ok();
+}
+
+/** Новый пароль: после приглашения (/set-password) или восстановления (/reset-password). */
 export async function setPassword(input: unknown): Promise<ActionResult> {
   const parsed = setPasswordSchema.safeParse(input);
   if (!parsed.success) return fail("Проверьте пароль");
@@ -50,7 +64,8 @@ export async function setPassword(input: unknown): Promise<ActionResult> {
         : "Не удалось сохранить пароль",
     );
   }
-  redirect("/");
+  // Пароль не обходит второй фактор: роли с MFA дальше идут на /mfa.
+  return redirectAfterAuth("/");
 }
 
 /** Переключение текущей организации (если пользователь состоит в нескольких). */

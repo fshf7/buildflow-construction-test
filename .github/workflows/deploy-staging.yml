@@ -1,0 +1,68 @@
+name: Deploy staging
+
+# После зелёного CI на main: сначала миграции в Supabase staging, затем код в Vercel.
+# Порядок важен: код рассчитывает на новую схему; миграции пишутся обратно совместимыми
+# (expand/contract), поэтому предыдущая версия кода продолжает работать после миграции.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false # миграции не прерываем
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Миграции → Supabase staging
+    # Включается переменной репозитория STAGING_ENABLED=true, когда заданы секреты окружения staging.
+    if: >-
+      vars.STAGING_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Ровно тот коммит, на котором прошёл CI.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.108.0
+      # STAGING_DB_URL — строка подключения через Session pooler (IPv4; прямой хост БД — только IPv6).
+      # seed.sql и scripts/seed-local.mts в staging не применяются (db push их не выполняет).
+      - name: Список неприменённых миграций
+        run: supabase migration list --db-url "$STAGING_DB_URL"
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+      - name: supabase db push
+        run: supabase db push --db-url "$STAGING_DB_URL" --yes
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+
+  deploy:
+    name: Код → Vercel (staging)
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # Переменные окружения (NEXT_PUBLIC_*, SUPABASE_SECRET_KEY) хранятся в Vercel и
+      # подтягиваются при сборке: NEXT_PUBLIC_* вшиваются в бандл на этапе build.
+      - run: npx --yes vercel@63.1.2 pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      - run: npx --yes vercel@63.1.2 build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+      - run: npx --yes vercel@63.1.2 deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"

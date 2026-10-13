@@ -8,7 +8,7 @@ import { authorize } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-import { inviteMemberSchema, updateMemberSchema } from "./schemas";
+import { inviteMemberSchema, resetMfaSchema, updateMemberSchema } from "./schemas";
 
 /**
  * Приглашение участника. Самостоятельной регистрации нет: Auth-пользователя создаёт сервер
@@ -85,5 +85,28 @@ export async function updateMember(input: unknown): Promise<ActionResult> {
 
   revalidatePath("/admin/members");
   revalidatePath(`/admin/members/${v.memberId}`);
+  return ok();
+}
+
+/**
+ * Сброс второго фактора участнику (Д-45): удаляет факторы и завершает все его сессии.
+ * Проверки — в БД (reset_member_mfa): администратор с aal2, не себе, причина обязательна, аудит.
+ */
+export async function resetMemberMfa(input: unknown): Promise<ActionResult> {
+  const auth = await authorize("members.manage");
+  if (!auth.ok) return fail(auth.error);
+
+  const parsed = resetMfaSchema.safeParse(input);
+  if (!parsed.success) return fail("Укажите причину сброса");
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("reset_member_mfa", {
+    p_member_id: parsed.data.memberId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) return fail(dbErrorMessage(error));
+
+  revalidatePath("/admin/members");
+  revalidatePath(`/admin/members/${parsed.data.memberId}`);
   return ok();
 }

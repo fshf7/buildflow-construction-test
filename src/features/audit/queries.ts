@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
-import { changedFields, recordTitle } from "./labels";
+import { changedFields, eventDetails, recordTitle } from "./labels";
 
 export type AuditRow = {
   id: number;
@@ -12,6 +12,7 @@ export type AuditRow = {
   action: string;
   title: string | null;
   changed: string[];
+  details: string | null;
 };
 
 type Json = Record<string, unknown> | null;
@@ -42,6 +43,7 @@ export async function listAudit(orgId: string, limit = 100): Promise<AuditRow[]>
       action: r.action,
       title: recordTitle(newData ?? oldData),
       changed: r.action === "UPDATE" ? changedFields(oldData, newData) : [],
+      details: eventDetails(r.action, newData),
     };
   });
 }

@@ -14,6 +14,8 @@ export type MemberRow = {
   invitedAt: string | null;
   roles: RoleCode[];
   projectIds: string[];
+  /** Подключён ли второй фактор (null — статус недоступен). */
+  hasMfa: boolean | null;
 };
 
 /** Участники организации с ролями и объектами. Доступ — RLS (участники видят коллег). */
@@ -28,6 +30,10 @@ export async function listMembers(orgId: string): Promise<MemberRow[]> {
     .order("full_name");
   if (error) throw new Error(error.message);
 
+  // Статус MFA — из auth.mfa_factors через RPC (только для members.manage).
+  const { data: mfa } = await supabase.rpc("member_mfa_status", { p_org: orgId });
+  const mfaByMember = new Map((mfa ?? []).map((r) => [r.member_id, r.has_mfa]));
+
   return data.map((m) => ({
     id: m.id,
     userId: m.user_id,
@@ -41,6 +47,7 @@ export async function listMembers(orgId: string): Promise<MemberRow[]> {
       .map((mr) => mr.roles?.code)
       .filter((c): c is RoleCode => typeof c === "string" && isRoleCode(c)),
     projectIds: m.project_members.map((pm) => pm.project_id),
+    hasMfa: mfaByMember.get(m.id) ?? null,
   }));
 }
 

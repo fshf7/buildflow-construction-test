@@ -32,8 +32,9 @@ const columns = helper.columns([
     ),
   }),
   helper.accessor("changed", {
-    header: "Поля",
-    cell: (info) => (info.getValue().length ? info.getValue().join(", ") : "—"),
+    header: "Подробности",
+    cell: (info) =>
+      info.row.original.details ?? (info.getValue().length ? info.getValue().join(", ") : "—"),
   }),
 ]);
 

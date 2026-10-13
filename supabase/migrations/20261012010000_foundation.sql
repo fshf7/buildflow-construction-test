@@ -908,3 +908,16 @@ grant execute on function public.my_access(), public.current_user_requires_mfa()
 -- Организацию создаёт только серверный скрипт npm run org:create.
 grant execute on function public.create_organization(text, uuid, text, text) to service_role;
 grant execute on function public.find_user_id_by_email(text) to service_role;
+
+-- ROLLBACK (только до появления данных — удаляет всю схему Foundation):
+--   drop schema private cascade;
+--   drop table public.audit_logs, public.document_sequences, public.suppliers, public.materials,
+--     public.units_of_measure, public.warehouses, public.floors, public.blocks, public.project_members,
+--     public.projects, public.member_roles, public.permissions, public.roles,
+--     public.organization_members, public.organizations cascade;
+--   drop function public.my_access(), public.current_user_requires_mfa(),
+--     public.create_organization(text, uuid, text, text), public.find_user_id_by_email(text),
+--     public.add_member(uuid, uuid, text, text, text[], boolean, uuid[]),
+--     public.set_member_roles(uuid, text[]), public.set_member_projects(uuid, boolean, uuid[]),
+--     public.update_member(uuid, text, text, boolean, text[], boolean, uuid[]);
+--   drop type public.document_type, public.project_status;

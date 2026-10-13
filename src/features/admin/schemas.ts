@@ -29,3 +29,9 @@ export const updateMemberSchema = z.object({
   projectIds: z.array(z.uuid()),
 });
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
+
+export const resetMfaSchema = z.object({
+  memberId: z.uuid(),
+  reason: z.string().trim().min(3, { error: "Укажите причину" }).max(500),
+});
+export type ResetMfaInput = z.infer<typeof resetMfaSchema>;

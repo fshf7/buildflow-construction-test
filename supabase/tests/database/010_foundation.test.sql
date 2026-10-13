@@ -16,10 +16,15 @@ create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   returning id
 $$;
 
+-- Вход: настоящая сессия в auth.sessions + её id в JWT (права требуют живую сессию, Д-47).
 create function pg_temp.login(p_user uuid, p_aal text default 'aal1') returns void language plpgsql as $$
+declare
+  v_session uuid := gen_random_uuid();
 begin
+  insert into auth.sessions (id, user_id, created_at, updated_at, aal)
+  values (v_session, p_user, now(), now(), p_aal::auth.aal_level);
   perform set_config('request.jwt.claims',
-    json_build_object('sub', p_user, 'role', 'authenticated', 'aal', p_aal)::text, true);
+    json_build_object('sub', p_user, 'role', 'authenticated', 'aal', p_aal, 'session_id', v_session)::text, true);
   execute 'set local role authenticated';
 end $$;
 

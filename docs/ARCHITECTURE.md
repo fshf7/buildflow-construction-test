@@ -1,7 +1,7 @@
 # BuildFlow — архитектура данных и проведения документов
 
 > Статус: **согласовано 12.10.2026** с изменениями из `docs/DECISIONS.md` (Д-xx). При расхождении приоритет у DECISIONS.md.
-> Источник: ТЗ «BuildFlow — предварительная спецификация MVP v0.9» (`docs/TZ_v1.0.pdf`) + `CLAUDE.md`.
+> Источник: ТЗ «BuildFlow — предварительная спецификация MVP v0.9» (`docs/TZ_v0.9.pdf`) + `CLAUDE.md`.
 > Проект с нуля: старый BuildFlow (схема, код, Supabase-проект) не используется.
 > Всё, что помечено **[Решение]**, — моё предложение там, где ТЗ молчит. Всё, что помечено **[TZ-open]**, —
 > открытый вопрос ТЗ, реализуемый минимально и расширяемо. Полный список — в разделе 8.
@@ -1150,4 +1150,17 @@ idempotency_keys (
 
 Гранты (Д-40): `authenticated` получает только перечисленное в разделе 14 миграции; `document_sequences` недоступна,
 `audit_logs` — только SELECT (RLS: `audit.view`). Покрыто `supabase/tests/database/010_foundation.test.sql` (36 проверок).
+
+## 10. Фаза 1.5 (миграция `20261013000000_mfa_reset.sql`)
+
+| Что | Зачем |
+|---|---|
+| `private.session_alive()`; проверка в `private.member_id()` и `public.my_access()` | права только при живой сессии (Д-47) |
+| `public.reset_member_mfa(member_id, reason)` | сброс MFA администратором (Д-45): aal2, не себе, причина, аудит |
+| `public.reset_user_mfa_by_service(email, reason)` — только `service_role` | `npm run mfa:reset` (Д-46) |
+| `public.member_mfa_status(org)` | статус второго фактора в списке участников (`auth.mfa_factors` клиенту недоступна) |
+| `private.reset_mfa(...)` | общая часть: факторы, сессии, `MFA_RESET` в аудит всех организаций пользователя |
+
+Восстановление пароля: `/forgot-password` → письмо (`supabase/templates/recovery.html`) → `/auth/confirm` →
+`/reset-password` → проверка MFA (Д-49). Покрыто `supabase/tests/database/020_mfa_reset.test.sql` (19 проверок).
 
