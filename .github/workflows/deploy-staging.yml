@@ -43,16 +43,17 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.108.0
+      # Пароль БД может содержать @ # / ? — кодируем его; значение маскируется в логах.
+      - name: Строка подключения
+        run: python3 scripts/ci/normalize-db-url.py
+        env:
+          RAW_DB_URL: ${{ secrets.STAGING_DB_URL }}
       # STAGING_DB_URL — строка подключения через Session pooler (IPv4; прямой хост БД — только IPv6).
       # seed.sql и scripts/seed-local.mts в staging не применяются (db push их не выполняет).
       - name: Список неприменённых миграций
-        run: supabase migration list --db-url "$STAGING_DB_URL"
-        env:
-          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: supabase migration list --db-url "$DB_URL"
       - name: supabase db push
-        run: supabase db push --db-url "$STAGING_DB_URL" --yes
-        env:
-          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: supabase db push --db-url "$DB_URL" --yes
 
   deploy:
     name: Код → Vercel (staging)

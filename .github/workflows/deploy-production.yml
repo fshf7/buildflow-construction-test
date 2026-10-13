@@ -30,6 +30,11 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.108.0
+      # Пароль БД может содержать @ # / ? — кодируем его; значение маскируется в логах.
+      - name: Строка подключения
+        run: python3 scripts/ci/normalize-db-url.py
+        env:
+          RAW_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
       - name: Сверка БД с окружением
         run: |
           test -n "$REF" || { echo "::error::Не задана переменная SUPABASE_PROJECT_REF окружения"; exit 1; }
@@ -39,13 +44,9 @@ jobs:
           PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
       # PRODUCTION_DB_URL — Session pooler (IPv4). Деструктивные миграции — только после явного «да» (CLAUDE.md).
       - name: Список неприменённых миграций
-        run: supabase migration list --db-url "$PRODUCTION_DB_URL"
-        env:
-          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: supabase migration list --db-url "$DB_URL"
       - name: supabase db push
-        run: supabase db push --db-url "$PRODUCTION_DB_URL" --yes
-        env:
-          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: supabase db push --db-url "$DB_URL" --yes
 
   deploy:
     name: Код → Vercel (production)
