@@ -6,7 +6,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-export type LocalSupabase = { apiUrl: string; secretKey: string };
+export type LocalSupabase = { apiUrl: string; secretKey: string; publishableKey: string };
 
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
@@ -40,8 +40,9 @@ export function readLocalSupabase(): LocalSupabase {
   );
   const apiUrl = vars.API_URL;
   const secretKey = vars.SECRET_KEY ?? vars.SERVICE_ROLE_KEY;
+  const publishableKey = vars.PUBLISHABLE_KEY ?? vars.ANON_KEY ?? "";
   if (!apiUrl || !secretKey)
     throw new Error("Не удалось прочитать API_URL/SECRET_KEY из `supabase status`.");
   assertLocal(apiUrl, process.env.NEXT_PUBLIC_APP_ENV);
-  return { apiUrl, secretKey };
+  return { apiUrl, secretKey, publishableKey };
 }
