@@ -167,6 +167,18 @@ $$;
 create function pg_temp.balance_of(a uuid) returns numeric language sql as $$
   select balance from public.cash_accounts where id = a
 $$;
+-- Сторно по Д-67: кассир инициирует, бухгалтер согласует (и проводит).
+create function pg_temp.reverse(p_tx uuid, p_reason text) returns jsonb language plpgsql as $$
+declare
+  v jsonb;
+begin
+  perform pg_temp.login(pg_temp.id('cashier'), 'aal2');
+  perform public.request_cash_reversal(p_tx, gen_random_uuid(), p_reason);
+  perform pg_temp.login(pg_temp.id('acc'), 'aal2');
+  v := public.approve_cash_reversal(p_tx, gen_random_uuid(), null);
+  perform pg_temp.logout();
+  return v;
+end $$;
 -- ---- конец финансовой фикстуры ----
 -- Денежные данные: касса, приход, оплата обязательства, счёт на оплату.
 insert into ids values ('kassa', pg_temp.account('Касса')), ('P1', pg_temp.payable('s1', 100, 10, 'Н-1000'));

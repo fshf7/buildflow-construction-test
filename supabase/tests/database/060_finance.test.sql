@@ -1,7 +1,7 @@
 -- Финансы: оплаты обязательств (US-05, US-06), касса, сторно, счета на оплату, точность (§4.5, §4.7).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(46);
+select plan(54);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -167,6 +167,18 @@ $$;
 create function pg_temp.balance_of(a uuid) returns numeric language sql as $$
   select balance from public.cash_accounts where id = a
 $$;
+-- Сторно по Д-67: кассир инициирует, бухгалтер согласует (и проводит).
+create function pg_temp.reverse(p_tx uuid, p_reason text) returns jsonb language plpgsql as $$
+declare
+  v jsonb;
+begin
+  perform pg_temp.login(pg_temp.id('cashier'), 'aal2');
+  perform public.request_cash_reversal(p_tx, gen_random_uuid(), p_reason);
+  perform pg_temp.login(pg_temp.id('acc'), 'aal2');
+  v := public.approve_cash_reversal(p_tx, gen_random_uuid(), null);
+  perform pg_temp.logout();
+  return v;
+end $$;
 -- ---- конец финансовой фикстуры ----
 insert into ids values ('kassa', pg_temp.account('Касса')), ('bank', pg_temp.account('Банк'));
 insert into ids values ('P1', pg_temp.payable('s1', 100000, 1.5, 'Н-150')),   -- 150 000
@@ -231,17 +243,37 @@ select pg_temp.login(pg_temp.id('acc'), 'aal2');
 select throws_ok($$ select public.cancel_supplier_invoice(pg_temp.id('inv:Н-150'), gen_random_uuid(), 'Ошибка') $$,
   'P0001', 'BF_HAS_PAYMENTS', 'отмена накладной с оплатами запрещена');
 select pg_temp.logout();
+-- Д-67: кассир сам сторно не проводит — только запрашивает; согласует бухгалтер (≠ инициатор).
 select pg_temp.login(pg_temp.id('cashier'), 'aal2');
-select matches(public.reverse_cash_transaction(pg_temp.id('pay60'), gen_random_uuid(), 'Ошибочная оплата')
-  ->> 'reversal_number', '^ПКО-', 'сторно расхода — приходным ордером со своим номером');
+select throws_ok($$ select public.approve_cash_reversal(pg_temp.id('pay60'), gen_random_uuid(), null) $$,
+  '42501', 'BF_FORBIDDEN', 'кассир не может провести сторно сам');
+select is(public.request_cash_reversal(pg_temp.id('pay60'), gen_random_uuid(), 'Ошибочная оплата') ->> 'reversal',
+  'PENDING', 'кассир запросил сторно');
+select throws_ok($$ select public.request_cash_reversal(pg_temp.id('pay60'), gen_random_uuid(), 'ещё раз') $$,
+  'P0001', 'BF_REVERSAL_PENDING', 'повторный запрос, пока первый не решён, — нельзя');
+select pg_temp.logout();
+select is(pg_temp.remaining(pg_temp.id('P1')), 50000.00, 'до согласования долг и баланс не меняются');
+-- Совместитель (кассир + бухгалтер) не согласует сторно, которое запросил сам.
+insert into ids values ('pay_self', gen_random_uuid()), ('k_self', pg_temp.account('Касса для проверки сторно'));
+select pg_temp.cash(pg_temp.id('k_self'), 'IN', 'OTHER_INCOME', 1, null, '[]', gen_random_uuid(), pg_temp.id('pay_self'));
+select pg_temp.login(pg_temp.id('both'), 'aal2');
+select public.request_cash_reversal(pg_temp.id('pay_self'), gen_random_uuid(), 'Проверка');
+select throws_ok($$ select public.approve_cash_reversal(pg_temp.id('pay_self'), gen_random_uuid(), null) $$,
+  'P0001', 'BF_SELF_APPROVAL', 'согласующий сторно ≠ инициатор');
+select pg_temp.logout();
+select pg_temp.login(pg_temp.id('acc'), 'aal2');
+select is(public.reject_cash_reversal(pg_temp.id('pay_self'), gen_random_uuid(), 'Не подтверждаю') ->> 'reversal',
+  'REJECTED', 'бухгалтер отклонил запрос сторно');
+select matches(public.approve_cash_reversal(pg_temp.id('pay60'), gen_random_uuid(), null) ->> 'reversal_number',
+  '^ПКО-', 'бухгалтер согласовал — сторно расхода проведено приходным ордером');
 select pg_temp.logout();
 select is(pg_temp.remaining(pg_temp.id('P1')), 110000.00, 'сторно восстановило долг: 150 000 − 40 000');
 select is(pg_temp.balance_of(pg_temp.id('kassa')), 150000.00, 'сторно вернуло деньги в кассу');
 select is((select status::text from public.cash_transactions where id = pg_temp.id('pay60')), 'REVERSED',
   'исходная операция — сторнирована, не удалена');
+select pg_temp.reverse(pg_temp.id('pay50'), 'Ошибочная оплата');
 select pg_temp.login(pg_temp.id('cashier'), 'aal2');
-select public.reverse_cash_transaction(pg_temp.id('pay50'), gen_random_uuid(), 'Ошибочная оплата');
-select throws_ok($$ select public.reverse_cash_transaction(pg_temp.id('pay50'), gen_random_uuid(), 'ещё раз') $$,
+select throws_ok($$ select public.request_cash_reversal(pg_temp.id('pay50'), gen_random_uuid(), 'ещё раз') $$,
   'P0001', 'BF_INVALID_STATUS', 'дважды не сторнировать');
 select pg_temp.logout();
 select pg_temp.login(pg_temp.id('acc'), 'aal2');
@@ -257,7 +289,9 @@ insert into ids values ('k2', pg_temp.account('Касса 2')), ('in100', gen_ra
 select pg_temp.cash(pg_temp.id('k2'), 'IN', 'OTHER_INCOME', 100, null, '[]', gen_random_uuid(), pg_temp.id('in100'));
 select pg_temp.cash(pg_temp.id('k2'), 'OUT', 'SUPPLIER', 60, pg_temp.id('s2'), jsonb_build_array(jsonb_build_array(pg_temp.id('P3'), 60)));
 select pg_temp.login(pg_temp.id('cashier'), 'aal2');
-select throws_ok($$ select public.reverse_cash_transaction(pg_temp.id('in100'), gen_random_uuid(), 'Ошибка') $$,
+select public.request_cash_reversal(pg_temp.id('in100'), gen_random_uuid(), 'Ошибка');
+select pg_temp.login(pg_temp.id('acc'), 'aal2');
+select throws_ok($$ select public.approve_cash_reversal(pg_temp.id('in100'), gen_random_uuid(), null) $$,
   'P0001', 'BF_NEGATIVE_CASH', 'сторно прихода не уводит кассу в минус');
 select pg_temp.logout();
 
@@ -337,6 +371,22 @@ select throws_ok($$ insert into public.cash_transactions (organization_id, cash_
   'операции напрямую не пишутся');
 select is_empty($$ select * from public.check_cash_consistency(pg_temp.id('org')) $$,
   'сверка: баланс = Σ проведённых операций; оплачено = Σ распределений');
+select pg_temp.logout();
+
+-- ===== Отчёт «Сторно за период» (Д-67) =====
+insert into ids values ('flat', gen_random_uuid());
+select pg_temp.cash(pg_temp.id('kassa'), 'IN', 'APARTMENT_SALE', 45000.50, null, '[]', gen_random_uuid(), pg_temp.id('flat'));
+select pg_temp.reverse(pg_temp.id('flat'), 'Покупатель отказался, деньги возвращены');
+select pg_temp.login(pg_temp.id('admin'), 'aal2');
+select results_eq(
+  $$ select category::text, amount, reason, initiated_by, approved_by
+     from public.cash_reversals_report(pg_temp.id('org'), null, null) where transaction_id = pg_temp.id('flat') $$,
+  $$ values ('APARTMENT_SALE', 45000.50::numeric, 'Покупатель отказался, деньги возвращены', 'Кассир', 'Бухгалтер') $$,
+  'приход за квартиру после сторно — в отчёте: кто инициировал, кто согласовал, сумма, причина');
+select pg_temp.logout();
+select pg_temp.login(pg_temp.id('cashier'), 'aal2');
+select throws_ok($$ select * from public.cash_reversals_report(pg_temp.id('org'), null, null) $$, '42501', 'BF_FORBIDDEN',
+  'отчёт о сторно — только бухгалтер и org_admin');
 select pg_temp.logout();
 
 select * from finish();

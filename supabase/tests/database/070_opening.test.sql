@@ -167,6 +167,18 @@ $$;
 create function pg_temp.balance_of(a uuid) returns numeric language sql as $$
   select balance from public.cash_accounts where id = a
 $$;
+-- Сторно по Д-67: кассир инициирует, бухгалтер согласует (и проводит).
+create function pg_temp.reverse(p_tx uuid, p_reason text) returns jsonb language plpgsql as $$
+declare
+  v jsonb;
+begin
+  perform pg_temp.login(pg_temp.id('cashier'), 'aal2');
+  perform public.request_cash_reversal(p_tx, gen_random_uuid(), p_reason);
+  perform pg_temp.login(pg_temp.id('acc'), 'aal2');
+  v := public.approve_cash_reversal(p_tx, gen_random_uuid(), null);
+  perform pg_temp.logout();
+  return v;
+end $$;
 -- ---- конец финансовой фикстуры ----
 insert into ids values ('kassa', pg_temp.account('Касса'));
 create function pg_temp.stock(p_material text) returns numeric language sql as $$
@@ -229,7 +241,7 @@ select pg_temp.logout();
 
 -- Кассир не сторнирует начальный остаток операцией — только документом.
 select pg_temp.login(pg_temp.id('cashier'), 'aal2');
-select throws_ok($$ select public.reverse_cash_transaction(
+select throws_ok($$ select public.request_cash_reversal(
   (select id from public.cash_transactions where opening_balance_id = pg_temp.id('ob_cash')), gen_random_uuid(), 'x x x') $$,
   'P0001', 'BF_INVALID_STATUS', 'начальный остаток сторнируется только документом ввода');
 select pg_temp.logout();
@@ -260,11 +272,9 @@ select throws_ok($$ select public.reverse_opening_balance(pg_temp.id('ob_cash'),
   'P0001', 'BF_NEGATIVE_CASH', 'сторно ввода кассы не уводит её в минус');
 select pg_temp.logout();
 
-select pg_temp.login(pg_temp.id('cashier'), 'aal2');
-select public.reverse_cash_transaction(
+select pg_temp.reverse(
   (select t.id from public.cash_transactions t join public.cash_transaction_allocations a on a.cash_transaction_id = t.id
-   where a.payable_id = pg_temp.id('P_open')), gen_random_uuid(), 'Ошибочная оплата');
-select pg_temp.logout();
+   where a.payable_id = pg_temp.id('P_open')), 'Ошибочная оплата');
 select pg_temp.login(pg_temp.id('acc'), 'aal2');
 select is(public.reverse_opening_balance(pg_temp.id('ob_pay'), gen_random_uuid(), 'Ошибка ввода') ->> 'status',
   'REVERSED', 'после сторно оплаты — ввод долга сторнирован');

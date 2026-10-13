@@ -234,6 +234,8 @@ export async function listOperations(orgId: string, f: OperationsFilter): Promis
   if (f.from) q = q.gte("doc_date", f.from);
   if (f.to) q = q.lte("doc_date", f.to);
   if (f.q) q = q.ilike("number", `%${f.q}%`);
+  if (f.reversal === "pending")
+    q = q.eq("status", "POSTED").not("reversal_requested_by", "is", null);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return data.map((t) => ({
@@ -257,7 +259,7 @@ export async function getOperation(id: string) {
   const { data: t, error } = await supabase
     .from("cash_transactions")
     .select(
-      "id, number, doc_date, direction, kind, category, amount, currency, counterparty_name, basis, note, status, cancel_reason, reversal_of_id, opening_balance_id, cash_accounts(name), suppliers(name), crews(name), projects(code, name), cash_transaction_allocations(id, amount, payable_id, payment_request_id)",
+      "id, organization_id, number, doc_date, direction, kind, category, amount, currency, counterparty_name, basis, note, status, cancel_reason, reversal_of_id, opening_balance_id, reversal_requested_by, reversal_requested_at, reversal_reason, cash_accounts(name), suppliers(name), crews(name), projects(code, name), cash_transaction_allocations(id, amount, payable_id, payment_request_id)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -268,6 +270,14 @@ export async function getOperation(id: string) {
     .select("id, number")
     .eq("reversal_of_id", id)
     .maybeSingle();
+  const { data: requester } = t.reversal_requested_by
+    ? await supabase
+        .from("organization_members")
+        .select("full_name")
+        .eq("organization_id", t.organization_id)
+        .eq("user_id", t.reversal_requested_by)
+        .maybeSingle()
+    : { data: null };
   return {
     id: t.id,
     number: t.number,
@@ -284,6 +294,15 @@ export async function getOperation(id: string) {
     cancelReason: t.cancel_reason,
     reversalOfId: t.reversal_of_id,
     reversedBy: reversal ?? null,
+    // Д-67: запрос на сторно ждёт решения бухгалтера.
+    reversalRequest: t.reversal_requested_by
+      ? {
+          by: t.reversal_requested_by,
+          byName: requester?.full_name ?? "",
+          at: t.reversal_requested_at,
+          reason: t.reversal_reason,
+        }
+      : null,
     openingBalanceId: t.opening_balance_id,
     accountName: t.cash_accounts?.name ?? "",
     projectLabel: t.projects ? `${t.projects.code} — ${t.projects.name}` : null,
@@ -393,4 +412,56 @@ export async function getPaymentRequest(id: string) {
 /** Поставщики с открытыми долгами — первый шаг «Оплатить долг» у кассира. */
 export async function listSuppliersWithDebt(orgId: string) {
   return groupBySupplier(await listPayables(orgId, { openOnly: true }));
+}
+
+export type ReversalReportRow = {
+  transactionId: string;
+  number: string | null;
+  docDate: string;
+  accountName: string;
+  direction: "IN" | "OUT";
+  category: CashCategory;
+  amount: number;
+  currency: string;
+  counterparty: string | null;
+  reversalNumber: string | null;
+  reversedAt: string | null;
+  reason: string | null;
+  initiatedBy: string | null;
+  initiatedAt: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+};
+
+/** Отчёт «Сторно за период» (Д-67): бухгалтер и org_admin. */
+export async function reversalsReport(
+  orgId: string,
+  from?: string,
+  to?: string,
+): Promise<ReversalReportRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("cash_reversals_report", {
+    p_org: orgId,
+    p_from: (from ?? null) as string,
+    p_to: (to ?? null) as string,
+  });
+  if (error) throw new Error(error.message);
+  return data.map((r) => ({
+    transactionId: r.transaction_id,
+    number: r.number,
+    docDate: r.doc_date,
+    accountName: r.account_name,
+    direction: r.direction,
+    category: r.category,
+    amount: Number(r.amount),
+    currency: r.currency,
+    counterparty: r.counterparty,
+    reversalNumber: r.reversal_number,
+    reversedAt: r.reversed_at,
+    reason: r.reason,
+    initiatedBy: r.initiated_by,
+    initiatedAt: r.initiated_at,
+    approvedBy: r.approved_by,
+    approvedAt: r.approved_at,
+  }));
 }

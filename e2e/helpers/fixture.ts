@@ -12,7 +12,8 @@ export async function createWarehouseFixture() {
   const db = createClient(local.apiUrl, local.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const run = Date.now().toString(36);
+  // Миллисекунды + случайный суффикс: параллельные воркеры не совпадают по коду объекта.
+  const run = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
   const one = async <T>(
     q: PromiseLike<{ data: T; error: { message: string } | null }>,
   ): Promise<NonNullable<T>> => {

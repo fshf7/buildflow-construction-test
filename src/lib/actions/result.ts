@@ -98,6 +98,8 @@ const BF_MESSAGES: Record<string, string> = {
   BF_SELF_APPROVAL: "Согласовать собственный документ нельзя",
   BF_ACCOUNT_INACTIVE: "Касса в архиве или недоступна",
   BF_ACCOUNT_HAS_OPERATIONS: "По кассе уже есть операции — валюту менять нельзя",
+  BF_REVERSAL_PENDING: "Сторно уже запрошено и ждёт решения бухгалтера",
+  BF_NO_REVERSAL_REQUEST: "Запроса на сторно нет — обновите страницу",
 };
 
 export function dbErrorMessage(error: PgLikeError): string {

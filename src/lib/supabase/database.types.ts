@@ -349,7 +349,12 @@ export type Database = {
           posted_at: string | null;
           posted_by: string | null;
           project_id: string | null;
+          reversal_approved_at: string | null;
+          reversal_approved_by: string | null;
           reversal_of_id: string | null;
+          reversal_reason: string | null;
+          reversal_requested_at: string | null;
+          reversal_requested_by: string | null;
           status: Database["public"]["Enums"]["cash_tx_status"];
           updated_at: string;
         };
@@ -378,7 +383,12 @@ export type Database = {
           posted_at?: string | null;
           posted_by?: string | null;
           project_id?: string | null;
+          reversal_approved_at?: string | null;
+          reversal_approved_by?: string | null;
           reversal_of_id?: string | null;
+          reversal_reason?: string | null;
+          reversal_requested_at?: string | null;
+          reversal_requested_by?: string | null;
           status?: Database["public"]["Enums"]["cash_tx_status"];
           updated_at?: string;
         };
@@ -407,7 +417,12 @@ export type Database = {
           posted_at?: string | null;
           posted_by?: string | null;
           project_id?: string | null;
+          reversal_approved_at?: string | null;
+          reversal_approved_by?: string | null;
           reversal_of_id?: string | null;
+          reversal_reason?: string | null;
+          reversal_requested_at?: string | null;
+          reversal_requested_by?: string | null;
           status?: Database["public"]["Enums"]["cash_tx_status"];
           updated_at?: string;
         };
@@ -3029,6 +3044,10 @@ export type Database = {
         };
         Returns: string;
       };
+      approve_cash_reversal: {
+        Args: { p_comment: string; p_id: string; p_key: string };
+        Returns: Json;
+      };
       approve_payment_request: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
@@ -3048,6 +3067,27 @@ export type Database = {
       cancel_supplier_invoice: {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
+      };
+      cash_reversals_report: {
+        Args: { p_from: string; p_org: string; p_to: string };
+        Returns: {
+          account_name: string;
+          amount: number;
+          approved_at: string;
+          approved_by: string;
+          category: Database["public"]["Enums"]["cash_category"];
+          counterparty: string;
+          currency: string;
+          direction: Database["public"]["Enums"]["cash_direction"];
+          doc_date: string;
+          initiated_at: string;
+          initiated_by: string;
+          number: string;
+          reason: string;
+          reversal_number: string;
+          reversed_at: string;
+          transaction_id: string;
+        }[];
       };
       check_cash_consistency: {
         Args: { p_org: string };
@@ -3150,6 +3190,14 @@ export type Database = {
         Args: { p_warehouse: string };
         Returns: number;
       };
+      reject_cash_reversal: {
+        Args: { p_comment: string; p_id: string; p_key: string };
+        Returns: Json;
+      };
+      request_cash_reversal: {
+        Args: { p_id: string; p_key: string; p_reason: string };
+        Returns: Json;
+      };
       reset_member_mfa: {
         Args: { p_member_id: string; p_reason: string };
         Returns: number;
@@ -3172,10 +3220,6 @@ export type Database = {
       };
       return_supplier_invoice: {
         Args: { p_id: string; p_key: string };
-        Returns: Json;
-      };
-      reverse_cash_transaction: {
-        Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
       };
       reverse_material_issue: {

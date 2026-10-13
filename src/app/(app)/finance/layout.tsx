@@ -12,6 +12,7 @@ export default async function FinanceLayout({ children }: LayoutProps<"/finance"
       "payables.view",
       "payment_requests.view",
       "cash_accounts.manage",
+      "cash.reversals_report",
     ])
   ) {
     redirect("/no-access?reason=forbidden");
@@ -28,6 +29,9 @@ export default async function FinanceLayout({ children }: LayoutProps<"/finance"
       : []),
     ...(hasPermission(org, "payment_requests.view")
       ? [{ href: "/finance/requests", label: "Счета на оплату" }]
+      : []),
+    ...(hasPermission(org, "cash.reversals_report")
+      ? [{ href: "/finance/reversals", label: "Сторно за период" }]
       : []),
   ];
   return (

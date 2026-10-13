@@ -85,8 +85,8 @@ export async function quickCash(input: unknown): Promise<ActionResult<Posted>> {
   return ok(data as Posted);
 }
 
-/** Сторно операции (§4.7): причина обязательна; долги и баланс восстанавливаются. */
-export async function reverseOperation(input: {
+/** Д-67: сторно кассир только запрашивает (причина обязательна). */
+export async function requestReversal(input: {
   id: string;
   key: string;
   comment: string;
@@ -94,11 +94,32 @@ export async function reverseOperation(input: {
   const auth = await authorize("cash.reverse");
   if (!auth.ok) return fail(auth.error);
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("reverse_cash_transaction", {
+  const { data, error } = await supabase.rpc("request_cash_reversal", {
     p_id: input.id,
     p_key: input.key,
     p_reason: input.comment,
   });
+  if (error) return fail(dbErrorMessage(error));
+  revalidateFinance();
+  return ok(data as Posted);
+}
+
+/** Д-67: бухгалтер согласует (сторно проводится) или отклоняет; согласующий ≠ инициатор (БД). */
+export async function decideReversal(
+  decision: "approve" | "reject",
+  input: { id: string; key: string; comment: string },
+): Promise<ActionResult<Posted>> {
+  const auth = await authorize("cash.reverse_approve");
+  if (!auth.ok) return fail(auth.error);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc(
+    decision === "approve" ? "approve_cash_reversal" : "reject_cash_reversal",
+    {
+      p_id: input.id,
+      p_key: input.key,
+      p_comment: input.comment,
+    },
+  );
   if (error) return fail(dbErrorMessage(error));
   revalidateFinance();
   return ok(data as Posted);

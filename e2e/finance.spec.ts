@@ -75,18 +75,29 @@ test("частичная оплата долга поставщику и сто�
   await acc.goto("/finance/payables");
   await expect(acc.getByRole("row", { name: new RegExp(fx.s1) })).toContainText(/90\s000,00 TJS/);
 
-  // ---- Сторно оплаты восстанавливает долг и баланс ----
+  // ---- Д-67: кассир запрашивает сторно, бухгалтер согласует → долг и баланс восстановлены ----
   await cash.goto(paymentUrl);
-  await cash.getByRole("button", { name: "Сторнировать" }).click();
+  await cash.getByRole("button", { name: "Запросить сторно" }).click();
   await cash.getByLabel("Причина").fill("Ошибочная оплата");
-  await cash.getByRole("dialog").getByRole("button", { name: "Сторнировать" }).click();
-  await expect(cash.getByText("Сторнирована", { exact: true })).toBeVisible();
+  await cash.getByRole("dialog").getByRole("button", { name: "Запросить сторно" }).click();
+  await expect(cash.getByText("Сторно запрошено")).toBeVisible();
+  await expect(cash.getByRole("button", { name: "Согласовать сторно" })).toHaveCount(0); // сам — не проводит
+  await acc.goto(paymentUrl);
+  await acc.getByRole("button", { name: "Согласовать сторно" }).click();
+  await expect(acc.getByText("Сторнирована", { exact: true })).toBeVisible();
   await acc.goto("/finance/payables");
   await expect(acc.getByRole("row", { name: new RegExp(fx.s1) })).toContainText(/150\s000,00 TJS/);
   await cash.goto("/finance/cash");
   await expect(cash.getByRole("link", { name: new RegExp(account) })).toContainText(
     /200\s000,00 TJS/,
   );
+
+  // Отчёт «Сторно за период»: кто инициировал и кто согласовал.
+  await acc.goto("/finance/reversals");
+  const reportRow = acc.getByRole("row", { name: new RegExp(fx.s1) }).first();
+  await expect(reportRow).toContainText("Ошибочная оплата");
+  await expect(reportRow).toContainText("Кассир Демо");
+  await expect(reportRow).toContainText("Бухгалтер Демо");
 
   await cashCtx.close();
   await accCtx.close();

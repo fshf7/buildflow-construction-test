@@ -1217,3 +1217,14 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 Тесты: pgTAP `060_finance` (46), `070_opening` (27), `080_finance_privacy` (8); интеграционные
 `finance-concurrency.test.ts`; E2E `finance.spec.ts`.
 
+## 13. Изменение Д-67 — согласование сторно кассы (миграция `20261016000000_cash_reversal_approval.sql`)
+
+- `cash_transactions`: `reversal_requested_by/at`, `reversal_reason`, `reversal_approved_by/at`;
+  CHECK `reversal_approved_by <> reversal_requested_by`.
+- Поток: кассир `request_cash_reversal(id, key, reason)` → запрос (`approval_requests`, требуемое право
+  `cash.reverse_approve`) → бухгалтер `approve_cash_reversal` (вызывает `private.reverse_cash_tx`) или
+  `reject_cash_reversal` (комментарий обязателен, запрос снимается). Ошибки: `BF_REVERSAL_PENDING`,
+  `BF_NO_REVERSAL_REQUEST`, `BF_SELF_APPROVAL`. Всё идемпотентно по ключу.
+- `reverse_cash_transaction` удалена — сторнировать в одиночку нельзя никому.
+- Отчёт `cash_reversals_report(org, from, to)` → страница `/finance/reversals` (бухгалтер, org_admin).
+- В журнале операций — фильтр «Сторно: на согласовании».

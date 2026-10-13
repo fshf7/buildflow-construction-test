@@ -54,7 +54,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/finance",
     label: "Касса и долги",
     icon: Wallet,
-    permissions: ["cash.view", "payables.view", "payment_requests.view", "cash_accounts.manage"],
+    permissions: [
+      "cash.view",
+      "payables.view",
+      "payment_requests.view",
+      "cash_accounts.manage",
+      "cash.reversals_report",
+    ],
     ready: true,
   },
   {

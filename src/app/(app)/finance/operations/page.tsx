@@ -51,6 +51,12 @@ export default async function OperationsPage({ searchParams }: PageProps<"/finan
             type: "select",
             options: Object.entries(CASH_STATUS_LABELS).map(([value, label]) => ({ value, label })),
           },
+          {
+            name: "reversal",
+            label: "Сторно",
+            type: "select",
+            options: [{ value: "pending", label: "На согласовании" }],
+          },
           { name: "from", label: "С даты", type: "date" },
           { name: "to", label: "По дату", type: "date" },
         ]}

@@ -77,6 +77,7 @@ export const operationsFilterSchema = z.object({
     .optional()
     .catch(undefined),
   q: z.string().trim().max(50).optional().catch(undefined),
+  reversal: z.enum(["pending"]).optional().catch(undefined),
 });
 export type OperationsFilter = z.infer<typeof operationsFilterSchema>;
 

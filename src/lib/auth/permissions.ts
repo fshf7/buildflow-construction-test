@@ -26,6 +26,8 @@ export const PERMISSIONS = [
   "cash.view",
   "cash.post",
   "cash.reverse",
+  "cash.reverse_approve",
+  "cash.reversals_report",
   "cash_accounts.manage",
   "crews.view",
   "crews.manage",

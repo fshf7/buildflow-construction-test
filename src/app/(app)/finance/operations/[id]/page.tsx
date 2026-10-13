@@ -4,17 +4,19 @@ import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { ReverseOperation } from "@/features/finance/components/operation-actions";
+import { RequestReversal, ReversalDecision } from "@/features/finance/components/operation-actions";
 import { CASH_STATUS_LABELS, CATEGORY_LABELS } from "@/features/finance/labels";
 import { getOperation, listPayables } from "@/features/finance/queries";
 import { requirePermission } from "@/lib/auth/access";
 import { hasPermission } from "@/lib/auth/access-model";
-import { formatDate, formatMoney } from "@/lib/format";
+import { requireUser } from "@/lib/auth/session";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Операция" };
 
 export default async function OperationPage({ params }: PageProps<"/finance/operations/[id]">) {
   const org = await requirePermission("cash.view");
+  const user = await requireUser();
   const { id } = await params;
   const op = await getOperation(id);
   if (!op) notFound();
@@ -117,8 +119,28 @@ export default async function OperationPage({ params }: PageProps<"/finance/oper
         </section>
       ) : null}
 
-      {op.status === "POSTED" && op.kind === "REGULAR" && hasPermission(org, "cash.reverse") ? (
-        <ReverseOperation id={op.id} />
+      {/* Д-67: кассир запрашивает сторно, бухгалтер (≠ инициатор) согласует. */}
+      {op.status === "POSTED" && op.kind === "REGULAR" && op.reversalRequest ? (
+        <section className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+          <p>
+            <b>Сторно запрошено</b>
+            {op.reversalRequest.byName
+              ? ` (${op.reversalRequest.byName}, ${formatDateTime(op.reversalRequest.at)})`
+              : ""}
+            : {op.reversalRequest.reason}
+          </p>
+          {hasPermission(org, "cash.reverse_approve") && op.reversalRequest.by !== user.id ? (
+            <ReversalDecision id={op.id} />
+          ) : (
+            <p>Ожидает решения бухгалтера.</p>
+          )}
+        </section>
+      ) : null}
+      {op.status === "POSTED" &&
+      op.kind === "REGULAR" &&
+      !op.reversalRequest &&
+      hasPermission(org, "cash.reverse") ? (
+        <RequestReversal id={op.id} />
       ) : null}
     </div>
   );

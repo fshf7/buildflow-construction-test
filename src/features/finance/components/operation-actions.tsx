@@ -2,26 +2,50 @@
 
 import { DocumentActions } from "@/components/document-actions";
 
-import { reverseOperation } from "../actions";
+import { decideReversal, requestReversal } from "../actions";
 
-/** Сторно кассовой операции (§4.7): причина обязательна. */
-export function ReverseOperation({ id }: { id: string }) {
+/** Д-67: кассир запрашивает сторно с причиной. */
+export function RequestReversal({ id }: { id: string }) {
   return (
     <DocumentActions
       actions={[
         {
-          id: "reverse",
-          label: "Сторнировать",
+          id: "request",
+          label: "Запросить сторно",
           variant: "outline",
           comment: {
-            title: "Сторно операции",
+            title: "Запрос на сторно",
             description:
-              "Будет проведена обратная операция со своим номером; долги и баланс кассы восстановятся.",
+              "Сторно проведёт бухгалтер после согласования. До этого долги и баланс не меняются.",
             label: "Причина",
             required: true,
           },
-          run: ({ key, comment }) => reverseOperation({ id, key, comment }),
-          successMessage: "Операция сторнирована",
+          run: ({ key, comment }) => requestReversal({ id, key, comment }),
+          successMessage: "Запрос на сторно отправлен бухгалтеру",
+        },
+      ]}
+    />
+  );
+}
+
+/** Д-67: решение бухгалтера по запросу сторно. */
+export function ReversalDecision({ id }: { id: string }) {
+  return (
+    <DocumentActions
+      actions={[
+        {
+          id: "approve",
+          label: "Согласовать сторно",
+          run: ({ key, comment }) => decideReversal("approve", { id, key, comment }),
+          successMessage: "Сторно проведено: долги и баланс восстановлены",
+        },
+        {
+          id: "reject",
+          label: "Отклонить",
+          variant: "outline",
+          comment: { title: "Отклонить сторно", label: "Почему", required: true },
+          run: ({ key, comment }) => decideReversal("reject", { id, key, comment }),
+          successMessage: "Запрос на сторно отклонён",
         },
       ]}
     />
