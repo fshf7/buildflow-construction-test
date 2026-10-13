@@ -54,6 +54,9 @@ export type PayableRow = {
   id: string;
   supplierId: string | null;
   supplierName: string;
+  crewId: string | null;
+  /** Поставщик или бригада. */
+  counterpartyName: string;
   projectLabel: string | null;
   source: string; // «Накладная НК-… (№ поставщика)» или основание введённого долга
   sourceHref: string | null;
@@ -66,21 +69,28 @@ export type PayableRow = {
   createdAt: string;
 };
 
-/** Обязательства поставщикам (общая модель по источнику: накладная, ввод остатков; акты — фаза 4). */
+/** Обязательства (общая модель по источнику, Д-63): поставщикам — накладная и ввод остатков; бригадам — акты. */
 export async function listPayables(
   orgId: string,
-  f: { supplier?: string; project?: string; openOnly?: boolean },
+  f: {
+    supplier?: string;
+    crew?: string;
+    kind?: "SUPPLIER" | "CREW";
+    project?: string;
+    openOnly?: boolean;
+  },
 ): Promise<PayableRow[]> {
   const supabase = await createClient();
   let q = supabase
     .from("payables")
     .select(
-      "id, supplier_id, amount, paid_amount, currency, status, due_date, created_at, source_doc_type, source_doc_id, basis, suppliers(name), projects(code, name)",
+      "id, supplier_id, crew_id, amount, paid_amount, currency, status, due_date, created_at, source_doc_type, source_doc_id, basis, suppliers(name), crews(name), projects(code, name)",
     )
     .eq("organization_id", orgId)
-    .eq("counterparty_kind", "SUPPLIER")
+    .eq("counterparty_kind", f.kind ?? "SUPPLIER")
     .order("created_at");
   if (f.supplier) q = q.eq("supplier_id", f.supplier);
+  if (f.crew) q = q.eq("crew_id", f.crew);
   if (f.project) q = q.eq("project_id", f.project);
   if (f.openOnly) q = q.in("status", ["OPEN", "PARTIALLY_PAID"]);
   const { data, error } = await q;
@@ -104,15 +114,21 @@ export async function listPayables(
       id: p.id,
       supplierId: p.supplier_id,
       supplierName: p.suppliers?.name ?? "",
+      crewId: p.crew_id,
+      counterpartyName: p.suppliers?.name ?? p.crews?.name ?? "",
       projectLabel: p.projects ? `${p.projects.code} — ${p.projects.name}` : null,
       source:
         p.source_doc_type === "SUPPLIER_INVOICE"
           ? `Накладная ${inv?.number ?? ""} (№ ${inv?.supplier_doc_number ?? "—"})`
-          : `Ввод остатков: ${p.basis ?? ""}`,
+          : p.source_doc_type === "WORK_ACT"
+            ? (p.basis ?? "Акт работ")
+            : `Ввод остатков: ${p.basis ?? ""}`,
       sourceHref:
         p.source_doc_type === "SUPPLIER_INVOICE"
           ? `/procurement/invoices/${p.source_doc_id}`
-          : null,
+          : p.source_doc_type === "WORK_ACT"
+            ? `/crews/acts/${p.source_doc_id}`
+            : null,
       amount: Number(p.amount),
       paid: Number(p.paid_amount),
       remaining: Number(p.amount) - Number(p.paid_amount),
@@ -412,6 +428,35 @@ export async function getPaymentRequest(id: string) {
 /** Поставщики с открытыми долгами — первый шаг «Оплатить долг» у кассира. */
 export async function listSuppliersWithDebt(orgId: string) {
   return groupBySupplier(await listPayables(orgId, { openOnly: true }));
+}
+
+export type CrewDebt = {
+  crewId: string;
+  crewName: string;
+  currency: string;
+  remaining: number;
+  count: number;
+};
+
+/** Бригады с открытыми долгами по утверждённым актам (BP-05). */
+export async function listCrewsWithDebt(orgId: string): Promise<CrewDebt[]> {
+  const rows = await listPayables(orgId, { kind: "CREW", openOnly: true });
+  const map = new Map<string, CrewDebt>();
+  for (const r of rows) {
+    if (!r.crewId) continue;
+    const key = `${r.crewId}:${r.currency}`;
+    const g = map.get(key) ?? {
+      crewId: r.crewId,
+      crewName: r.counterpartyName,
+      currency: r.currency,
+      remaining: 0,
+      count: 0,
+    };
+    g.remaining = Math.round((g.remaining + r.remaining) * 100) / 100;
+    g.count += 1;
+    map.set(key, g);
+  }
+  return [...map.values()].sort((a, b) => a.crewName.localeCompare(b.crewName, "ru"));
 }
 
 export type ReversalReportRow = {

@@ -5,6 +5,8 @@ export {
   LOCAL_ADMIN,
   LOCAL_CASHIER,
   LOCAL_FOREMAN,
+  LOCAL_PM,
+  LOCAL_PM2,
   LOCAL_STOREKEEPER,
 } from "../../scripts/local-admin.mts";
 

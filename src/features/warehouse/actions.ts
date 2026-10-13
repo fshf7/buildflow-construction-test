@@ -249,6 +249,6 @@ export async function saveCrew(input: unknown): Promise<ActionResult> {
     return fail(
       error.code === "23505" ? "Бригада с таким названием уже есть" : dbErrorMessage(error),
     );
-  revalidatePath("/crews");
+  revalidatePath("/crews", "layout");
   return ok();
 }

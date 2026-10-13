@@ -7,6 +7,9 @@ import { getCurrentOrg } from "@/lib/auth/access";
 import { createClient } from "@/lib/supabase/server";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const DOC_TYPES = ["SUPPLIER_INVOICE", "GOODS_RECEIPT", "TASK", "WORK_ACT"] as const;
+const isDocType = (v: unknown): v is (typeof DOC_TYPES)[number] =>
+  (DOC_TYPES as readonly unknown[]).includes(v);
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
 
 /**
@@ -22,10 +25,7 @@ export async function uploadAttachment(formData: FormData): Promise<ActionResult
   const docId = formData.get("docId");
   const file = formData.get("file");
   const back = formData.get("revalidate");
-  if (
-    (docType !== "SUPPLIER_INVOICE" && docType !== "GOODS_RECEIPT") ||
-    typeof docId !== "string"
-  ) {
+  if (!isDocType(docType) || typeof docId !== "string") {
     return fail("Неверный документ");
   }
   if (!(file instanceof File) || file.size === 0) return fail("Выберите файл");

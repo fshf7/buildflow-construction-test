@@ -36,6 +36,7 @@ export const quickCashSchema = z.object({
   amount: money(),
   projectId: z.union([z.uuid(), z.literal("")]),
   supplierId: z.union([z.uuid(), z.literal("")]),
+  crewId: z.union([z.uuid(), z.literal("")]).default(""),
   counterpartyName: z.string().trim().max(200),
   basis: z.string().trim().max(500),
   allocations: z.array(

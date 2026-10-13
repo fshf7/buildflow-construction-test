@@ -1228,3 +1228,41 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 - `reverse_cash_transaction` удалена — сторнировать в одиночку нельзя никому.
 - Отчёт `cash_reversals_report(org, from, to)` → страница `/finance/reversals` (бухгалтер, org_admin).
 - В журнале операций — фильтр «Сторно: на согласовании».
+
+## 14. Фаза 4 — бригады, акты работ, задачи, отчёты (миграции `20261017000000…000200`)
+
+**Схема**
+- `crew_members` — состав бригады (люди, не пользователи); `work_rates` — история тарифов (Д-69, Д-70).
+- `work_completion_acts` + `work_completion_items` — §2.7; снимок тарифа в строке; `total_amount` — кэш триггером.
+- `tasks`, `task_comments` (append-only); `task_attachments` — представление над `document_attachments` (Д-77).
+
+**Функции**
+
+| Функция | Назначение |
+|---|---|
+| `save_work_rate` | тариф с даты (`work_rates.manage`) |
+| `save_work_act_draft`, `delete_work_act_draft` | черновик акта; тариф подставляет БД, `BF_NO_RATE` |
+| `submit_ / approve_ / reject_ / cancel_work_act` | переходы §4.6 через `private.work_act_transition`; идемпотентны; утверждение создаёт payable CREW |
+| `copy_work_act` | «Создать на основе» (Д-72) |
+| `work_act_duplicates` | предупреждение о дубле (Д-73) |
+| `save_task`, `change_task_status`, `add_task_comment`, `task_assignees` | задачи §4.8 (Д-74) |
+| `report_stock_balances`, `report_material_issues`, `report_payables`, `report_cash`, `report_work_acts` | отчёты, `SECURITY INVOKER` (Д-75) |
+
+**Защита**
+- Утверждённый акт неизменяем: `guard_lines` (строки — только в DRAFT) + `guard_work_act` (у утверждённого
+  меняются только поля отмены; удаляется только черновик). CHECK: утвердил/отклонил ≠ автор.
+- Параллельные утверждения сериализуются блокировкой строки акта; обязательство одно —
+  `UNIQUE(source_doc_type, source_doc_id)` в `payables`.
+- `private.allowed_transition` дополнен актами и задачами; статус задачи меняет только функция (`guard_document`).
+
+**Права (изменения матрицы §3)**
+- `work_rates.manage` — управляющий.
+- `work_acts.view_approved` — кассир (вместо `work_acts.view`).
+- `tasks.view` снято у склада, кассира и прораба — они видят только свои задачи через `tasks.execute`.
+
+**Приложение**
+- `/crews/acts` — акты, mobile-first форма прораба, карточка с действиями.
+- `/crews/teams` — бригады, состав, тарифы.
+- `/tasks` — задачи с подсветкой просрочки, крупными кнопками переходов, фото и обсуждением.
+- `/reports/<вид>` — отчёты с экспортом `/reports/<вид>/export?format=csv|xlsx`.
+- Оплата бригадам: `/finance/pay/crew/[crewId]` — та же форма долга, категория CREW_ACT.

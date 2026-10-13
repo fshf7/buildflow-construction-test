@@ -17,7 +17,7 @@ export function Attachments({
   revalidate,
   label = "Прикрепить файл",
 }: {
-  docType: "SUPPLIER_INVOICE" | "GOODS_RECEIPT";
+  docType: "SUPPLIER_INVOICE" | "GOODS_RECEIPT" | "TASK" | "WORK_ACT";
   docId: string;
   files: { id: string; fileName: string; url: string | null }[];
   canUpload: boolean;

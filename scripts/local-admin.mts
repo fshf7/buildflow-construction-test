@@ -5,7 +5,7 @@ type LocalAccount = {
   email: string;
   password: string;
   fullName: string;
-  role: "org_admin" | "foreman" | "accountant" | "warehouse" | "cashier";
+  role: "org_admin" | "foreman" | "accountant" | "warehouse" | "cashier" | "project_manager";
 };
 
 export const LOCAL_ADMIN = {
@@ -47,9 +47,27 @@ export const LOCAL_CASHIER = {
   role: "cashier",
 } as const satisfies LocalAccount;
 
+/** Управляющий объекта DEMO: утверждает акты, ставит задачи и тарифы (фаза 4). */
+export const LOCAL_PM = {
+  email: "pm@buildflow.local",
+  password: "buildflow-local",
+  fullName: "Управляющий Демо",
+  role: "project_manager",
+} as const satisfies LocalAccount;
+
+/** Управляющий другого объекта (WEST): проверка «чужой объект не виден». */
+export const LOCAL_PM2 = {
+  email: "pm2@buildflow.local",
+  password: "buildflow-local",
+  fullName: "Управляющий Запад",
+  role: "project_manager",
+} as const satisfies LocalAccount;
+
 export const LOCAL_MEMBERS = [
   LOCAL_FOREMAN,
   LOCAL_ACCOUNTANT,
   LOCAL_STOREKEEPER,
   LOCAL_CASHIER,
+  LOCAL_PM,
+  LOCAL_PM2,
 ] as const;

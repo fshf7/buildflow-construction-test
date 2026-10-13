@@ -485,6 +485,60 @@ export type Database = {
           },
         ];
       };
+      crew_members: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          crew_id: string;
+          full_name: string;
+          id: string;
+          is_active: boolean;
+          organization_id: string;
+          phone: string | null;
+          position: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          crew_id: string;
+          full_name: string;
+          id?: string;
+          is_active?: boolean;
+          organization_id: string;
+          phone?: string | null;
+          position?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          crew_id?: string;
+          full_name?: string;
+          id?: string;
+          is_active?: boolean;
+          organization_id?: string;
+          phone?: string | null;
+          position?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "crew_members_crew_id_organization_id_fkey";
+            columns: ["crew_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "crew_members_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       crews: {
         Row: {
           created_at: string;
@@ -2656,6 +2710,149 @@ export type Database = {
           },
         ];
       };
+      task_comments: {
+        Row: {
+          body: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          organization_id: string;
+          project_id: string;
+          task_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          body: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          organization_id: string;
+          project_id: string;
+          task_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          body?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          organization_id?: string;
+          project_id?: string;
+          task_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_organization_id_project_id_fkey";
+            columns: ["task_id", "organization_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id", "organization_id", "project_id"];
+          },
+        ];
+      };
+      tasks: {
+        Row: {
+          assignee_member_id: string;
+          block_id: string | null;
+          blocked_reason: string | null;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          due_date: string | null;
+          floor_id: string | null;
+          id: string;
+          number: string | null;
+          organization_id: string;
+          posted_at: string | null;
+          priority: Database["public"]["Enums"]["task_priority"];
+          project_id: string;
+          status: Database["public"]["Enums"]["task_status"];
+          status_comment: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          assignee_member_id: string;
+          block_id?: string | null;
+          blocked_reason?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          due_date?: string | null;
+          floor_id?: string | null;
+          id?: string;
+          number?: string | null;
+          organization_id: string;
+          posted_at?: string | null;
+          priority?: Database["public"]["Enums"]["task_priority"];
+          project_id: string;
+          status?: Database["public"]["Enums"]["task_status"];
+          status_comment?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          assignee_member_id?: string;
+          block_id?: string | null;
+          blocked_reason?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          due_date?: string | null;
+          floor_id?: string | null;
+          id?: string;
+          number?: string | null;
+          organization_id?: string;
+          posted_at?: string | null;
+          priority?: Database["public"]["Enums"]["task_priority"];
+          project_id?: string;
+          status?: Database["public"]["Enums"]["task_status"];
+          status_comment?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assignee_member_id_organization_id_fkey";
+            columns: ["assignee_member_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_members";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "tasks_block_id_project_id_fkey";
+            columns: ["block_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id", "project_id"];
+          },
+          {
+            foreignKeyName: "tasks_floor_id_block_id_fkey";
+            columns: ["floor_id", "block_id"];
+            isOneToOne: false;
+            referencedRelation: "floors";
+            referencedColumns: ["id", "block_id"];
+          },
+          {
+            foreignKeyName: "tasks_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
       units_of_measure: {
         Row: {
           code: string;
@@ -2741,6 +2938,298 @@ export type Database = {
             columns: ["project_id", "organization_id"];
             isOneToOne: false;
             referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
+      work_completion_acts: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          crew_id: string;
+          currency: string;
+          doc_date: string;
+          id: string;
+          note: string | null;
+          number: string | null;
+          organization_id: string;
+          period_from: string | null;
+          period_to: string | null;
+          posted_at: string | null;
+          posted_by: string | null;
+          project_id: string;
+          reject_reason: string | null;
+          rejected_at: string | null;
+          rejected_by: string | null;
+          replaces_act_id: string | null;
+          status: Database["public"]["Enums"]["work_act_status"];
+          status_comment: string | null;
+          total_amount: number;
+          updated_at: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          crew_id: string;
+          currency?: string;
+          doc_date?: string;
+          id?: string;
+          note?: string | null;
+          number?: string | null;
+          organization_id: string;
+          period_from?: string | null;
+          period_to?: string | null;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id: string;
+          reject_reason?: string | null;
+          rejected_at?: string | null;
+          rejected_by?: string | null;
+          replaces_act_id?: string | null;
+          status?: Database["public"]["Enums"]["work_act_status"];
+          status_comment?: string | null;
+          total_amount?: number;
+          updated_at?: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          crew_id?: string;
+          currency?: string;
+          doc_date?: string;
+          id?: string;
+          note?: string | null;
+          number?: string | null;
+          organization_id?: string;
+          period_from?: string | null;
+          period_to?: string | null;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id?: string;
+          reject_reason?: string | null;
+          rejected_at?: string | null;
+          rejected_by?: string | null;
+          replaces_act_id?: string | null;
+          status?: Database["public"]["Enums"]["work_act_status"];
+          status_comment?: string | null;
+          total_amount?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_completion_acts_crew_id_organization_id_fkey";
+            columns: ["crew_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "work_completion_acts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_completion_acts_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "work_completion_acts_replaces_act_id_fkey";
+            columns: ["replaces_act_id"];
+            isOneToOne: false;
+            referencedRelation: "work_completion_acts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      work_completion_items: {
+        Row: {
+          amount: number | null;
+          block_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          floor_id: string | null;
+          id: string;
+          line_no: number;
+          note: string | null;
+          organization_id: string;
+          project_id: string;
+          quantity: number;
+          rate: number;
+          unit_id: string;
+          updated_at: string;
+          work_completion_act_id: string;
+          work_rate_id: string;
+          work_type: string;
+        };
+        Insert: {
+          amount?: number | null;
+          block_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          floor_id?: string | null;
+          id?: string;
+          line_no: number;
+          note?: string | null;
+          organization_id: string;
+          project_id: string;
+          quantity: number;
+          rate: number;
+          unit_id: string;
+          updated_at?: string;
+          work_completion_act_id: string;
+          work_rate_id: string;
+          work_type: string;
+        };
+        Update: {
+          amount?: number | null;
+          block_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          floor_id?: string | null;
+          id?: string;
+          line_no?: number;
+          note?: string | null;
+          organization_id?: string;
+          project_id?: string;
+          quantity?: number;
+          rate?: number;
+          unit_id?: string;
+          updated_at?: string;
+          work_completion_act_id?: string;
+          work_rate_id?: string;
+          work_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_completion_items_block_id_project_id_fkey";
+            columns: ["block_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id", "project_id"];
+          },
+          {
+            foreignKeyName: "work_completion_items_floor_id_block_id_fkey";
+            columns: ["floor_id", "block_id"];
+            isOneToOne: false;
+            referencedRelation: "floors";
+            referencedColumns: ["id", "block_id"];
+          },
+          {
+            foreignKeyName: "work_completion_items_unit_id_organization_id_fkey";
+            columns: ["unit_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "units_of_measure";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "work_completion_items_work_completion_act_id_organization__fkey";
+            columns: ["work_completion_act_id", "organization_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "work_completion_acts";
+            referencedColumns: ["id", "organization_id", "project_id"];
+          },
+          {
+            foreignKeyName: "work_completion_items_work_rate_id_fkey";
+            columns: ["work_rate_id"];
+            isOneToOne: false;
+            referencedRelation: "work_rates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      work_rates: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          crew_id: string;
+          currency: string;
+          id: string;
+          note: string | null;
+          organization_id: string;
+          project_id: string | null;
+          rate: number;
+          unit_id: string;
+          updated_at: string;
+          valid_from: string;
+          work_type: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          crew_id: string;
+          currency?: string;
+          id?: string;
+          note?: string | null;
+          organization_id: string;
+          project_id?: string | null;
+          rate: number;
+          unit_id: string;
+          updated_at?: string;
+          valid_from: string;
+          work_type: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          crew_id?: string;
+          currency?: string;
+          id?: string;
+          note?: string | null;
+          organization_id?: string;
+          project_id?: string | null;
+          rate?: number;
+          unit_id?: string;
+          updated_at?: string;
+          valid_from?: string;
+          work_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_rates_crew_id_organization_id_fkey";
+            columns: ["crew_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "work_rates_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_rates_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "work_rates_unit_id_organization_id_fkey";
+            columns: ["unit_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "units_of_measure";
             referencedColumns: ["id", "organization_id"];
           },
         ];
@@ -3019,6 +3508,53 @@ export type Database = {
           },
         ];
       };
+      task_attachments: {
+        Row: {
+          created_at: string | null;
+          created_by: string | null;
+          file_name: string | null;
+          id: string | null;
+          mime_type: string | null;
+          organization_id: string | null;
+          project_id: string | null;
+          size_bytes: number | null;
+          storage_path: string | null;
+          task_id: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          created_by?: string | null;
+          file_name?: string | null;
+          id?: string | null;
+          mime_type?: string | null;
+          organization_id?: string | null;
+          project_id?: string | null;
+          size_bytes?: number | null;
+          storage_path?: string | null;
+          task_id?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          created_by?: string | null;
+          file_name?: string | null;
+          id?: string | null;
+          mime_type?: string | null;
+          organization_id?: string | null;
+          project_id?: string | null;
+          size_bytes?: number | null;
+          storage_path?: string | null;
+          task_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "document_attachments_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       add_document_attachment: {
@@ -3044,6 +3580,10 @@ export type Database = {
         };
         Returns: string;
       };
+      add_task_comment: {
+        Args: { p_body: string; p_id: string; p_task_id: string };
+        Returns: string;
+      };
       approve_cash_reversal: {
         Args: { p_comment: string; p_id: string; p_key: string };
         Returns: Json;
@@ -3056,6 +3596,7 @@ export type Database = {
         Args: { p_comment: string; p_id: string; p_key: string };
         Returns: Json;
       };
+      approve_work_act: { Args: { p_id: string; p_key: string }; Returns: Json };
       cancel_payment_request: {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
@@ -3065,6 +3606,10 @@ export type Database = {
         Returns: Json;
       };
       cancel_supplier_invoice: {
+        Args: { p_id: string; p_key: string; p_reason: string };
+        Returns: Json;
+      };
+      cancel_work_act: {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
       };
@@ -3088,6 +3633,15 @@ export type Database = {
           reversed_at: string;
           transaction_id: string;
         }[];
+      };
+      change_task_status: {
+        Args: {
+          p_comment: string;
+          p_id: string;
+          p_key: string;
+          p_status: Database["public"]["Enums"]["task_status"];
+        };
+        Returns: Json;
       };
       check_cash_consistency: {
         Args: { p_org: string };
@@ -3114,6 +3668,10 @@ export type Database = {
       confirm_supplier_invoice: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
+      };
+      copy_work_act: {
+        Args: { p_new_id: string; p_source: string };
+        Returns: string;
       };
       create_organization: {
         Args: {
@@ -3149,6 +3707,7 @@ export type Database = {
         Args: { p_id: string };
         Returns: undefined;
       };
+      delete_work_act_draft: { Args: { p_id: string }; Returns: undefined };
       find_user_id_by_email: { Args: { p_email: string }; Returns: string };
       issue_purchase_request: {
         Args: { p_id: string; p_key: string };
@@ -3193,6 +3752,107 @@ export type Database = {
       reject_cash_reversal: {
         Args: { p_comment: string; p_id: string; p_key: string };
         Returns: Json;
+      };
+      reject_work_act: {
+        Args: { p_comment: string; p_id: string; p_key: string };
+        Returns: Json;
+      };
+      report_cash: {
+        Args: {
+          p_account?: string;
+          p_from?: string;
+          p_org: string;
+          p_to?: string;
+        };
+        Returns: {
+          account_id: string;
+          account_name: string;
+          closing: number;
+          currency: string;
+          expense: number;
+          income: number;
+          opening: number;
+        }[];
+      };
+      report_material_issues: {
+        Args: {
+          p_block?: string;
+          p_crew?: string;
+          p_floor?: string;
+          p_from?: string;
+          p_org: string;
+          p_project?: string;
+          p_to?: string;
+        };
+        Returns: {
+          block_name: string;
+          crew_name: string;
+          floor_name: string;
+          issued: number;
+          material_name: string;
+          net: number;
+          project_code: string;
+          returned: number;
+          unit_code: string;
+        }[];
+      };
+      report_payables: {
+        Args: {
+          p_kind?: Database["public"]["Enums"]["payable_counterparty"];
+          p_open_only?: boolean;
+          p_org: string;
+          p_project?: string;
+        };
+        Returns: {
+          amount: number;
+          counterparty_kind: Database["public"]["Enums"]["payable_counterparty"];
+          counterparty_name: string;
+          currency: string;
+          doc_date: string;
+          last_payment_date: string;
+          paid: number;
+          payable_id: string;
+          project_code: string;
+          remaining: number;
+          source_doc_type: Database["public"]["Enums"]["document_type"];
+          source_number: string;
+          status: Database["public"]["Enums"]["payable_status"];
+        }[];
+      };
+      report_stock_balances: {
+        Args: { p_org: string; p_project?: string };
+        Returns: {
+          material_id: string;
+          material_name: string;
+          project_code: string;
+          project_id: string;
+          project_name: string;
+          quantity: number;
+          unit_code: string;
+          warehouse_name: string;
+        }[];
+      };
+      report_work_acts: {
+        Args: {
+          p_crew?: string;
+          p_from?: string;
+          p_org: string;
+          p_project?: string;
+          p_status?: Database["public"]["Enums"]["work_act_status"];
+          p_to?: string;
+        };
+        Returns: {
+          act_id: string;
+          crew_name: string;
+          currency: string;
+          doc_date: string;
+          number: string;
+          paid: number;
+          project_code: string;
+          remaining: number;
+          status: Database["public"]["Enums"]["work_act_status"];
+          total: number;
+        }[];
       };
       request_cash_reversal: {
         Args: { p_id: string; p_key: string; p_reason: string };
@@ -3352,6 +4012,47 @@ export type Database = {
         };
         Returns: string;
       };
+      save_task: {
+        Args: {
+          p_assignee_member_id: string;
+          p_block_id: string;
+          p_description: string;
+          p_due_date: string;
+          p_floor_id: string;
+          p_id: string;
+          p_priority: Database["public"]["Enums"]["task_priority"];
+          p_project_id: string;
+          p_title: string;
+        };
+        Returns: Json;
+      };
+      save_work_act_draft: {
+        Args: {
+          p_crew_id: string;
+          p_doc_date: string;
+          p_id: string;
+          p_lines: Json;
+          p_note: string;
+          p_period_from: string;
+          p_period_to: string;
+          p_project_id: string;
+        };
+        Returns: string;
+      };
+      save_work_rate: {
+        Args: {
+          p_crew_id: string;
+          p_currency: string;
+          p_id: string;
+          p_note: string;
+          p_project_id: string;
+          p_rate: number;
+          p_unit_id: string;
+          p_valid_from: string;
+          p_work_type: string;
+        };
+        Returns: string;
+      };
       set_member_projects: {
         Args: {
           p_all_projects: boolean;
@@ -3380,6 +4081,15 @@ export type Database = {
         Args: { p_id: string; p_key: string };
         Returns: Json;
       };
+      submit_work_act: { Args: { p_id: string; p_key: string }; Returns: Json };
+      task_assignees: {
+        Args: { p_project_id: string };
+        Returns: {
+          full_name: string;
+          member_id: string;
+          roles: string[];
+        }[];
+      };
       update_member: {
         Args: {
           p_all_projects: boolean;
@@ -3391,6 +4101,19 @@ export type Database = {
           p_role_codes: string[];
         };
         Returns: undefined;
+      };
+      work_act_duplicates: {
+        Args: { p_id: string };
+        Returns: {
+          act_id: string;
+          block_name: string;
+          doc_date: string;
+          floor_name: string;
+          number: string;
+          quantity: number;
+          status: Database["public"]["Enums"]["work_act_status"];
+          work_type: string;
+        }[];
       };
     };
     Enums: {
@@ -3452,6 +4175,9 @@ export type Database = {
         | "ADJUSTMENT"
         | "OPENING_REVERSAL";
       supplier_invoice_status: "ENTERED" | "UNDER_REVIEW" | "CONFIRMED" | "CANCELLED";
+      task_priority: "LOW" | "NORMAL" | "HIGH";
+      task_status: "NEW" | "IN_PROGRESS" | "ON_REVIEW" | "DONE" | "BLOCKED" | "CANCELLED";
+      work_act_status: "DRAFT" | "REVIEW" | "APPROVED" | "REJECTED" | "CANCELLED";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -3641,6 +4367,9 @@ export const Constants = {
         "OPENING_REVERSAL",
       ],
       supplier_invoice_status: ["ENTERED", "UNDER_REVIEW", "CONFIRMED", "CANCELLED"],
+      task_priority: ["LOW", "NORMAL", "HIGH"],
+      task_status: ["NEW", "IN_PROGRESS", "ON_REVIEW", "DONE", "BLOCKED", "CANCELLED"],
+      work_act_status: ["DRAFT", "REVIEW", "APPROVED", "REJECTED", "CANCELLED"],
     },
   },
 } as const;

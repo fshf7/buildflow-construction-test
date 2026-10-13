@@ -20,15 +20,15 @@ import { MoneyInput } from "./money-input";
 const cents = (v: number) => Math.round(v * 100);
 
 /**
- * Оплата долгов поставщику (US-06): одна операция может гасить несколько обязательств (Д-63),
- * частично или полностью. Показываем сумму оплаты и сколько долга останется.
+ * Оплата долгов поставщику или бригаде (US-06, BP-05): одна операция может гасить несколько
+ * обязательств одного контрагента (Д-63), частично или полностью. Показываем сумму оплаты и сколько долга останется.
  */
 export function PayDebtForm({
-  supplierId,
+  counterparty,
   payables,
   accounts,
 }: {
-  supplierId: string;
+  counterparty: { kind: "SUPPLIER" | "CREW"; id: string };
   payables: PayableRow[];
   accounts: AccountRow[];
 }) {
@@ -59,12 +59,13 @@ export function PayDebtForm({
         key,
         accountId,
         direction: "OUT",
-        category: "SUPPLIER",
+        category: counterparty.kind === "CREW" ? "CREW_ACT" : "SUPPLIER",
         amount: (payCents / 100).toFixed(2),
         projectId: "",
-        supplierId,
+        supplierId: counterparty.kind === "SUPPLIER" ? counterparty.id : "",
+        crewId: counterparty.kind === "CREW" ? counterparty.id : "",
         counterpartyName: "",
-        basis: "Оплата поставщику",
+        basis: counterparty.kind === "CREW" ? "Оплата бригаде по актам" : "Оплата поставщику",
         allocations: payables.map((p) => ({
           payableId: p.id,
           paymentRequestId: "",

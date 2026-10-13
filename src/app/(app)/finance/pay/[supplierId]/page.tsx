@@ -22,7 +22,11 @@ export default async function PaySupplierPage({ params }: PageProps<"/finance/pa
         title={payables[0]!.supplierName}
         description="Укажите, сколько платите по каждому обязательству."
       />
-      <PayDebtForm supplierId={supplierId} payables={payables} accounts={accounts} />
+      <PayDebtForm
+        counterparty={{ kind: "SUPPLIER", id: supplierId }}
+        payables={payables}
+        accounts={accounts}
+      />
     </div>
   );
 }

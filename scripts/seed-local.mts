@@ -17,6 +17,8 @@ import {
   LOCAL_FOREMAN,
   LOCAL_MEMBERS,
   LOCAL_ORG_NAME,
+  LOCAL_PM,
+  LOCAL_PM2,
   LOCAL_STOREKEEPER,
 } from "./local-admin.mts";
 import { readLocalSupabase } from "./local-supabase.mts";
@@ -214,6 +216,126 @@ async function ensureDemoProject(
   console.log("Создан демо-объект DEMO с бригадой, материалами и поставщиками");
 }
 
+/**
+ * Фаза 4: управляющий DEMO, второй объект WEST со своим управляющим, состав бригады и
+ * тарифы (Фасад — 30 TJS/м² на DEMO; Штукатурка — 12,5 TJS/м² на всех объектах). Один раз.
+ */
+async function ensurePhase4Demo(
+  admin: SupabaseClient,
+  orgId: string,
+  adminId: string,
+): Promise<void> {
+  const { data: west } = await admin
+    .from("projects")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("code", "WEST")
+    .maybeSingle();
+  if (west) return;
+
+  const must = <T,>(r: { data: T; error: { message: string } | null }): NonNullable<T> => {
+    if (r.error || !r.data) throw new Error(r.error?.message ?? "пустой ответ");
+    return r.data as NonNullable<T>;
+  };
+  const demo = must(
+    await admin
+      .from("projects")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("code", "DEMO")
+      .single(),
+  );
+  const westProject = must(
+    await admin
+      .from("projects")
+      .insert({ organization_id: orgId, code: "WEST", name: "ЖК Запад", created_by: adminId })
+      .select("id")
+      .single(),
+  );
+  const members = must(
+    await admin
+      .from("organization_members")
+      .select("id, email")
+      .eq("organization_id", orgId)
+      .in("email", [LOCAL_PM.email, LOCAL_PM2.email]),
+  );
+  const id = (email: string) => members.find((m) => m.email === email)!.id;
+  must(
+    await admin
+      .from("project_members")
+      .insert([
+        { organization_id: orgId, project_id: demo.id, member_id: id(LOCAL_PM.email) },
+        { organization_id: orgId, project_id: westProject.id, member_id: id(LOCAL_PM2.email) },
+      ])
+      .select("id"),
+  );
+  const crew = must(
+    await admin
+      .from("crews")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("name", "Бригада Демо")
+      .single(),
+  );
+  must(
+    await admin
+      .from("crew_members")
+      .insert([
+        {
+          organization_id: orgId,
+          crew_id: crew.id,
+          full_name: "Каримов Бахтиёр",
+          position: "Бригадир",
+        },
+        {
+          organization_id: orgId,
+          crew_id: crew.id,
+          full_name: "Рахимов Фарход",
+          position: "Штукатур",
+        },
+      ])
+      .select("id"),
+  );
+  const m2 = must(
+    await admin
+      .from("units_of_measure")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("code", "м²")
+      .single(),
+  );
+  must(
+    await admin
+      .from("work_rates")
+      .insert([
+        {
+          organization_id: orgId,
+          crew_id: crew.id,
+          project_id: demo.id,
+          work_type: "Фасад",
+          unit_id: m2.id,
+          rate: 30,
+          currency: "TJS",
+          valid_from: "2026-01-01",
+          created_by: adminId,
+        },
+        {
+          organization_id: orgId,
+          crew_id: crew.id,
+          project_id: null,
+          work_type: "Штукатурка",
+          unit_id: m2.id,
+          rate: 12.5,
+          currency: "TJS",
+          valid_from: "2026-01-01",
+          created_by: adminId,
+        },
+      ])
+      .select("id"),
+  );
+  console.log("Фаза 4: управляющие, объект WEST, состав бригады и тарифы");
+}
+
 export async function seedLocal({ resetMfa = false }: { resetMfa?: boolean } = {}): Promise<void> {
   const { apiUrl, secretKey } = readLocalSupabase();
   const admin = createClient(apiUrl, secretKey, {
@@ -245,6 +367,7 @@ export async function seedLocal({ resetMfa = false }: { resetMfa?: boolean } = {
   }
 
   await ensureDemoProject(admin, org.id, adminId);
+  await ensurePhase4Demo(admin, org.id, adminId);
 
   if (resetMfa) {
     await deleteFactors(admin, adminId);

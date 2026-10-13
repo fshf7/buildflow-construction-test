@@ -70,7 +70,7 @@ export async function quickCash(input: unknown): Promise<ActionResult<Posted>> {
     p_amount: toNumber(v.amount),
     p_project_id: (v.projectId || null) as string,
     p_counterparty_supplier_id: (v.supplierId || null) as string,
-    p_counterparty_crew_id: null as unknown as string,
+    p_counterparty_crew_id: (v.crewId || null) as string,
     p_counterparty_name: v.counterpartyName,
     p_basis: v.basis,
     p_note: "",

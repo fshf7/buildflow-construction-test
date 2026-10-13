@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, Plus } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -153,7 +154,9 @@ export function CrewsSection({
             <li key={c.id} className="flex items-center justify-between gap-3 p-3">
               <span className="flex min-w-0 flex-col">
                 <span className="flex items-center gap-2 font-medium">
-                  {c.name}
+                  <Link href={`/crews/teams/${c.id}`} className="hover:underline">
+                    {c.name}
+                  </Link>
                   {c.isActive ? null : <Badge variant="secondary">Архив</Badge>}
                 </span>
                 <span className="text-xs text-muted-foreground">

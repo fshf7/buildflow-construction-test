@@ -1,6 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
-import { LOCAL_ORG_NAME, LOCAL_STOREKEEPER } from "../../scripts/local-admin.mts";
+import {
+  LOCAL_FOREMAN,
+  LOCAL_ORG_NAME,
+  LOCAL_PM,
+  LOCAL_STOREKEEPER,
+} from "../../scripts/local-admin.mts";
 import { readLocalSupabase } from "../../scripts/local-supabase.mts";
 
 /**
@@ -174,4 +179,105 @@ export async function createCashAccount(name: string) {
     .single();
   if (error) throw error;
   return data.id as string;
+}
+
+/**
+ * Фаза 4: свой объект с блоком и этажом; прораб, управляющий (pm@) и кладовщик назначены;
+ * бригада прораба с тарифами «Фасад» 30 TJS/м² и «Штукатурка» 12,5 TJS/м² (как ставит управляющий).
+ * Управляющий pm2@ на объект не назначен — для проверки «чужой объект».
+ */
+export async function createWorkFixture() {
+  const local = readLocalSupabase();
+  const db = createClient(local.apiUrl, local.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const run = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  const one = async <T>(
+    q: PromiseLike<{ data: T; error: { message: string } | null }>,
+  ): Promise<NonNullable<T>> => {
+    const { data, error } = await q;
+    if (error || !data) throw new Error(error?.message ?? "пустой ответ");
+    return data as NonNullable<T>;
+  };
+  const org = await one(db.from("organizations").select("id").eq("name", LOCAL_ORG_NAME).single());
+  const project = await one(
+    db
+      .from("projects")
+      .insert({ organization_id: org.id, code: `W${run}`, name: `Объект работ ${run}` })
+      .select("id, code, name")
+      .single(),
+  );
+  const block = await one(
+    db
+      .from("blocks")
+      .insert({ organization_id: org.id, project_id: project.id, name: "Блок В" })
+      .select("id")
+      .single(),
+  );
+  await one(
+    db
+      .from("floors")
+      .insert({ organization_id: org.id, project_id: project.id, block_id: block.id, name: "7" })
+      .select("id"),
+  );
+  const members = await one(
+    db
+      .from("organization_members")
+      .select("id, email")
+      .eq("organization_id", org.id)
+      .in("email", [LOCAL_FOREMAN.email, LOCAL_PM.email, LOCAL_STOREKEEPER.email]),
+  );
+  await one(
+    db
+      .from("project_members")
+      .insert(
+        members.map((m) => ({ organization_id: org.id, project_id: project.id, member_id: m.id })),
+      )
+      .select("id"),
+  );
+  const foreman = members.find((m) => m.email === LOCAL_FOREMAN.email)!;
+  const crew = await one(
+    db
+      .from("crews")
+      .insert({
+        organization_id: org.id,
+        name: `Бригада работ ${run}`,
+        foreman_member_id: foreman.id,
+      })
+      .select("id, name")
+      .single(),
+  );
+  const m2 = await one(
+    db
+      .from("units_of_measure")
+      .select("id")
+      .eq("organization_id", org.id)
+      .eq("code", "м²")
+      .single(),
+  );
+  await one(
+    db
+      .from("work_rates")
+      .insert(
+        [
+          ["Фасад", 30],
+          ["Штукатурка", 12.5],
+        ].map(([workType, rate]) => ({
+          organization_id: org.id,
+          crew_id: crew.id,
+          project_id: project.id,
+          work_type: workType as string,
+          unit_id: m2.id,
+          rate: rate as number,
+          valid_from: "2026-01-01",
+        })),
+      )
+      .select("id"),
+  );
+  return {
+    projectId: project.id,
+    projectLabel: `${project.code} — ${project.name}`,
+    crew: crew.name,
+    crewId: crew.id,
+  };
 }

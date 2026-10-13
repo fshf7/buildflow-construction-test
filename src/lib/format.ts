@@ -21,6 +21,18 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   return value ? dateTimeFmt.format(new Date(value)) : "—";
 }
 
+const isoDateFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Бизнес-дата «сегодня» по Душанбе в формате YYYY-MM-DD — как private.today() в БД. */
+export function businessToday(now: Date = new Date()): string {
+  return isoDateFmt.format(now);
+}
+
 /** Дата без времени ('2026-10-12' из Postgres date) — без сдвига часового пояса. */
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
