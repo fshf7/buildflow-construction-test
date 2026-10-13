@@ -20,6 +20,12 @@ type PgLikeError = { code?: string; message?: string; details?: string | null } 
 const qty = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 4 });
 const q = (v: unknown, unit?: unknown) =>
   `${qty.format(Number(v))}${unit ? ` ${String(unit)}` : ""}`;
+const moneyFmt = new Intl.NumberFormat("ru-RU", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const money = (v: unknown, currency?: unknown) =>
+  `${moneyFmt.format(Number(v))}${currency ? ` ${String(currency)}` : ""}`;
 
 /** Ошибки с подробностями в detail (JSON из БД) — сообщение с цифрами (Д-19). */
 function detailedMessage(message: string, details: string | null | undefined): string | null {
@@ -32,6 +38,15 @@ function detailedMessage(message: string, details: string | null | undefined): s
   }
   if (message === "BF_NEGATIVE_STOCK") {
     return `Недостаточно на складе: ${String(d.material)} — есть ${q(d.available, d.unit)}, нужно ${q(d.required, d.unit)}`;
+  }
+  if (message === "BF_NEGATIVE_CASH") {
+    return `Недостаточно денег: «${String(d.account)}» — на счёте ${money(d.balance, d.currency)}, нужно ${money(d.required, d.currency)}`;
+  }
+  if (message === "BF_OVERPAYMENT") {
+    return `Сумма больше долга: осталось оплатить ${money(d.remaining, d.currency)}, указано ${money(d.requested, d.currency)}`;
+  }
+  if (message === "BF_ALLOCATION_MISMATCH" && d.amount !== undefined) {
+    return `Сумма распределения (${money(d.allocated)}) не равна сумме операции (${money(d.amount)})`;
   }
   if (message === "BF_RETURN_EXCEEDS_ISSUED") {
     return `Нельзя вернуть больше выданного: ${String(d.material)} — выдано ${q(d.issued, d.unit)}, уже возвращено ${q(d.returned, d.unit)}, к возврату ${q(d.requested, d.unit)}`;
@@ -74,6 +89,15 @@ const BF_MESSAGES: Record<string, string> = {
   BF_NO_WAREHOUSE: "У объекта нет склада",
   BF_NEGATIVE_STOCK: "Недостаточно материала на складе",
   BF_RETURN_EXCEEDS_ISSUED: "Нельзя вернуть больше выданного",
+  BF_NEGATIVE_CASH: "Недостаточно денег в кассе",
+  BF_OVERPAYMENT: "Сумма больше остатка долга",
+  BF_ALLOCATION_MISMATCH:
+    "Оплата не соответствует основанию: проверьте поставщика, обязательства и суммы",
+  BF_CURRENCY_MISMATCH: "Валюта кассы и долга различаются — конвертации нет",
+  BF_REQUEST_NOT_APPROVED: "Счёт на оплату не согласован или назначение не совпадает",
+  BF_SELF_APPROVAL: "Согласовать собственный документ нельзя",
+  BF_ACCOUNT_INACTIVE: "Касса в архиве или недоступна",
+  BF_ACCOUNT_HAS_OPERATIONS: "По кассе уже есть операции — валюту менять нельзя",
 };
 
 export function dbErrorMessage(error: PgLikeError): string {

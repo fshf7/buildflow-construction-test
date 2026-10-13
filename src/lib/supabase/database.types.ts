@@ -1772,6 +1772,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "payables_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
             foreignKeyName: "payables_supplier_id_organization_id_fkey";
             columns: ["supplier_id", "organization_id"];
             isOneToOne: false;

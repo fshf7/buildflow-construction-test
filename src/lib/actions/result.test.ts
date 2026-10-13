@@ -26,6 +26,24 @@ describe("dbErrorMessage", () => {
     );
   });
 
+  it("минус кассы — с текущим балансом (Д-19)", () => {
+    expect(
+      dbErrorMessage({
+        message: "BF_NEGATIVE_CASH",
+        details: '{"account": "Касса", "balance": 90000.00, "required": 100000, "currency": "TJS"}',
+      }),
+    ).toBe("Недостаточно денег: «Касса» — на счёте 90\u00a0000,00 TJS, нужно 100\u00a0000,00 TJS");
+  });
+
+  it("переплата — с остатком долга", () => {
+    expect(
+      dbErrorMessage({
+        message: "BF_OVERPAYMENT",
+        details: '{"remaining": 90000.00, "requested": 90000.01, "currency": "TJS"}',
+      }),
+    ).toBe("Сумма больше долга: осталось оплатить 90\u00a0000,00 TJS, указано 90\u00a0000,01 TJS");
+  });
+
   it("известный код без подробностей", () => {
     expect(dbErrorMessage({ message: "BF_INVALID_STATUS" })).toBe(
       "Документ уже в другом статусе — обновите страницу",

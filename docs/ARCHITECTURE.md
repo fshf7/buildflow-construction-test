@@ -1192,3 +1192,28 @@ idempotency_keys (
 Тесты: pgTAP `030_procurement` (26), `040_warehouse` (54), `050_prices` (27); интеграционные
 `tests/integration` (параллельность, цены через REST/Storage); E2E `procurement-warehouse.spec.ts`.
 
+## 12. Фаза 3 — финансы и ввод остатков (миграции `20261015000000…000200`)
+
+**Отличия от §2.6:** у `cash_accounts` нет `opening_balance/opening_date` — начальный баланс вводится документом
+«Ввод остатков» (Д-61); есть кэш `balance` (Д-62). У `cash_transactions` добавлены `kind` (REGULAR / REVERSAL /
+OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. У `payables` — `basis` (основание введённого долга)
+и FK на объект. `payments` — представление (Д-11).
+
+| Документ | Черновик | Переходы |
+|---|---|---|
+| Кассовая операция | `save_cash_transaction_draft` (распределения в JSON) | `post_cash_transaction`, `reverse_cash_transaction` |
+| Счёт на оплату | `save_payment_request_draft` | `submit_ / approve_ / return_ / cancel_payment_request` (согласующий по назначению, Д-13; ≠ автор, Д-14) |
+| Ввод остатков | `save_opening_balance_draft` | `post_opening_balance`, `reverse_opening_balance` |
+| Касса | `save_cash_account` | — |
+
+Проведение расхода (Д-63, Д-64): Σ распределений = сумма; основание по категории; блокировки «операция →
+обязательства/счета → касса»; `BF_OVERPAYMENT` / `BF_NEGATIVE_CASH` с цифрами в detail. Сторно: запись
+противоположного направления (свой номер), исходная → REVERSED, кэши пересчитываются из распределений.
+Ввод остатков: склад — движения `OPENING` (сторно `OPENING_REVERSAL`); кассы — операции `kind = OPENING`;
+долги — обязательства с источником `OPENING_BALANCE` (сторно — только без оплат).
+
+Приватность: кассы/операции/распределения — `cash.view`; счета — `payment_requests.view`; обязательства —
+`payables.view`; денежный ввод остатков — `opening_balances.manage` / `cash.view` / `payables.view`.
+Тесты: pgTAP `060_finance` (46), `070_opening` (27), `080_finance_privacy` (8); интеграционные
+`finance-concurrency.test.ts`; E2E `finance.spec.ts`.
+

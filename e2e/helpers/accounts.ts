@@ -29,15 +29,40 @@ export async function logout(page: Page) {
 
 export const ADMIN_STATE = "e2e/.auth/admin.json";
 export const ACCOUNTANT_STATE = "e2e/.auth/accountant.json";
+export const CASHIER_STATE = "e2e/.auth/cashier.json";
 
-/** Подключение второго фактора на экране /mfa (режим enroll). Возвращает секрет TOTP. */
-export async function enrollMfa(page: Page, totp: (secret: string) => string): Promise<string> {
+/**
+ * Подключение второго фактора на экране /mfa (режим enroll). Возвращает секрет TOTP.
+ * Код может «протухнуть» на границе 30-секундного окна — тогда, как человек, вводим следующий.
+ */
+export async function enrollMfa(
+  page: Page,
+  totp: (secret: string, now?: number) => string,
+): Promise<string> {
   await expect(page.getByRole("heading", { name: "Подключите второй фактор" })).toBeVisible();
   await page.getByRole("button", { name: "Подключить приложение" }).click();
   const secret = (await page.getByTestId("totp-secret").textContent())?.trim() ?? "";
   expect(secret).not.toBe("");
-  await page.getByLabel("Код из приложения").fill(totp(secret));
-  await page.getByRole("button", { name: "Подтвердить" }).click();
-  await expect(page.getByRole("heading", { name: "Главная" })).toBeVisible();
-  return secret;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    // Не отправляем код в последние 3 секунды окна — иначе он истечёт по дороге.
+    const msLeft = 30_000 - (Date.now() % 30_000);
+    if (msLeft < 3_000) await page.waitForTimeout(msLeft + 200);
+    await page.getByLabel("Код из приложения").fill(totp(secret));
+    await page.getByRole("button", { name: "Подтвердить" }).click();
+    const done = await page
+      .getByRole("heading", { name: "Главная" })
+      .waitFor({ timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (done) return secret;
+  }
+  throw new Error("Второй фактор не подтвердился за 3 попытки");
+}
+
+/** Выбор в нативном select по части текста пункта (подписи с суммами содержат неразрывные пробелы). */
+export async function selectByText(page: Page, label: string, text: string) {
+  const select = page.getByLabel(label);
+  const value = await select.locator("option", { hasText: text }).first().getAttribute("value");
+  if (!value) throw new Error(`Нет пункта «${text}» в списке «${label}»`);
+  await select.selectOption(value);
 }

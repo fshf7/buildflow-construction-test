@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import { ADMIN_STATE, enrollMfa, LOCAL_CASHIER, login } from "./helpers/accounts";
+import { ADMIN_STATE, enrollMfa, login } from "./helpers/accounts";
+import { createThrowawayMember } from "./helpers/fixture";
 import { totp } from "./helpers/totp";
 
 // Д-45: администратор сбрасывает второй фактор кассиру; тот обязан подключить его заново.
@@ -11,6 +12,8 @@ test("сброс MFA участнику: причина, аудит, повто�
 }) => {
   test.skip(isMobile, "проверяем один раз — на десктопе (общий тестовый пользователь)");
   const reason = `Потерян телефон ${Date.now()}`;
+  // Свой кассир: сброс MFA завершает все его сессии (Д-47) — общие учётки трогать нельзя.
+  const LOCAL_CASHIER = await createThrowawayMember("cashier");
 
   // 1. Кассир входит и подключает второй фактор (сброшен в global-setup).
   const accCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });

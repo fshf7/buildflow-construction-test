@@ -12,6 +12,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: CI,
   retries: CI ? 1 : 0,
+  // dev-сервер компилирует маршрут при первом заходе — даём ожиданиям запас.
+  expect: { timeout: 10_000 },
   reporter: CI ? [["github"], ["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,

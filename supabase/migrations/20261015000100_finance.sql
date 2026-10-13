@@ -153,6 +153,9 @@ create index on public.cash_transaction_allocations (payment_request_id);
 
 -- Основание обязательства (для введённых остатков долга — текст из документа «Ввод остатков»).
 alter table public.payables add column basis text;
+-- Объект обязательства — та же целостность «организация ↔ объект», что у документов (§1.4).
+alter table public.payables
+  add foreign key (project_id, organization_id) references public.projects (id, organization_id);
 
 -- Оплаты — представление (Д-11): распределения проведённых (не сторнированных) операций.
 create view public.payments with (security_invoker = true) as

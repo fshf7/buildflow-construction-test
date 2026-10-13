@@ -3,9 +3,11 @@ import { expect, test as setup } from "@playwright/test";
 import {
   ACCOUNTANT_STATE,
   ADMIN_STATE,
+  CASHIER_STATE,
   enrollMfa,
   LOCAL_ACCOUNTANT,
   LOCAL_ADMIN,
+  LOCAL_CASHIER,
   login,
 } from "./helpers/accounts";
 import { totp } from "./helpers/totp";
@@ -27,4 +29,12 @@ setup("бухгалтер: вход с подключением MFA", async ({ p
   await expect(page).toHaveURL(/\/mfa/);
   await enrollMfa(page, totp);
   await page.context().storageState({ path: ACCOUNTANT_STATE });
+});
+
+// Кассир (Д-29: роль с MFA) — для сценариев финансов.
+setup("кассир: вход с подключением MFA", async ({ page }) => {
+  await login(page, LOCAL_CASHIER.email, LOCAL_CASHIER.password);
+  await expect(page).toHaveURL(/\/mfa/);
+  await enrollMfa(page, totp);
+  await page.context().storageState({ path: CASHIER_STATE });
 });

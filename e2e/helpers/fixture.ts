@@ -107,14 +107,18 @@ export async function createWarehouseFixture() {
   };
 }
 
-/** Одноразовый участник организации (для тестов, меняющих пароль, — не мешают общим пользователям). */
-export async function createThrowawayMember(role: "warehouse" | "foreman" = "warehouse") {
+/** Одноразовый участник организации (тесты, меняющие пароль или MFA, — не мешают общим пользователям). */
+export async function createThrowawayMember(
+  role: "warehouse" | "foreman" | "cashier" = "warehouse",
+) {
   const local = readLocalSupabase();
   const db = createClient(local.apiUrl, local.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const email = `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@buildflow.local`;
   const password = "buildflow-local";
+  // Уникальное имя — по нему тест находит участника в списке.
+  const fullName = `Временный ${email.slice(4, 14)}`;
   const { data: user, error } = await db.auth.admin.createUser({
     email,
     password,
@@ -131,8 +135,9 @@ export async function createThrowawayMember(role: "warehouse" | "foreman" = "war
     .insert({
       organization_id: org!.id,
       user_id: user.user.id,
-      full_name: "Временный участник",
+      full_name: fullName,
       email,
+      all_projects: role === "cashier",
     })
     .select("id")
     .single();
@@ -147,5 +152,25 @@ export async function createThrowawayMember(role: "warehouse" | "foreman" = "war
     .from("member_roles")
     .insert({ organization_id: org!.id, member_id: member.id, role_id: roleRow!.id });
   if (rError) throw rError;
-  return { email, password };
+  return { email, password, fullName };
+}
+
+/** Касса для E2E финансов (баланс — только через «Ввод остатков» или операции). */
+export async function createCashAccount(name: string) {
+  const local = readLocalSupabase();
+  const db = createClient(local.apiUrl, local.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: org } = await db
+    .from("organizations")
+    .select("id")
+    .eq("name", LOCAL_ORG_NAME)
+    .single();
+  const { data, error } = await db
+    .from("cash_accounts")
+    .insert({ organization_id: org!.id, name, currency: "TJS" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
 }

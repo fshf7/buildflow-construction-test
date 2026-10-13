@@ -3,6 +3,7 @@ import {
   Building,
   ChartColumn,
   ClipboardList,
+  ClipboardPaste,
   HardHat,
   History,
   LayoutDashboard,
@@ -53,8 +54,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/finance",
     label: "Касса и долги",
     icon: Wallet,
-    permissions: ["cash.view", "payables.view", "payment_requests.view"],
-    ready: false,
+    permissions: ["cash.view", "payables.view", "payment_requests.view", "cash_accounts.manage"],
+    ready: true,
   },
   {
     href: "/crews",
@@ -76,6 +77,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Справочники",
     icon: BookOpen,
     permissions: ["catalog.manage"],
+    ready: true,
+  },
+  {
+    href: "/opening",
+    label: "Ввод остатков",
+    icon: ClipboardPaste,
+    permissions: ["opening_balances.manage"],
     ready: true,
   },
   {

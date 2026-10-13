@@ -37,6 +37,7 @@ export const PERMISSIONS = [
   "tasks.manage",
   "reports.view",
   "audit.view",
+  "opening_balances.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
