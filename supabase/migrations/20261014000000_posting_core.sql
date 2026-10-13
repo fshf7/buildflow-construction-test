@@ -9,7 +9,7 @@
 -- -------------------------------------------------------------------------------------
 create type public.stock_movement_type as enum (
   'RECEIPT', 'RECEIPT_REVERSAL', 'ISSUE', 'ISSUE_REVERSAL', 'RETURN', 'RETURN_REVERSAL',
-  'OPENING', 'ADJUSTMENT'   -- OPENING/ADJUSTMENT зарезервированы: TODO(TZ-open) начальные остатки, инвентаризация
+  'OPENING', 'ADJUSTMENT'   -- OPENING — «Ввод остатков» (Д-61); ADJUSTMENT зарезервирован: TODO(TZ-open) инвентаризация
 );
 create type public.payable_counterparty as enum ('SUPPLIER', 'CREW');
 create type public.payable_status as enum ('OPEN', 'PARTIALLY_PAID', 'PAID', 'CANCELLED');
