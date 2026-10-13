@@ -202,6 +202,274 @@ export type Database = {
           },
         ];
       };
+      cash_accounts: {
+        Row: {
+          account_number: string | null;
+          balance: number;
+          bank_name: string | null;
+          created_at: string;
+          created_by: string | null;
+          currency: string;
+          id: string;
+          is_active: boolean;
+          kind: Database["public"]["Enums"]["cash_account_kind"];
+          name: string;
+          organization_id: string;
+          project_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          account_number?: string | null;
+          balance?: number;
+          bank_name?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          id?: string;
+          is_active?: boolean;
+          kind?: Database["public"]["Enums"]["cash_account_kind"];
+          name: string;
+          organization_id: string;
+          project_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          account_number?: string | null;
+          balance?: number;
+          bank_name?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          id?: string;
+          is_active?: boolean;
+          kind?: Database["public"]["Enums"]["cash_account_kind"];
+          name?: string;
+          organization_id?: string;
+          project_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cash_accounts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cash_accounts_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
+      cash_transaction_allocations: {
+        Row: {
+          amount: number;
+          cash_transaction_id: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          organization_id: string;
+          payable_id: string | null;
+          payment_request_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          cash_transaction_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          organization_id: string;
+          payable_id?: string | null;
+          payment_request_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          cash_transaction_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          organization_id?: string;
+          payable_id?: string | null;
+          payment_request_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cash_transaction_allocations_cash_transaction_id_organizat_fkey";
+            columns: ["cash_transaction_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "cash_transactions";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "cash_transaction_allocations_payable_id_fkey";
+            columns: ["payable_id"];
+            isOneToOne: false;
+            referencedRelation: "payables";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cash_transaction_allocations_payment_request_id_fkey";
+            columns: ["payment_request_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cash_transactions: {
+        Row: {
+          amount: number;
+          basis: string | null;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cash_account_id: string;
+          category: Database["public"]["Enums"]["cash_category"];
+          counterparty_crew_id: string | null;
+          counterparty_name: string | null;
+          counterparty_supplier_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          currency: string;
+          direction: Database["public"]["Enums"]["cash_direction"];
+          doc_date: string;
+          id: string;
+          kind: Database["public"]["Enums"]["cash_tx_kind"];
+          note: string | null;
+          number: string | null;
+          opening_balance_id: string | null;
+          organization_id: string;
+          posted_at: string | null;
+          posted_by: string | null;
+          project_id: string | null;
+          reversal_of_id: string | null;
+          status: Database["public"]["Enums"]["cash_tx_status"];
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          basis?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cash_account_id: string;
+          category: Database["public"]["Enums"]["cash_category"];
+          counterparty_crew_id?: string | null;
+          counterparty_name?: string | null;
+          counterparty_supplier_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency: string;
+          direction: Database["public"]["Enums"]["cash_direction"];
+          doc_date?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["cash_tx_kind"];
+          note?: string | null;
+          number?: string | null;
+          opening_balance_id?: string | null;
+          organization_id: string;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id?: string | null;
+          reversal_of_id?: string | null;
+          status?: Database["public"]["Enums"]["cash_tx_status"];
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          basis?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cash_account_id?: string;
+          category?: Database["public"]["Enums"]["cash_category"];
+          counterparty_crew_id?: string | null;
+          counterparty_name?: string | null;
+          counterparty_supplier_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          direction?: Database["public"]["Enums"]["cash_direction"];
+          doc_date?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["cash_tx_kind"];
+          note?: string | null;
+          number?: string | null;
+          opening_balance_id?: string | null;
+          organization_id?: string;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id?: string | null;
+          reversal_of_id?: string | null;
+          status?: Database["public"]["Enums"]["cash_tx_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cash_transactions_cash_account_id_organization_id_fkey";
+            columns: ["cash_account_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "cash_accounts";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "cash_transactions_counterparty_crew_id_organization_id_fkey";
+            columns: ["counterparty_crew_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "cash_transactions_counterparty_supplier_id_organization_id_fkey";
+            columns: ["counterparty_supplier_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "cash_transactions_opening_balance_id_organization_id_fkey";
+            columns: ["opening_balance_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "opening_balances";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "cash_transactions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cash_transactions_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "cash_transactions_reversal_of_id_fkey";
+            columns: ["reversal_of_id"];
+            isOneToOne: true;
+            referencedRelation: "cash_transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cash_transactions_reversal_of_id_fkey";
+            columns: ["reversal_of_id"];
+            isOneToOne: true;
+            referencedRelation: "payments";
+            referencedColumns: ["cash_transaction_id"];
+          },
+        ];
+      };
       crews: {
         Row: {
           created_at: string;
@@ -1084,6 +1352,263 @@ export type Database = {
           },
         ];
       };
+      opening_balances: {
+        Row: {
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          doc_date: string;
+          id: string;
+          kind: Database["public"]["Enums"]["opening_kind"];
+          note: string | null;
+          number: string | null;
+          organization_id: string;
+          posted_at: string | null;
+          posted_by: string | null;
+          project_id: string | null;
+          status: Database["public"]["Enums"]["opening_status"];
+          updated_at: string;
+          warehouse_id: string | null;
+        };
+        Insert: {
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          doc_date?: string;
+          id?: string;
+          kind: Database["public"]["Enums"]["opening_kind"];
+          note?: string | null;
+          number?: string | null;
+          organization_id: string;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id?: string | null;
+          status?: Database["public"]["Enums"]["opening_status"];
+          updated_at?: string;
+          warehouse_id?: string | null;
+        };
+        Update: {
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          doc_date?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["opening_kind"];
+          note?: string | null;
+          number?: string | null;
+          organization_id?: string;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id?: string | null;
+          status?: Database["public"]["Enums"]["opening_status"];
+          updated_at?: string;
+          warehouse_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opening_balances_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "opening_balances_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "opening_balances_warehouse_id_organization_id_project_id_fkey";
+            columns: ["warehouse_id", "organization_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "warehouses";
+            referencedColumns: ["id", "organization_id", "project_id"];
+          },
+        ];
+      };
+      opening_cash_items: {
+        Row: {
+          amount: number;
+          cash_account_id: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          line_no: number;
+          opening_balance_id: string;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          cash_account_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          line_no: number;
+          opening_balance_id: string;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          cash_account_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          line_no?: number;
+          opening_balance_id?: string;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opening_cash_items_cash_account_id_organization_id_fkey";
+            columns: ["cash_account_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "cash_accounts";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "opening_cash_items_opening_balance_id_organization_id_fkey";
+            columns: ["opening_balance_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "opening_balances";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
+      opening_payable_items: {
+        Row: {
+          amount: number;
+          basis: string;
+          created_at: string;
+          created_by: string | null;
+          currency: string;
+          due_date: string | null;
+          id: string;
+          line_no: number;
+          opening_balance_id: string;
+          organization_id: string;
+          project_id: string | null;
+          supplier_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          basis: string;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          due_date?: string | null;
+          id?: string;
+          line_no: number;
+          opening_balance_id: string;
+          organization_id: string;
+          project_id?: string | null;
+          supplier_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          basis?: string;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          due_date?: string | null;
+          id?: string;
+          line_no?: number;
+          opening_balance_id?: string;
+          organization_id?: string;
+          project_id?: string | null;
+          supplier_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opening_payable_items_opening_balance_id_organization_id_fkey";
+            columns: ["opening_balance_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "opening_balances";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "opening_payable_items_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "opening_payable_items_supplier_id_organization_id_fkey";
+            columns: ["supplier_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
+      opening_stock_items: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          line_no: number;
+          material_id: string;
+          opening_balance_id: string;
+          organization_id: string;
+          quantity: number;
+          unit_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          line_no: number;
+          material_id: string;
+          opening_balance_id: string;
+          organization_id: string;
+          quantity: number;
+          unit_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          line_no?: number;
+          material_id?: string;
+          opening_balance_id?: string;
+          organization_id?: string;
+          quantity?: number;
+          unit_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opening_stock_items_material_id_organization_id_fkey";
+            columns: ["material_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "opening_stock_items_opening_balance_id_organization_id_fkey";
+            columns: ["opening_balance_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "opening_balances";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
       organization_members: {
         Row: {
           all_projects: boolean;
@@ -1176,6 +1701,7 @@ export type Database = {
       payables: {
         Row: {
           amount: number;
+          basis: string | null;
           counterparty_kind: Database["public"]["Enums"]["payable_counterparty"];
           created_at: string;
           created_by: string | null;
@@ -1194,6 +1720,7 @@ export type Database = {
         };
         Insert: {
           amount: number;
+          basis?: string | null;
           counterparty_kind: Database["public"]["Enums"]["payable_counterparty"];
           created_at?: string;
           created_by?: string | null;
@@ -1212,6 +1739,7 @@ export type Database = {
         };
         Update: {
           amount?: number;
+          basis?: string | null;
           counterparty_kind?: Database["public"]["Enums"]["payable_counterparty"];
           created_at?: string;
           created_by?: string | null;
@@ -1248,6 +1776,112 @@ export type Database = {
             columns: ["supplier_id", "organization_id"];
             isOneToOne: false;
             referencedRelation: "suppliers";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
+      payment_requests: {
+        Row: {
+          amount: number;
+          approved_at: string | null;
+          approved_by: string | null;
+          basis: string | null;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          currency: string;
+          doc_date: string;
+          id: string;
+          note: string | null;
+          number: string | null;
+          organization_id: string;
+          paid_amount: number;
+          payee_crew_id: string | null;
+          payee_name: string | null;
+          posted_at: string | null;
+          posted_by: string | null;
+          project_id: string | null;
+          purpose: Database["public"]["Enums"]["payment_purpose"];
+          status: Database["public"]["Enums"]["payment_request_status"];
+          status_comment: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          basis?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          doc_date?: string;
+          id?: string;
+          note?: string | null;
+          number?: string | null;
+          organization_id: string;
+          paid_amount?: number;
+          payee_crew_id?: string | null;
+          payee_name?: string | null;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id?: string | null;
+          purpose: Database["public"]["Enums"]["payment_purpose"];
+          status?: Database["public"]["Enums"]["payment_request_status"];
+          status_comment?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          basis?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          doc_date?: string;
+          id?: string;
+          note?: string | null;
+          number?: string | null;
+          organization_id?: string;
+          paid_amount?: number;
+          payee_crew_id?: string | null;
+          payee_name?: string | null;
+          posted_at?: string | null;
+          posted_by?: string | null;
+          project_id?: string | null;
+          purpose?: Database["public"]["Enums"]["payment_purpose"];
+          status?: Database["public"]["Enums"]["payment_request_status"];
+          status_comment?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_requests_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_requests_payee_crew_id_organization_id_fkey";
+            columns: ["payee_crew_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "payment_requests_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
             referencedColumns: ["id", "organization_id"];
           },
         ];
@@ -2091,6 +2725,38 @@ export type Database = {
       };
     };
     Views: {
+      payments: {
+        Row: {
+          amount: number | null;
+          cash_account_id: string | null;
+          cash_transaction_id: string | null;
+          currency: string | null;
+          doc_date: string | null;
+          id: string | null;
+          number: string | null;
+          organization_id: string | null;
+          payable_id: string | null;
+          payment_request_id: string | null;
+          posted_at: string | null;
+          project_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cash_transaction_allocations_payable_id_fkey";
+            columns: ["payable_id"];
+            isOneToOne: false;
+            referencedRelation: "payables";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cash_transaction_allocations_payment_request_id_fkey";
+            columns: ["payment_request_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       purchase_request_fulfillment: {
         Row: {
           diff: number | null;
@@ -2356,8 +3022,16 @@ export type Database = {
         };
         Returns: string;
       };
+      approve_payment_request: {
+        Args: { p_id: string; p_key: string };
+        Returns: Json;
+      };
       approve_receipt_correction: {
         Args: { p_comment: string; p_id: string; p_key: string };
+        Returns: Json;
+      };
+      cancel_payment_request: {
+        Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
       };
       cancel_purchase_request: {
@@ -2367,6 +3041,15 @@ export type Database = {
       cancel_supplier_invoice: {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
+      };
+      check_cash_consistency: {
+        Args: { p_org: string };
+        Returns: {
+          cached: number;
+          computed: number;
+          entity: string;
+          id: string;
+        }[];
       };
       check_stock_consistency: {
         Args: { p_org: string };
@@ -2411,6 +3094,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      delete_finance_draft: {
+        Args: { p_id: string; p_kind: string };
+        Returns: undefined;
+      };
+      delete_opening_balance_draft: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
       find_user_id_by_email: { Args: { p_email: string }; Returns: string };
       issue_purchase_request: {
         Args: { p_id: string; p_key: string };
@@ -2428,6 +3119,10 @@ export type Database = {
         }[];
       };
       my_access: { Args: never; Returns: Json };
+      post_cash_transaction: {
+        Args: { p_id: string; p_key: string };
+        Returns: Json;
+      };
       post_goods_receipt: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
@@ -2437,6 +3132,10 @@ export type Database = {
         Returns: Json;
       };
       post_material_return: {
+        Args: { p_id: string; p_key: string };
+        Returns: Json;
+      };
+      post_opening_balance: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
       };
@@ -2456,12 +3155,20 @@ export type Database = {
         Args: { p_comment: string; p_id: string; p_key: string };
         Returns: Json;
       };
+      return_payment_request: {
+        Args: { p_comment: string; p_id: string; p_key: string };
+        Returns: Json;
+      };
       return_receipt_correction: {
         Args: { p_comment: string; p_id: string; p_key: string };
         Returns: Json;
       };
       return_supplier_invoice: {
         Args: { p_id: string; p_key: string };
+        Returns: Json;
+      };
+      reverse_cash_transaction: {
+        Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
       };
       reverse_material_issue: {
@@ -2471,6 +3178,42 @@ export type Database = {
       reverse_material_return: {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
+      };
+      reverse_opening_balance: {
+        Args: { p_id: string; p_key: string; p_reason: string };
+        Returns: Json;
+      };
+      save_cash_account: {
+        Args: {
+          p_account_number: string;
+          p_bank_name: string;
+          p_currency: string;
+          p_id: string;
+          p_is_active: boolean;
+          p_kind: Database["public"]["Enums"]["cash_account_kind"];
+          p_name: string;
+          p_org: string;
+          p_project_id: string;
+        };
+        Returns: string;
+      };
+      save_cash_transaction_draft: {
+        Args: {
+          p_allocations: Json;
+          p_amount: number;
+          p_basis: string;
+          p_cash_account_id: string;
+          p_category: Database["public"]["Enums"]["cash_category"];
+          p_counterparty_crew_id: string;
+          p_counterparty_name: string;
+          p_counterparty_supplier_id: string;
+          p_direction: Database["public"]["Enums"]["cash_direction"];
+          p_id: string;
+          p_note: string;
+          p_org: string;
+          p_project_id: string;
+        };
+        Returns: string;
       };
       save_goods_receipt_draft: {
         Args: {
@@ -2503,6 +3246,33 @@ export type Database = {
           p_lines: Json;
           p_material_issue_id: string;
           p_note: string;
+        };
+        Returns: string;
+      };
+      save_opening_balance_draft: {
+        Args: {
+          p_doc_date: string;
+          p_id: string;
+          p_kind: Database["public"]["Enums"]["opening_kind"];
+          p_lines: Json;
+          p_note: string;
+          p_org: string;
+          p_project_id: string;
+        };
+        Returns: string;
+      };
+      save_payment_request_draft: {
+        Args: {
+          p_amount: number;
+          p_basis: string;
+          p_currency: string;
+          p_id: string;
+          p_note: string;
+          p_org: string;
+          p_payee_crew_id: string;
+          p_payee_name: string;
+          p_project_id: string;
+          p_purpose: Database["public"]["Enums"]["payment_purpose"];
         };
         Returns: string;
       };
@@ -2547,6 +3317,10 @@ export type Database = {
         Args: { p_id: string; p_key: string };
         Returns: Json;
       };
+      submit_payment_request: {
+        Args: { p_id: string; p_key: string };
+        Returns: Json;
+      };
       submit_receipt_correction: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
@@ -2571,6 +3345,20 @@ export type Database = {
     Enums: {
       approval_action: "SUBMIT" | "APPROVE" | "REJECT" | "RETURN" | "CANCEL" | "COMMENT";
       approval_status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+      cash_account_kind: "CASH" | "BANK";
+      cash_category:
+        | "APARTMENT_SALE"
+        | "OWNER_FUNDS"
+        | "OTHER_INCOME"
+        | "SUPPLIER"
+        | "CREW_ACT"
+        | "OTHER_EXPENSE"
+        | "SALARY"
+        | "CREW_EXTRA"
+        | "OPENING_BALANCE";
+      cash_direction: "IN" | "OUT";
+      cash_tx_kind: "REGULAR" | "REVERSAL" | "OPENING";
+      cash_tx_status: "DRAFT" | "POSTED" | "REVERSED";
       document_type:
         | "PURCHASE_REQUEST"
         | "SUPPLIER_INVOICE"
@@ -2581,11 +3369,17 @@ export type Database = {
         | "CASH_IN"
         | "CASH_OUT"
         | "WORK_ACT"
-        | "TASK";
+        | "TASK"
+        | "OPENING_BALANCE";
       goods_receipt_status: "DRAFT" | "CORRECTION_APPROVAL" | "POSTED" | "CORRECTED";
       issue_status: "DRAFT" | "POSTED" | "REVERSED";
+      opening_kind: "STOCK" | "CASH" | "PAYABLES";
+      opening_status: "DRAFT" | "POSTED" | "REVERSED";
       payable_counterparty: "SUPPLIER" | "CREW";
       payable_status: "OPEN" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
+      payment_purpose: "OTHER_EXPENSE" | "SALARY" | "CREW_EXTRA";
+      payment_request_status:
+        "DRAFT" | "APPROVAL" | "APPROVED" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
       project_status: "ACTIVE" | "ARCHIVED";
       purchase_request_status:
         | "DRAFT"
@@ -2604,7 +3398,8 @@ export type Database = {
         | "RETURN"
         | "RETURN_REVERSAL"
         | "OPENING"
-        | "ADJUSTMENT";
+        | "ADJUSTMENT"
+        | "OPENING_REVERSAL";
       supplier_invoice_status: "ENTERED" | "UNDER_REVIEW" | "CONFIRMED" | "CANCELLED";
     };
     CompositeTypes: {
@@ -2729,6 +3524,21 @@ export const Constants = {
     Enums: {
       approval_action: ["SUBMIT", "APPROVE", "REJECT", "RETURN", "CANCEL", "COMMENT"],
       approval_status: ["PENDING", "APPROVED", "REJECTED", "CANCELLED"],
+      cash_account_kind: ["CASH", "BANK"],
+      cash_category: [
+        "APARTMENT_SALE",
+        "OWNER_FUNDS",
+        "OTHER_INCOME",
+        "SUPPLIER",
+        "CREW_ACT",
+        "OTHER_EXPENSE",
+        "SALARY",
+        "CREW_EXTRA",
+        "OPENING_BALANCE",
+      ],
+      cash_direction: ["IN", "OUT"],
+      cash_tx_kind: ["REGULAR", "REVERSAL", "OPENING"],
+      cash_tx_status: ["DRAFT", "POSTED", "REVERSED"],
       document_type: [
         "PURCHASE_REQUEST",
         "SUPPLIER_INVOICE",
@@ -2740,11 +3550,23 @@ export const Constants = {
         "CASH_OUT",
         "WORK_ACT",
         "TASK",
+        "OPENING_BALANCE",
       ],
       goods_receipt_status: ["DRAFT", "CORRECTION_APPROVAL", "POSTED", "CORRECTED"],
       issue_status: ["DRAFT", "POSTED", "REVERSED"],
+      opening_kind: ["STOCK", "CASH", "PAYABLES"],
+      opening_status: ["DRAFT", "POSTED", "REVERSED"],
       payable_counterparty: ["SUPPLIER", "CREW"],
       payable_status: ["OPEN", "PARTIALLY_PAID", "PAID", "CANCELLED"],
+      payment_purpose: ["OTHER_EXPENSE", "SALARY", "CREW_EXTRA"],
+      payment_request_status: [
+        "DRAFT",
+        "APPROVAL",
+        "APPROVED",
+        "PARTIALLY_PAID",
+        "PAID",
+        "CANCELLED",
+      ],
       project_status: ["ACTIVE", "ARCHIVED"],
       purchase_request_status: [
         "DRAFT",
@@ -2765,6 +3587,7 @@ export const Constants = {
         "RETURN_REVERSAL",
         "OPENING",
         "ADJUSTMENT",
+        "OPENING_REVERSAL",
       ],
       supplier_invoice_status: ["ENTERED", "UNDER_REVIEW", "CONFIRMED", "CANCELLED"],
     },

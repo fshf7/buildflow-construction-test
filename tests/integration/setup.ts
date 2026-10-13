@@ -107,3 +107,53 @@ export async function createFixture(tag: string): Promise<Fixture> {
 }
 
 export { must };
+
+/**
+ * Одноразовый кассир со вторым фактором (Д-29: роль с MFA): создаётся service_role, TOTP подключается
+ * через API — возвращается клиент с сессией aal2.
+ */
+export async function createCashier(orgId: string): Promise<SupabaseClient<Database>> {
+  const { totp } = await import("../../e2e/helpers/totp");
+  const email = `it-cashier-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@buildflow.local`;
+  const password = "buildflow-local";
+  const created = await service.auth.admin.createUser({ email, password, email_confirm: true });
+  if (created.error || !created.data.user) throw new Error(created.error?.message ?? "createUser");
+  const user = { user: created.data.user };
+  const member = must(
+    await service
+      .from("organization_members")
+      .insert({
+        organization_id: orgId,
+        user_id: user.user.id,
+        full_name: "Кассир IT",
+        email,
+        all_projects: true,
+      })
+      .select("id")
+      .single(),
+  );
+  const role = must(
+    await service
+      .from("roles")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("code", "cashier")
+      .single(),
+  );
+  must(
+    await service
+      .from("member_roles")
+      .insert({ organization_id: orgId, member_id: member.id, role_id: role.id })
+      .select("id"),
+  );
+
+  const client = await signIn(email, password);
+  const factor = must(await client.auth.mfa.enroll({ factorType: "totp", friendlyName: "IT" }));
+  must(
+    await client.auth.mfa.challengeAndVerify({
+      factorId: factor.id,
+      code: totp(factor.totp.secret),
+    }),
+  );
+  return client;
+}

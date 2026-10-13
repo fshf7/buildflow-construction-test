@@ -24,5 +24,6 @@ export const MOVEMENT_LABELS: Record<Database["public"]["Enums"]["stock_movement
   RETURN: "Возврат",
   RETURN_REVERSAL: "Сторно возврата",
   OPENING: "Начальный остаток",
+  OPENING_REVERSAL: "Сторно начального остатка",
   ADJUSTMENT: "Корректировка",
 };
