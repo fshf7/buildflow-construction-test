@@ -52,7 +52,7 @@ export async function saveMaterial(input: unknown): Promise<ActionResult> {
     category: emptyToNull(v.category),
     is_active: v.isActive,
   };
-  // TODO(TZ-open): смена единицы у материала с движениями — после фазы склада запретить (Д-21).
+  // Д-21: единицу материала с движениями БД менять не даст (BF_UNIT_LOCKED → понятное сообщение).
   const { error } = id
     ? await supabase.from("materials").update(row).eq("id", id).eq("organization_id", auth.org.id)
     : await supabase.from("materials").insert({ ...row, organization_id: auth.org.id });
