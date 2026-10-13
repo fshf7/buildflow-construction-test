@@ -18,7 +18,16 @@ describe("org:create — аргументы", () => {
       adminEmail: "admin@example.tj",
       adminName: "Иванов И.",
       yes: true,
+      promptPassword: false,
     });
+  });
+
+  it("--prompt-password: пароль спрашивается в терминале, не вместе с --password", () => {
+    const base = ["--name", "СК", "--admin-email", "a@b.tj", "--admin-name", "Иванов"];
+    expect(parseOrgCreateArgs([...base, "--prompt-password"]).promptPassword).toBe(true);
+    expect(() =>
+      parseOrgCreateArgs([...base, "--prompt-password", "--password", "0123456789"]),
+    ).toThrow(/вместе/);
   });
 
   it("сообщает, чего не хватает", () => {

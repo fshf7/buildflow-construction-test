@@ -14,6 +14,8 @@ export const orgCreateArgsSchema = z.object({
   yes: z.boolean(),
   // Только для локальной БД: создать пользователя сразу с паролем, без письма-приглашения.
   password: z.string().min(10, { error: "--password: не короче 10 символов" }).optional(),
+  // Без SMTP (Д-78): пароль спрашивается скрыто в терминале администратора — не в аргументах и не в истории.
+  promptPassword: z.boolean(),
 });
 
 export type OrgCreateArgs = z.infer<typeof orgCreateArgsSchema>;
@@ -27,6 +29,7 @@ export function parseOrgCreateArgs(argv: string[]): OrgCreateArgs {
       "admin-name": { type: "string" },
       password: { type: "string" },
       yes: { type: "boolean", default: false },
+      "prompt-password": { type: "boolean", default: false },
     },
     strict: true,
   });
@@ -36,9 +39,13 @@ export function parseOrgCreateArgs(argv: string[]): OrgCreateArgs {
     adminName: values["admin-name"] ?? "",
     password: values.password,
     yes: values.yes ?? false,
+    promptPassword: values["prompt-password"] ?? false,
   });
   if (!result.success) {
     throw new Error(result.error.issues.map((i) => i.message).join("\n"));
+  }
+  if (result.data.password && result.data.promptPassword) {
+    throw new Error("--password и --prompt-password вместе не используются");
   }
   return result.data;
 }

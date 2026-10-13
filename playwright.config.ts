@@ -8,6 +8,8 @@ const CI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "./e2e",
+  // Smoke развёрнутого окружения — отдельный конфиг (playwright.smoke.config.ts).
+  testIgnore: ["smoke/**"],
   globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: CI,
