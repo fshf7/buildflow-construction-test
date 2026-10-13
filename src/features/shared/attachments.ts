@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { getCurrentOrg } from "@/lib/auth/access";
+import { getCurrentUser } from "@/lib/auth/session";
+import { rateLimit, tooManyMessage } from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -31,6 +33,9 @@ export async function uploadAttachment(formData: FormData): Promise<ActionResult
   if (!(file instanceof File) || file.size === 0) return fail("Выберите файл");
   if (file.size > MAX_BYTES) return fail("Файл больше 10 МБ");
   if (!ALLOWED.includes(file.type)) return fail("Можно PDF или фото (JPEG, PNG, WebP, HEIC)");
+  const user = await getCurrentUser();
+  const limit = await rateLimit([{ name: "upload_user", value: user?.id ?? "anonymous" }]);
+  if (!limit.ok) return fail(tooManyMessage(limit.retryAfterSec));
 
   const safeName = file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_").slice(-80);
   const path = `${org.id}/${docType}/${docId}/${crypto.randomUUID()}-${safeName}`;

@@ -6,7 +6,7 @@ import { env } from "@/env";
 import type { Database } from "./database.types";
 
 /** Пути, доступные без входа. /auth/confirm принимает ссылки из писем (приглашение, восстановление). */
-export const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth"] as const;
+export const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth", "/api/health"] as const;
 
 /** Пути, доступные вошедшему пользователю без второго фактора (иначе его негде подключить). */
 export const MFA_EXEMPT_PATHS = [

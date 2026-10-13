@@ -3709,6 +3709,7 @@ export type Database = {
       };
       delete_work_act_draft: { Args: { p_id: string }; Returns: undefined };
       find_user_id_by_email: { Args: { p_email: string }; Returns: string };
+      health: { Args: never; Returns: number };
       issue_purchase_request: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
@@ -3744,6 +3745,10 @@ export type Database = {
       post_opening_balance: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
+      };
+      rate_limit_hit: {
+        Args: { p_bucket: string; p_max: number; p_window_seconds: number };
+        Returns: boolean;
       };
       recalculate_stock_balances: {
         Args: { p_warehouse: string };

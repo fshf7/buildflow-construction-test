@@ -11,6 +11,8 @@ export const publicEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+  // Необязательно: без DSN Sentry выключен (Д-83). DSN публичный — он и так виден в бандле.
+  NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
 });
 
 export const serverEnvSchema = z.object({

@@ -39,6 +39,8 @@ export default defineConfig({
       : `npm run dev -- --port ${PORT}`,
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: !CI,
+    // Десятки входов с одного адреса: лимиты частоты ×100 (действует только при APP_ENV=local, Д-80).
+    env: { RATE_LIMIT_MULTIPLIER: "100" },
     timeout: 300_000,
   },
 });

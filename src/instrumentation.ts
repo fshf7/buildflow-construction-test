@@ -1,7 +1,13 @@
-// Выполняется один раз при старте сервера Next.js: env проверяется до первого запроса.
+import * as Sentry from "@sentry/nextjs";
+
+import { sentryOptions } from "@/lib/observability/scrub";
+
+// Sentry на сервере (Node и edge). Без NEXT_PUBLIC_SENTRY_DSN — выключен (локально, CI).
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { parseServerEnv } = await import("./lib/env/schema");
-    parseServerEnv(process.env);
-  }
+  Sentry.init(
+    sentryOptions(process.env.NEXT_PUBLIC_SENTRY_DSN, process.env.NEXT_PUBLIC_APP_ENV ?? "local"),
+  );
 }
+
+// Ошибки серверных компонентов, route handlers и server actions.
+export const onRequestError = Sentry.captureRequestError;

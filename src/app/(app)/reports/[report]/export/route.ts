@@ -1,8 +1,10 @@
 import { canSeeReport, findReport, loadReport } from "@/features/reports/definitions";
 import { getCurrentOrg } from "@/lib/auth/access";
+import { getCurrentUser } from "@/lib/auth/session";
 import { businessToday } from "@/lib/format";
 import { toCsv } from "@/lib/export/csv";
 import { toXlsx } from "@/lib/export/xlsx";
+import { rateLimit, tooManyMessage } from "@/lib/security/rate-limit";
 
 /**
  * Экспорт отчёта (CSV/XLSX). Права — как у страницы (Д-75); данные — те же функции под RLS
@@ -14,6 +16,14 @@ export async function GET(request: Request, ctx: RouteContext<"/reports/[report]
   if (!def) return new Response("Отчёт не найден", { status: 404 });
   const org = await getCurrentOrg();
   if (!org || !canSeeReport(org, def)) return new Response("Недостаточно прав", { status: 403 });
+  const user = await getCurrentUser();
+  const limit = await rateLimit([{ name: "export_user", value: user?.id ?? "anonymous" }]);
+  if (!limit.ok) {
+    return new Response(tooManyMessage(limit.retryAfterSec), {
+      status: 429,
+      headers: { "Retry-After": String(limit.retryAfterSec) },
+    });
+  }
 
   const url = new URL(request.url);
   const p = Object.fromEntries(url.searchParams.entries());

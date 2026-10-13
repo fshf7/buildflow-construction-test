@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { headers } from "next/headers";
 
 import { Toaster } from "@/components/ui/sonner";
 
@@ -21,7 +22,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Д-81: CSP с nonce работает только при рендере на запрос — чтение заголовков делает динамическими
+  // все страницы, включая вход (иначе статическая страница уходит без nonce и её скрипты блокируются).
+  await headers();
   return (
     <html lang="ru" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">

@@ -7,6 +7,7 @@ import { env } from "@/env";
 import { fail, ok, type ActionResult } from "@/lib/actions/result";
 import { CURRENT_ORG_COOKIE, getAccess } from "@/lib/auth/access";
 import { redirectAfterAuth } from "@/lib/auth/after-auth";
+import { clientIp, rateLimit, tooManyMessage } from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 import { forgotPasswordSchema, loginSchema, setPasswordSchema } from "./schemas";
@@ -14,6 +15,13 @@ import { forgotPasswordSchema, loginSchema, setPasswordSchema } from "./schemas"
 export async function signIn(input: unknown, next?: string): Promise<ActionResult> {
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return fail("Проверьте email и пароль");
+
+  // Д-80: перебор паролей — лимит на IP и на email (поверх лимитов Supabase Auth).
+  const limit = await rateLimit([
+    { name: "login_ip", value: await clientIp() },
+    { name: "login_email", value: parsed.data.email },
+  ]);
+  if (!limit.ok) return fail(tooManyMessage(limit.retryAfterSec));
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
@@ -39,6 +47,13 @@ export async function signOut(): Promise<void> {
 export async function requestPasswordReset(input: unknown): Promise<ActionResult> {
   const parsed = forgotPasswordSchema.safeParse(input);
   if (!parsed.success) return fail("Введите корректный email");
+
+  // Д-80: при превышении письмо не отправляем, но ответ тот же (Д-49 — не раскрываем адреса).
+  const limit = await rateLimit([
+    { name: "reset_ip", value: await clientIp() },
+    { name: "reset_email", value: parsed.data.email },
+  ]);
+  if (!limit.ok) return ok();
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {

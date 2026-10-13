@@ -5,6 +5,18 @@ import { expect, test } from "@playwright/test";
 const supabaseUrl = process.env.E2E_SUPABASE_URL;
 const publishableKey = process.env.E2E_SUPABASE_PUBLISHABLE_KEY;
 
+test("заголовки безопасности и health", async ({ request }) => {
+  const res = await request.get("/login");
+  const h = res.headers();
+  expect(h["content-security-policy"]).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
+  expect(h["strict-transport-security"]).toContain("max-age=");
+  expect(h["x-frame-options"]).toBe("DENY");
+  expect(h["x-content-type-options"]).toBe("nosniff");
+  const health = await request.get("/api/health");
+  expect(health.status()).toBe(200);
+  expect(await health.json()).toMatchObject({ status: "ok", db: "ok", env: "staging" });
+});
+
 test("страница входа на русском", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByLabel("Email")).toBeVisible();
@@ -31,6 +43,26 @@ test("неверный пароль — понятная ошибка", async ({
   await page.getByRole("button", { name: "Войти" }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page).toHaveURL(/\/login/);
+});
+
+test("перебор пароля ограничен (Д-80): не больше 5 попыток на email за 15 мин", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "один раз: попытки расходуют лимит адреса раннера");
+  const email = `smoke-limit-${Date.now()}@example.com`;
+  let limited = false;
+  for (let i = 0; i < 7 && !limited; i++) {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Пароль").fill("wrong-password-123");
+    await page.getByRole("button", { name: "Войти" }).click();
+    await expect(page.getByRole("alert").first()).toBeVisible();
+    limited =
+      (await page.getByRole("alert").first().textContent())?.includes("Слишком много попыток") ??
+      false;
+  }
+  expect(limited).toBe(true);
 });
 
 test.describe("Supabase API", () => {
