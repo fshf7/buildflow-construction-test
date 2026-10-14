@@ -1266,3 +1266,18 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 - `/tasks` — задачи с подсветкой просрочки, крупными кнопками переходов, фото и обсуждением.
 - `/reports/<вид>` — отчёты с экспортом `/reports/<вид>/export?format=csv|xlsx`.
 - Оплата бригадам: `/finance/pay/crew/[crewId]` — та же форма долга, категория CREW_ACT.
+
+## 15. Фаза 5 — Pilot & Hardening (миграции `20261018000000…000100`)
+
+- **Ограничение частоты** (Д-80): `private.rate_limits`, `public.rate_limit_hit` (только service_role);
+  `src/lib/security/rate-limit.ts` — вход, «забыли пароль», экспорт, вложения, импорт, health.
+- **Заголовки и CSP** (Д-81): `src/lib/security/headers.ts`, `src/proxy.ts`; корневой layout динамический.
+- **Мониторинг** (Д-83, Д-84): `instrumentation.ts`, `instrumentation-client.ts`, скраббер
+  `src/lib/observability/scrub.ts`; `/api/health` + `public.health()`; `.github/workflows/uptime.yml`.
+- **Бэкап** (Д-82): `.github/workflows/backup.yml`, `scripts/backup/{dump,restore-verify}.sh`,
+  `scripts/backup/sql/{table-counts,reconcile}.sql`, `scripts/ci/normalize-db-url.py`.
+- **Импорт справочников** (Д-85): `public.import_catalog`, `src/features/catalog/import/*`, `/catalog/import`.
+- **Тесты**: pgTAP `120_security` (инварианты RLS/грантов/search_path для всех объектов), `130_import`;
+  E2E `csp.spec.ts`, `catalog-import.spec.ts`; smoke staging (`playwright.smoke.config.ts`).
+- **Документы**: `RUNBOOK.md`, `BACKUP_RESTORE.md`, `SECURITY_REVIEW.md`, `SMTP_RESEND.md`, `USER_GUIDE.md`,
+  `RECONCILIATION_SCENARIO.md`, `PILOT_QUESTIONS.md`, `PILOT_READINESS.md`.

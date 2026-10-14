@@ -6,6 +6,10 @@ Next.js 16 (App Router) + Supabase (Postgres, Auth, Storage, RLS), деплой 
 - ТЗ: [docs/TZ_v0.9.pdf](docs/TZ_v0.9.pdf)
 - Архитектура данных, статусы, RLS, проведение: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Принятые решения: [docs/DECISIONS.md](docs/DECISIONS.md)
+- Пилот: [готовность](docs/PILOT_READINESS.md), [руководство пользователя](docs/USER_GUIDE.md),
+  [сценарий сверки](docs/RECONCILIATION_SCENARIO.md), [вопросы к ТЗ 1.0](docs/PILOT_QUESTIONS.md)
+- Эксплуатация: [настройка окружения](docs/RUNBOOK.md), [бэкапы](docs/BACKUP_RESTORE.md),
+  [безопасность](docs/SECURITY_REVIEW.md), [почта (Resend)](docs/SMTP_RESEND.md)
 - Правила работы: [CLAUDE.md](CLAUDE.md)
 
 ## Требования
@@ -61,6 +65,9 @@ Seed создаёт и демо-объект `DEMO — ЖК Демо` (блок,
 | `org:create` | создать организацию и её первого администратора (см. «Организации и участники») |
 | `db:types` | сгенерировать `src/lib/supabase/database.types.ts` — **после каждой миграции** |
 | `db:test` | pgTAP-тесты из `supabase/tests` |
+| `scripts/staging-org-create.sh` | первая организация на staging без SMTP — пароль вводится скрыто (Д-78) |
+| `scripts/backup/dump.sh`, `restore-verify.sh` | дамп БД и проверка восстановлением (локально и в `backup.yml`, Д-82) |
+| smoke | `E2E_BASE_URL=… E2E_SUPABASE_URL=… E2E_SUPABASE_PUBLISHABLE_KEY=… npx playwright test -c playwright.smoke.config.ts` — против развёрнутого окружения |
 
 ## Изменение схемы БД
 
@@ -109,6 +116,15 @@ Seed создаёт и демо-объект `DEMO — ЖК Демо` (блок,
 - **db** — `supabase db reset` на чистой БД, pgTAP, проверка актуальности типов;
 - **e2e** — интеграционные тесты и Playwright (десктоп + смартфон) против production-сборки на чистом локальном Supabase с `seed-local`;
   при падении — артефакт `playwright-report` (HTML-отчёт, трейсы, скриншоты, видео) в разделе Actions.
+
+Другие workflow: `deploy-staging.yml` (после зелёного CI), `deploy-production.yml` (только вручную, Д-79),
+`backup.yml` (ночной бэкап + проверка восстановлением, Д-82), `uptime.yml` (раз в час `/api/health`, Д-84).
+Сбой бэкапа или uptime — задача (issue) в репозитории.
+
+Локальные E2E поднимают лимиты частоты в 100 раз (`RATE_LIMIT_MULTIPLIER`, действует только при
+`NEXT_PUBLIC_APP_ENV=local`); на staging/production лимиты настоящие (Д-80).
+Если после `supabase link` локальная БД ведёт себя странно (ошибки Storage после `db reset`) — версии сервисов из
+`supabase/.temp` разошлись с запущенными контейнерами: `npm run db:stop && npm run db:start`.
 
 ## Окружения и деплой
 
