@@ -11,12 +11,12 @@ test("страницы входа: скрипты не заблокирован�
   page.on("console", (m) => msgs.push(m.text()));
   for (const path of ["/login", "/forgot-password"]) await page.goto(path);
   await page.goto("/login");
-  await page.getByLabel("Email").fill("nobody@example.com");
+  await page.getByLabel("Логин").fill("nobody@example.com");
   await page.getByLabel("Пароль").fill("wrong-password-123");
   await page.getByRole("button", { name: "Войти" }).click();
   // Ошибка показана клиентским кодом — значит, страница ожила.
   await expect(
-    page.getByRole("alert").filter({ hasText: /Неверный email или пароль|Слишком много попыток/ }),
+    page.getByRole("alert").filter({ hasText: /Неверный логин или пароль|Слишком много попыток/ }),
   ).toBeVisible();
   expect(violations(msgs)).toEqual([]);
 });

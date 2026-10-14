@@ -20,6 +20,7 @@ export const ACTION_LABELS: Record<string, string> = {
   UPDATE: "Изменение",
   DELETE: "Удаление",
   MFA_RESET: "Сброс второго фактора",
+  PASSWORD_RESET: "Сброс пароля",
 };
 
 const IGNORED_FIELDS = new Set(["updated_at", "created_at", "created_by", "id", "organization_id"]);
@@ -50,7 +51,7 @@ export function eventDetails(
   action: string,
   newData: Record<string, unknown> | null,
 ): string | null {
-  if (action === "MFA_RESET" && newData) {
+  if ((action === "MFA_RESET" || action === "PASSWORD_RESET") && newData) {
     const via = newData.via === "script" ? " (серверный скрипт)" : "";
     return `Причина: ${String(newData.reason ?? "—")}${via}`;
   }

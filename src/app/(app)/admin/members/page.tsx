@@ -19,8 +19,8 @@ export default async function MembersPage() {
         title="Участники"
         description="Учётные записи, роли и доступ к объектам. Новые участники — только по приглашению."
         actions={
-          <Link href="/admin/members/invite" className={buttonVariants()}>
-            Пригласить
+          <Link href="/admin/members/new" className={buttonVariants()}>
+            Добавить сотрудника
           </Link>
         }
       />

@@ -1279,5 +1279,18 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 - **Импорт справочников** (Д-85): `public.import_catalog`, `src/features/catalog/import/*`, `/catalog/import`.
 - **Тесты**: pgTAP `120_security` (инварианты RLS/грантов/search_path для всех объектов), `130_import`;
   E2E `csp.spec.ts`, `catalog-import.spec.ts`; smoke staging (`playwright.smoke.config.ts`).
-- **Документы**: `RUNBOOK.md`, `BACKUP_RESTORE.md`, `SECURITY_REVIEW.md`, `SMTP_RESEND.md`, `USER_GUIDE.md`,
+- **Документы**: `RUNBOOK.md`, `BACKUP_RESTORE.md`, `SECURITY_REVIEW.md`, `USER_GUIDE.md`,
   `RECONCILIATION_SCENARIO.md`, `PILOT_QUESTIONS.md`, `PILOT_READINESS.md`.
+
+## 16. Вход без писем (миграция `20261019000000_login_accounts.sql`, Д-87…Д-90)
+
+- `private.user_logins (login PK, user_id UNIQUE)` — логин (телефон `992XXXXXXXXX` или имя латиницей), уникален во всём
+  BuildFlow; учётная запись Auth — на `<логин>@login.buildflow.internal`; `organization_members.email` — необязательный.
+- Создание сотрудника: `prepare_member_account` (проверка, admin aal2) → admin API `createUser` (временный пароль,
+  `app_metadata.must_change_password`) → `register_login` (service_role) → `add_member`; ошибка — удаление учётной записи.
+- Сброс: `prepare_password_reset` → admin API `updateUserById` → `complete_password_reset` (сессии, аудит `PASSWORD_RESET`);
+  скрипт — `reset_user_password_by_service` + `npm run password:reset`.
+- Обязательная смена: proxy (`PASSWORD_CHANGE_PATHS`), `private.must_change_password()` в `member_id()`/`my_access()`,
+  `setPassword` снимает признак admin API и обновляет сессию.
+- MFA: `private.requires_mfa`, `current_user_requires_mfa` — только `org_admin`, `cashier`.
+- Удалено: приглашения по email, `/forgot-password`, `/reset-password`, `/auth/confirm`, шаблоны писем.

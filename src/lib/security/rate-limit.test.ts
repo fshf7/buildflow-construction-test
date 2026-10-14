@@ -14,10 +14,10 @@ import {
 
 describe("rate limit", () => {
   it("ключ — действие + sha256, без открытого email; регистр и пробелы не важны", () => {
-    const k = bucketKey("login_email", " Admin@Example.TJ ");
-    expect(k).toMatch(/^login_email:[0-9a-f]{64}$/);
+    const k = bucketKey("login_id", " Admin@Example.TJ ");
+    expect(k).toMatch(/^login_id:[0-9a-f]{64}$/);
     expect(k).not.toContain("example");
-    expect(k).toBe(bucketKey("login_email", "admin@example.tj"));
+    expect(k).toBe(bucketKey("login_id", "admin@example.tj"));
     expect(k).not.toBe(bucketKey("reset_email", "admin@example.tj"));
   });
   it("IP — первый из x-forwarded-for", () => {

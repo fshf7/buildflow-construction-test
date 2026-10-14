@@ -58,9 +58,11 @@ export function EditMemberForm({
     <form onSubmit={onSubmit} noValidate className="max-w-2xl">
       <FieldGroup>
         <Field>
-          <FieldLabel>Email</FieldLabel>
-          <Input value={member.email} disabled readOnly />
-          <FieldDescription>Email — это логин, он не меняется.</FieldDescription>
+          <FieldLabel>Логин</FieldLabel>
+          <Input value={member.login ?? member.email ?? ""} disabled readOnly />
+          <FieldDescription>
+            Логин не меняется. Забыл пароль — «Сбросить пароль» выше.
+          </FieldDescription>
         </Field>
         <Field data-invalid={Boolean(errors.fullName)}>
           <FieldLabel htmlFor="fullName">ФИО</FieldLabel>

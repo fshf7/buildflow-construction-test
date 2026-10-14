@@ -212,12 +212,12 @@ select pg_temp.login(pg_temp.id('foreman'));
 select is(pg_temp.finance_rows(), 0, 'прораб: финансовых данных нет');
 select pg_temp.logout();
 
--- Кассир и бухгалтер — видят; бухгалтер без MFA — нет (Д-29).
+-- Кассир и бухгалтер — видят; кассир без MFA — нет (Д-90: MFA обязательна кассиру).
 select pg_temp.login(pg_temp.id('cashier'), 'aal2');
 select ok((select count(*) from public.payments) = 1, 'кассир видит оплаты');
 select pg_temp.logout();
-select pg_temp.login(pg_temp.id('acc'), 'aal1');
-select is((select count(*)::int from public.cash_transactions), 0, 'бухгалтер без MFA не видит операции');
+select pg_temp.login(pg_temp.id('cashier'), 'aal1');
+select is((select count(*)::int from public.cash_transactions), 0, 'кассир без MFA не видит операции');
 select pg_temp.logout();
 select pg_temp.login(pg_temp.id('acc'), 'aal2');
 select is((select amount - paid_amount from public.payables where id = pg_temp.id('P1')), 600.00,

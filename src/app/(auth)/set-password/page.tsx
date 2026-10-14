@@ -7,11 +7,11 @@ import { requireUser } from "@/lib/auth/session";
 export const metadata: Metadata = { title: "Пароль" };
 
 export default async function SetPasswordPage() {
-  const user = await requireUser();
+  await requireUser();
   return (
     <AuthCard
-      title="Задайте пароль"
-      description={`Учётная запись ${user.email ?? ""}. Пароль понадобится для следующих входов.`}
+      title="Задайте новый пароль"
+      description="Временный пароль от администратора действует только для первого входа. Придумайте свой — не короче 10 символов."
     >
       <SetPasswordForm />
     </AuthCard>

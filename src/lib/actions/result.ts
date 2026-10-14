@@ -109,6 +109,11 @@ const BF_MESSAGES: Record<string, string> = {
   BF_INVALID_ASSIGNEE:
     "Исполнитель должен быть складом, кассиром или прорабом с доступом к объекту",
   BF_DIRECT_STATUS_CHANGE: "Статус меняется только через действия документа",
+  BF_LOGIN_TAKEN: "Такой логин уже занят — выберите другой",
+  BF_LOGIN_INVALID: "Логин — телефон в формате +992XXXXXXXXX или имя латиницей (3–32 символа)",
+  BF_USER_HAS_LOGIN: "У этой учётной записи уже есть логин",
+  BF_SELF_PASSWORD_RESET:
+    "Свой пароль сбрасывает другой администратор или серверный скрипт npm run password:reset",
 };
 
 export function dbErrorMessage(error: PgLikeError): string {

@@ -1,25 +1,20 @@
 import { z } from "zod";
 
+import { isEmailLogin, isValidLogin } from "@/lib/auth/login";
+
+/** Логин (Д-87): телефон +992…, имя латиницей или email (учётные записи до Д-87). */
 export const loginSchema = z.object({
-  // Сначала нормализуем, потом проверяем формат: в zod 4 .trim() после z.email() сработал бы слишком поздно.
-  email: z
+  login: z
     .string()
     .trim()
-    .toLowerCase()
-    .pipe(z.email({ error: "Введите корректный email" })),
+    .min(1, { error: "Введите логин" })
+    .refine((v) => (isEmailLogin(v) ? z.email().safeParse(v).success : isValidLogin(v)), {
+      error: "Телефон +992XXXXXXXXX, имя латиницей или email",
+    }),
   password: z.string().min(1, { error: "Введите пароль" }),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
-
-export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .pipe(z.email({ error: "Введите корректный email" })),
-});
-export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export const PASSWORD_MIN_LENGTH = 10;
 

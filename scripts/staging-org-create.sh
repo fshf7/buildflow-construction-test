@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Первая организация на STAGING без SMTP (Д-78). Запускает сам будущий администратор в своём терминале:
+# Первая организация на STAGING (Д-78, Д-87): писем нет. Запускает сам будущий администратор в своём терминале:
 # пароль вводится скрыто; ключ Supabase берётся из CLI в переменную процесса и нигде не печатается.
-# bash scripts/staging-org-create.sh "BuildFlow Demo" officialmanuchehr@gmail.com "ФИО администратора"
+# bash scripts/staging-org-create.sh "BuildFlow Demo" "+992XXXXXXXXX | имя | email" "ФИО администратора"
 set -euo pipefail
 
 # Любая неожиданная ошибка — с сообщением, а не молчаливый код 1.
@@ -9,7 +9,7 @@ trap 'code=$?; echo "Ошибка (код $code) в строке $LINENO: $BASH_
 
 REF=rcinzvflyzjusvrtcivb
 cd "$(dirname "$0")/.."
-[[ $# -eq 3 ]] || { echo "Использование: $0 \"Организация\" email \"ФИО\"" >&2; exit 1; }
+[[ $# -eq 3 ]] || { echo "Использование: $0 \"Организация\" логин \"ФИО\"" >&2; exit 1; }
 command -v jq >/dev/null || { echo "Нужен jq (brew install jq)" >&2; exit 1; }
 node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)' \
   || { echo "Нужен Node 22+: source ~/.nvm/nvm.sh && nvm use 22" >&2; exit 1; }
@@ -41,4 +41,4 @@ fi
 export SUPABASE_SECRET_KEY
 
 # org-create сам печатает понятную ошибку — без второго сообщения от trap.
-node scripts/org-create.mts --name "$1" --admin-email "$2" --admin-name "$3" --yes --prompt-password || exit $?
+node scripts/org-create.mts --name "$1" --admin-login "$2" --admin-name "$3" --yes --prompt-password || exit $?

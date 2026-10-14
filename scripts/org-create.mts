@@ -2,19 +2,27 @@
  * Создание организации и её первого администратора (org_admin). Самостоятельной регистрации нет:
  * это единственный способ завести организацию. Остальные участники — только по приглашению из приложения.
  *
- * Локально:     npm run org:create -- --name "СК Восток" --admin-email a@b.tj --admin-name "Иванов И." [--password …]
- * Staging/prod: NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SECRET_KEY=… NEXT_PUBLIC_SITE_URL=… \
- *               npm run org:create -- --name … --admin-email … --admin-name … --yes
+ * Локально:     npm run org:create -- --name "СК Восток" --admin-login +992901234567 --admin-name "Иванов И." [--password …]
+ * Staging/prod: NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SECRET_KEY=… \
+ *               npm run org:create -- --name … --admin-login … --admin-name … --yes [--prompt-password]
  *
- * Для нелокальной БД обязателен --yes (защита от случайного запуска не туда); --password запрещён —
- * администратор получает письмо-приглашение и сам задаёт пароль и второй фактор.
+ * Для нелокальной БД обязателен --yes (защита от случайного запуска не туда); --password запрещён.
+ * Писем нет (Д-87): без --prompt-password выдаётся временный пароль (показ один раз) с обязательной
+ * сменой при первом входе.
  *
- * Без своего SMTP (Д-78, временно): --prompt-password — запускает сам администратор в своём терминале,
- * пароль вводится скрыто (не в аргументах, истории или логах); второй фактор — при первом входе, как обычно.
+ * --prompt-password: запускает сам администратор в своём терминале, пароль вводится скрыто
+ * (не в аргументах, истории или логах); второй фактор — при первом входе, как обычно.
  */
 import { stdin, stdout } from "node:process";
 
 import { createClient } from "@supabase/supabase-js";
+
+import {
+  generateTemporaryPassword,
+  isEmailLogin,
+  loginToAuthEmail,
+  normalizeLogin,
+} from "../src/lib/auth/login.ts";
 
 import { isLocalUrl, parseOrgCreateArgs } from "./org-create-args.mts";
 
@@ -68,11 +76,12 @@ async function main() {
   const args = parseOrgCreateArgs(process.argv.slice(2));
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const secretKey = requireEnv("SUPABASE_SECRET_KEY");
-  const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
   const local = isLocalUrl(url);
 
   console.log(`Supabase: ${url} (${process.env.NEXT_PUBLIC_APP_ENV ?? "окружение не указано"})`);
-  console.log(`Организация: «${args.name}», администратор: ${args.adminName} <${args.adminEmail}>`);
+  console.log(
+    `Организация: «${args.name}», администратор: ${args.adminName}, логин ${args.adminLogin}`,
+  );
 
   if (!local && !args.yes) {
     throw new Error("Нелокальная БД: проверьте адрес выше и повторите с флагом --yes.");
@@ -97,38 +106,51 @@ async function main() {
     );
   }
 
-  // 1. Пользователь: существующий (например, уже в другой организации) или новый.
+  // 1. Пользователь: существующий (например, уже в другой организации) или новый. Писем нет (Д-87):
+  //    логин → техническая почта; пароль — введённый оператором или временный с обязательной сменой.
+  const emailLogin = isEmailLogin(args.adminLogin);
+  const authEmail = loginToAuthEmail(args.adminLogin);
   const { data: existingId, error: findError } = await admin.rpc("find_user_id_by_email", {
-    p_email: args.adminEmail,
+    p_email: authEmail,
   });
   if (findError) throw findError;
 
   let userId = existingId as string | null;
   // Пользователь, созданный этим запуском, — откатываем, если организация не создастся.
   let createdUserId: string | null = null;
-  const password =
-    args.password ?? (!userId && args.promptPassword ? await promptNewPassword() : undefined);
-  if (!userId && password) {
-    const { data, error } = await admin.auth.admin.createUser({
-      email: args.adminEmail,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: args.adminName },
-    });
-    if (error) throw error;
-    userId = data.user.id;
-    createdUserId = userId;
-  } else if (!userId) {
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(args.adminEmail, {
-      data: { full_name: args.adminName },
-      redirectTo: siteUrl,
-    });
-    if (error) throw error;
-    userId = data.user.id;
-    createdUserId = userId;
-    console.log(
-      "Отправлено письмо-приглашение: администратор задаст пароль и подключит второй фактор.",
+  let temporaryPassword: string | null = null;
+  const rollback = async (reason: string) => {
+    if (!createdUserId) return;
+    const { error: rollbackError } = await admin.auth.admin.deleteUser(createdUserId);
+    console.error(
+      rollbackError
+        ? `${reason}; пользователя ${args.adminLogin} удалить не удалось: ${rollbackError.message}`
+        : `${reason}; созданный пользователь ${args.adminLogin} удалён.`,
     );
+  };
+  if (!userId) {
+    const chosen = args.password ?? (args.promptPassword ? await promptNewPassword() : undefined);
+    temporaryPassword = chosen ? null : generateTemporaryPassword();
+    const { data, error } = await admin.auth.admin.createUser({
+      email: authEmail,
+      password: chosen ?? temporaryPassword!,
+      email_confirm: true, // писем нет: техническая почта (.internal) не доставляется
+      user_metadata: { full_name: args.adminName },
+      app_metadata: temporaryPassword ? { must_change_password: true } : {},
+    });
+    if (error) throw error;
+    userId = data.user.id;
+    createdUserId = userId;
+    if (!emailLogin) {
+      const { error: loginError } = await admin.rpc("register_login", {
+        p_user_id: userId,
+        p_login: normalizeLogin(args.adminLogin),
+      });
+      if (loginError) {
+        await rollback("Логин не зарегистрирован");
+        throw loginError;
+      }
+    }
   } else {
     console.log("Пользователь уже существует — назначаем администратором новой организации.");
   }
@@ -138,20 +160,19 @@ async function main() {
     p_name: args.name,
     p_admin_user_id: userId,
     p_admin_full_name: args.adminName,
-    p_admin_email: args.adminEmail,
+    p_admin_email: (emailLogin ? args.adminLogin.toLowerCase() : null) as string,
   });
   if (error) {
-    if (createdUserId) {
-      const { error: rollbackError } = await admin.auth.admin.deleteUser(createdUserId);
-      console.error(
-        rollbackError
-          ? `Организация не создана; пользователя ${args.adminEmail} удалить не удалось: ${rollbackError.message}`
-          : `Организация не создана; созданный пользователь ${args.adminEmail} удалён.`,
-      );
-    }
+    await rollback("Организация не создана");
     throw error;
   }
 
+  if (temporaryPassword) {
+    // Показ один раз — в терминале того, кто создаёт организацию (Д-88). Нигде не сохраняется.
+    console.log(`Логин: ${args.adminLogin}`);
+    console.log(`Временный пароль (показан один раз): ${temporaryPassword}`);
+    console.log("При первом входе администратор задаст свой пароль и подключит второй фактор.");
+  }
   console.log(`Готово. organization_id = ${orgId as string}`);
 }
 

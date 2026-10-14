@@ -1,5 +1,6 @@
 import "server-only";
 
+import { formatLogin } from "@/lib/auth/login";
 import { isRoleCode, type RoleCode } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -7,7 +8,9 @@ export type MemberRow = {
   id: string;
   userId: string;
   fullName: string;
-  email: string;
+  email: string | null;
+  /** Логин для входа (Д-87); у учётных записей до Д-87 — нет, они входят по email. */
+  login: string | null;
   phone: string | null;
   isActive: boolean;
   allProjects: boolean;
@@ -33,12 +36,15 @@ export async function listMembers(orgId: string): Promise<MemberRow[]> {
   // Статус MFA — из auth.mfa_factors через RPC (только для members.manage).
   const { data: mfa } = await supabase.rpc("member_mfa_status", { p_org: orgId });
   const mfaByMember = new Map((mfa ?? []).map((r) => [r.member_id, r.has_mfa]));
+  const { data: logins } = await supabase.rpc("member_logins", { p_org: orgId });
+  const loginByMember = new Map((logins ?? []).map((r) => [r.member_id, formatLogin(r.login)]));
 
   return data.map((m) => ({
     id: m.id,
     userId: m.user_id,
     fullName: m.full_name,
     email: m.email,
+    login: loginByMember.get(m.id) ?? null,
     phone: m.phone,
     isActive: m.is_active,
     allProjects: m.all_projects,

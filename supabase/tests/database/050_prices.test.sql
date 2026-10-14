@@ -184,9 +184,9 @@ select is((select count(*)::int from storage.objects where name like '%/SUPPLIER
 select ok((select count(*) from public.audit_logs) > 0, 'бухгалтер видит журнал аудита');
 select pg_temp.logout();
 
--- Бухгалтер без второго фактора — цен не видит (Д-29).
+-- Бухгалтеру второй фактор не обязателен (Д-90) — цены видит и без него.
 select pg_temp.login(pg_temp.id('acc'), 'aal1');
-select is((select count(*)::int from public.purchase_request_items_priced), 0, 'бухгалтер без MFA не видит цены');
+select ok((select count(*)::int from public.purchase_request_items_priced) > 0, 'бухгалтер без MFA видит цены (Д-90)');
 select pg_temp.logout();
 
 -- ===== Управляющий: цены только по своим объектам =====

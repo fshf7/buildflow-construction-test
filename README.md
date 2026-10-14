@@ -9,7 +9,7 @@ Next.js 16 (App Router) + Supabase (Postgres, Auth, Storage, RLS), деплой 
 - Пилот: [готовность](docs/PILOT_READINESS.md), [руководство пользователя](docs/USER_GUIDE.md),
   [сценарий сверки](docs/RECONCILIATION_SCENARIO.md), [вопросы к ТЗ 1.0](docs/PILOT_QUESTIONS.md)
 - Эксплуатация: [настройка окружения](docs/RUNBOOK.md), [бэкапы](docs/BACKUP_RESTORE.md),
-  [безопасность](docs/SECURITY_REVIEW.md), [почта (Resend)](docs/SMTP_RESEND.md)
+  [безопасность](docs/SECURITY_REVIEW.md)
 - Правила работы: [CLAUDE.md](CLAUDE.md)
 
 ## Требования
@@ -45,7 +45,7 @@ npm run dev                      # http://localhost:3000
 Seed создаёт и демо-объект `DEMO — ЖК Демо` (блок, этажи, бригада, материалы, поставщики): кладовщик и прораб
 назначены на него — можно сразу пройти заявку → приёмку → выдачу.
 
-Письма (приглашения) локально не уходят наружу — смотрите их в Mailpit: http://127.0.0.1:54424. Studio — http://127.0.0.1:54423.
+Писем пользователям система не отправляет (Д-87). Studio — http://127.0.0.1:54423.
 
 ## Скрипты
 
@@ -65,7 +65,8 @@ Seed создаёт и демо-объект `DEMO — ЖК Демо` (блок,
 | `org:create` | создать организацию и её первого администратора (см. «Организации и участники») |
 | `db:types` | сгенерировать `src/lib/supabase/database.types.ts` — **после каждой миграции** |
 | `db:test` | pgTAP-тесты из `supabase/tests` |
-| `scripts/staging-org-create.sh` | первая организация на staging без SMTP — пароль вводится скрыто (Д-78) |
+| `scripts/staging-org-create.sh` | первая организация на staging — пароль администратора вводится скрыто |
+| `password:reset` | сброс пароля серверным скриптом (себе / при потере доступа администратором), `--yes` и причина обязательны |
 | `scripts/backup/dump.sh`, `restore-verify.sh` | дамп БД и проверка восстановлением (локально и в `backup.yml`, Д-82) |
 | smoke | `E2E_BASE_URL=… E2E_SUPABASE_URL=… E2E_SUPABASE_PUBLISHABLE_KEY=… npx playwright test -c playwright.smoke.config.ts` — против развёрнутого окружения |
 
@@ -87,27 +88,31 @@ Seed создаёт и демо-объект `DEMO — ЖК Демо` (блок,
 
 Самостоятельной регистрации нет (Д-37, Д-41).
 
-1. **Организация и первый администратор** — только серверным скриптом:
+1. **Организация и первый администратор** — только серверным скриптом. Писем нет (Д-87): логин — телефон,
+   имя латиницей или email; пароль — ввести самому (`--prompt-password`) или получить временный (показ один раз,
+   при первом входе — обязательная смена):
    ```bash
-   # локально (пароль сразу, без письма):
-   npm run org:create -- --name "СК Восток" --admin-email owner@example.tj --admin-name "Иванов И. И." --password '…'
-   # staging/production (письмо-приглашение; --yes подтверждает нелокальную БД):
-   NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SECRET_KEY=<secret> NEXT_PUBLIC_SITE_URL=https://<домен> \
-     npm run org:create -- --name "СК Восток" --admin-email owner@example.tj --admin-name "Иванов И. И." --yes
+   # локально:
+   npm run org:create -- --name "СК Восток" --admin-login +992901234567 --admin-name "Иванов И. И." --password '…'
+   # staging/production (--yes подтверждает нелокальную БД):
+   NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SECRET_KEY=<secret> \
+     npm run org:create -- --name "СК Восток" --admin-login +992901234567 --admin-name "Иванов И. И." --yes --prompt-password
    ```
-2. **Остальные участники** — администратор приглашает в разделе «Участники»: роли, объекты, письмо со ссылкой.
-   Приглашённый задаёт пароль; бухгалтер, кассир и администратор затем подключают второй фактор (TOTP).
+2. **Остальные сотрудники** — «Участники» → «Добавить сотрудника»: ФИО, логин (телефон или имя латиницей),
+   роли, объекты. Временный пароль показывается администратору один раз; при первом входе сотрудник задаёт свой;
+   администратор и кассир затем подключают второй фактор (TOTP, Д-90).
 3. В организации всегда остаётся хотя бы один активный администратор (Д-43).
-4. **Потерян телефон (второй фактор)**: администратор открывает участника → «Сбросить второй фактор», указывает
-   причину. Участник выходит на всех устройствах сразу (Д-47) и при следующем входе подключает MFA заново.
-   Себе сбросить нельзя — другой администратор или серверный скрипт:
+4. **Забыли пароль** — «Участники» → сотрудник → «Сбросить пароль» (причина): новый временный пароль один раз,
+   все сессии сотрудника завершаются, событие — в аудите. Себе — нельзя, только скриптом:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SECRET_KEY=… npm run password:reset -- --login +992901234567 --reason "…" --yes
+   ```
+5. **Потерян телефон (второй фактор)**: «Сбросить второй фактор» с причиной (Д-45); себе — скриптом:
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SECRET_KEY=… npm run mfa:reset -- --email admin@example.tj --reason "Потерян телефон, заявка №…" --yes
    ```
-5. **Начальные остатки** — раздел «Ввод остатков» (бухгалтер или администратор): склад (количества без цен),
+6. **Начальные остатки** — раздел «Ввод остатков» (бухгалтер или администратор): склад (количества без цен),
    кассы и счета (баланс на дату), долги поставщикам (сумма и основание). После проведения — только сторно.
-6. **Забыли пароль**: ссылка «Забыли пароль?» на экране входа → письмо → новый пароль. Ответ одинаковый для любого
-   email (не раскрывает, есть ли учётная запись); второй фактор новый пароль не отменяет.
 
 ## CI
 
@@ -193,11 +198,8 @@ workflow сверяет с ними строку подключения к БД 
 
 1. Supabase: проект `buildflow-staging`; Auth → MFA: TOTP включён; Auth → Sign-ups: выключены.
 2. Auth → URL Configuration: Site URL = `https://<домен-staging>`, Redirect URLs = `https://<домен-staging>/**`.
-3. Auth → Email Templates: **Invite user** и **Reset password** — из `supabase/templates/invite.html` и
-   `recovery.html` (ссылки ведут на `{{ .SiteURL }}/auth/confirm?token_hash=…`).
-4. Auth → SMTP: свой SMTP (Resend: `smtp.resend.com:465`, пользователь `resend`, пароль — API-ключ,
-   отправитель — адрес на подтверждённом домене). Встроенная почта Supabase шлёт лишь несколько писем в час.
-5. Vercel: проект `buildflow-staging`, переменные для Production: `NEXT_PUBLIC_APP_ENV=staging`,
+3. Auth → минимальная длина пароля 10. Почта не нужна (Д-87): шаблоны писем и SMTP не настраиваются.
+4. Vercel: проект `buildflow-staging`, переменные для Production: `NEXT_PUBLIC_APP_ENV=staging`,
    `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
    `SUPABASE_SECRET_KEY` (Sensitive).
 6. GitHub: окружение `staging` с секретами выше, переменная `STAGING_ENABLED=true`.
@@ -216,4 +218,4 @@ workflow сверяет с ними строку подключения к БД 
   если адрес не `127.0.0.1`/`localhost` или `NEXT_PUBLIC_APP_ENV` = `staging`/`production` (покрыто тестом
   `scripts/local-supabase.test.mts`).
 
-В staging/production пользователей заводят только `npm run org:create` (первый `org_admin`) и приглашения — появятся в фазе Foundation.
+В staging/production пользователей заводят только `npm run org:create` (первый `org_admin`) и администратор в «Участниках» (Д-87).

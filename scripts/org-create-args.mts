@@ -2,14 +2,18 @@ import { parseArgs } from "node:util";
 
 import { z } from "zod";
 
-/** Аргументы `npm run org:create -- --name … --admin-email … --admin-name … [--yes] [--password …]`. */
+import { isEmailLogin, isValidLogin } from "../src/lib/auth/login.ts";
+
+/** Аргументы `npm run org:create -- --name … --admin-login … --admin-name … [--yes] [--password … | --prompt-password]`. */
 export const orgCreateArgsSchema = z.object({
   name: z.string().trim().min(2, { error: "--name: название организации" }),
-  adminEmail: z
+  // Логин первого администратора (Д-87): телефон +992…, имя латиницей или email.
+  adminLogin: z
     .string()
     .trim()
-    .toLowerCase()
-    .pipe(z.email({ error: "--admin-email: корректный email первого администратора" })),
+    .refine((v) => (isEmailLogin(v) ? z.email().safeParse(v).success : isValidLogin(v)), {
+      error: "--admin-login: телефон +992XXXXXXXXX, имя латиницей или email первого администратора",
+    }),
   adminName: z.string().trim().min(2, { error: "--admin-name: ФИО администратора" }),
   yes: z.boolean(),
   // Только для локальной БД: создать пользователя сразу с паролем, без письма-приглашения.
@@ -25,7 +29,7 @@ export function parseOrgCreateArgs(argv: string[]): OrgCreateArgs {
     args: argv,
     options: {
       name: { type: "string" },
-      "admin-email": { type: "string" },
+      "admin-login": { type: "string" },
       "admin-name": { type: "string" },
       password: { type: "string" },
       yes: { type: "boolean", default: false },
@@ -35,7 +39,7 @@ export function parseOrgCreateArgs(argv: string[]): OrgCreateArgs {
   });
   const result = orgCreateArgsSchema.safeParse({
     name: values.name ?? "",
-    adminEmail: values["admin-email"] ?? "",
+    adminLogin: values["admin-login"] ?? "",
     adminName: values["admin-name"] ?? "",
     password: values.password,
     yes: values.yes ?? false,

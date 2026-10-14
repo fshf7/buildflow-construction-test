@@ -162,18 +162,18 @@ select throws_ok(
 select pg_temp.logout();
 
 -- -------------------------------------------------------------------------------------
--- MFA для привилегированных ролей (Д-29)
+-- MFA обязательна для org_admin и cashier (Д-90; было Д-29)
 -- -------------------------------------------------------------------------------------
--- 19–20. бухгалтер без второго фактора не имеет прав; с aal2 — имеет
-select pg_temp.login((select v from ids where k='acc'), 'aal1');
-select is((select count(*)::int from public.projects), 0, 'бухгалтер без MFA не видит объекты');
+-- 19–20. администратор без второго фактора не имеет прав; бухгалтеру MFA не обязательна (Д-90)
+select pg_temp.login((select v from ids where k='admin_a'), 'aal1');
 select is((public.my_access() -> 'organizations' -> 0 -> 'permissions'), '[]'::jsonb,
-  'бухгалтер без MFA: список прав пуст');
+  'администратор без MFA: список прав пуст');
+select ok(public.current_user_requires_mfa(), 'current_user_requires_mfa = true для администратора');
 select pg_temp.logout();
-select pg_temp.login((select v from ids where k='acc'), 'aal2');
-select is((select count(*)::int from public.projects), 2, 'бухгалтер с MFA видит все объекты (all_projects)');
+select pg_temp.login((select v from ids where k='acc'), 'aal1');
+select is((select count(*)::int from public.projects), 2, 'бухгалтер без MFA видит все объекты (Д-90)');
 -- 22
-select ok(public.current_user_requires_mfa(), 'current_user_requires_mfa = true для бухгалтера');
+select ok(not public.current_user_requires_mfa(), 'current_user_requires_mfa = false для бухгалтера (Д-90)');
 select pg_temp.logout();
 
 -- 23. прорабу MFA не требуется

@@ -13,7 +13,7 @@ export {
 /** Отправляет форму входа (результат проверяет вызывающий: ошибка, /mfa или приложение). */
 export async function submitLogin(page: Page, email: string, password: string) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Логин").fill(email);
   await page.getByLabel("Пароль").fill(password);
   await page.getByRole("button", { name: "Войти" }).click();
 }

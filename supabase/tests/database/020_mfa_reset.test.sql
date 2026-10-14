@@ -98,11 +98,11 @@ select is((select actor_id from public.audit_logs
            where action = 'MFA_RESET' and record_id = (select v from ids where k='acc_member')),
   (select v from ids where k='admin'), 'в аудите — кто сбросил');
 
--- 9. после сброса бухгалтер снова обязан пройти MFA: без aal2 прав нет
+-- 9. после сброса бухгалтер работает без второго фактора: для его роли MFA не обязательна (Д-90)
 select pg_temp.login((select v from ids where k = 'acc'), 'aal1');
-select ok(public.current_user_requires_mfa() and
-          (public.my_access() -> 'organizations' -> 0 -> 'permissions') = '[]'::jsonb,
-  'после сброса роль снова требует MFA, без неё прав нет');
+select ok(not public.current_user_requires_mfa() and
+          jsonb_array_length(public.my_access() -> 'organizations' -> 0 -> 'permissions') > 0,
+  'после сброса бухгалтеру MFA не обязательна (Д-90), права есть');
 select pg_temp.logout();
 
 -- 10. администратор без второго фактора сбросить не может

@@ -51,7 +51,7 @@ mkdir backup && tar -xzf backup.tar.gz -C backup
 4. Сверка: `psql "$DB_URL" -At -F $'\t' -f scripts/backup/sql/reconcile.sql` — всё 0;
    `… -f scripts/backup/sql/table-counts.sql | diff - backup/counts.tsv` — без различий.
 5. Переключить приложение: Vercel → переменные `NEXT_PUBLIC_SUPABASE_URL`, ключи; GitHub environment —
-   `*_DB_URL`, `SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_SUPABASE_URL`; Auth → Site URL, SMTP, шаблоны (см. RUNBOOK.md).
+   `*_DB_URL`, `SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_SUPABASE_URL`; Auth → Site URL, регистрация выключена, длина пароля (см. RUNBOOK.md).
    Новый деплой (переменные `NEXT_PUBLIC_*` вшиваются при сборке).
 
 ### 2b. Откатить ТОТ ЖЕ проект к ночной копии (испорчены данные)

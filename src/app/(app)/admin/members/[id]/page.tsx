@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Separator } from "@/components/ui/separator";
 import { EditMemberForm } from "@/features/admin/components/edit-member-form";
 import { MfaReset } from "@/features/admin/components/mfa-reset";
+import { PasswordReset } from "@/features/admin/components/password-reset";
 import { getMember, listProjectOptions } from "@/features/admin/queries";
 import { requirePermission } from "@/lib/auth/access";
 
@@ -18,13 +19,25 @@ export default async function MemberPage({ params }: PageProps<"/admin/members/[
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <PageHeader title={member.fullName} description="Роли, объекты и доступ участника." />
+      <PageHeader
+        title={member.fullName}
+        description={
+          member.login
+            ? `Логин для входа: ${member.login}`
+            : `Вход по email: ${member.email ?? "—"}`
+        }
+      />
       <section className="flex max-w-2xl flex-col gap-3">
         <h2 className="text-lg font-semibold">Безопасность</h2>
         <MfaReset
           memberId={member.id}
           memberName={member.fullName}
           hasMfa={member.hasMfa}
+          isSelf={member.id === org.member_id}
+        />
+        <PasswordReset
+          memberId={member.id}
+          memberName={member.fullName}
           isSelf={member.id === org.member_id}
         />
       </section>

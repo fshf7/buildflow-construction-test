@@ -1683,7 +1683,7 @@ export type Database = {
           all_projects: boolean;
           created_at: string;
           created_by: string | null;
-          email: string;
+          email: string | null;
           full_name: string;
           id: string;
           invited_at: string | null;
@@ -1698,7 +1698,7 @@ export type Database = {
           all_projects?: boolean;
           created_at?: string;
           created_by?: string | null;
-          email: string;
+          email?: string | null;
           full_name: string;
           id?: string;
           invited_at?: string | null;
@@ -1713,7 +1713,7 @@ export type Database = {
           all_projects?: boolean;
           created_at?: string;
           created_by?: string | null;
-          email?: string;
+          email?: string | null;
           full_name?: string;
           id?: string;
           invited_at?: string | null;
@@ -3665,6 +3665,10 @@ export type Database = {
         Args: { p_id: string; p_key: string };
         Returns: Json;
       };
+      complete_password_reset: {
+        Args: { p_member_id: string; p_reason: string };
+        Returns: number;
+      };
       confirm_supplier_invoice: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
@@ -3728,6 +3732,13 @@ export type Database = {
         Args: { p_comment: string; p_id: string; p_key: string };
         Returns: Json;
       };
+      member_logins: {
+        Args: { p_org: string };
+        Returns: {
+          login: string;
+          member_id: string;
+        }[];
+      };
       member_mfa_status: {
         Args: { p_org: string };
         Returns: {
@@ -3756,6 +3767,11 @@ export type Database = {
         Args: { p_id: string; p_key: string };
         Returns: Json;
       };
+      prepare_member_account: {
+        Args: { p_login: string; p_org: string };
+        Returns: string;
+      };
+      prepare_password_reset: { Args: { p_member_id: string }; Returns: string };
       rate_limit_hit: {
         Args: { p_bucket: string; p_max: number; p_window_seconds: number };
         Returns: boolean;
@@ -3763,6 +3779,10 @@ export type Database = {
       recalculate_stock_balances: {
         Args: { p_warehouse: string };
         Returns: number;
+      };
+      register_login: {
+        Args: { p_login: string; p_user_id: string };
+        Returns: string;
       };
       reject_cash_reversal: {
         Args: { p_comment: string; p_id: string; p_key: string };
@@ -3880,6 +3900,10 @@ export type Database = {
       reset_user_mfa_by_service: {
         Args: { p_email: string; p_reason: string };
         Returns: number;
+      };
+      reset_user_password_by_service: {
+        Args: { p_login: string; p_reason: string };
+        Returns: string;
       };
       resolve_purchase_discrepancy: {
         Args: { p_comment: string; p_id: string; p_key: string };

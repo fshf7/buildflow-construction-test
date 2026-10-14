@@ -3,30 +3,36 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { env } from "@/env";
-import { fail, ok, type ActionResult } from "@/lib/actions/result";
+import { fail, type ActionResult } from "@/lib/actions/result";
 import { CURRENT_ORG_COOKIE, getAccess } from "@/lib/auth/access";
 import { redirectAfterAuth } from "@/lib/auth/after-auth";
+import { isEmailLogin, loginToAuthEmail, normalizeLogin } from "@/lib/auth/login";
 import { clientIp, rateLimit, tooManyMessage } from "@/lib/security/rate-limit";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-import { forgotPasswordSchema, loginSchema, setPasswordSchema } from "./schemas";
+import { loginSchema, setPasswordSchema } from "./schemas";
 
 export async function signIn(input: unknown, next?: string): Promise<ActionResult> {
   const parsed = loginSchema.safeParse(input);
-  if (!parsed.success) return fail("Проверьте email и пароль");
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Проверьте логин и пароль");
+  const login = parsed.data.login;
 
-  // Д-80: перебор паролей — лимит на IP и на email (поверх лимитов Supabase Auth).
+  // Д-80: перебор паролей — лимит на IP и на логин (поверх лимитов Supabase Auth).
   const limit = await rateLimit([
     { name: "login_ip", value: await clientIp() },
-    { name: "login_email", value: parsed.data.email },
+    { name: "login_id", value: isEmailLogin(login) ? login.toLowerCase() : normalizeLogin(login) },
   ]);
   if (!limit.ok) return fail(tooManyMessage(limit.retryAfterSec));
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  // Не раскрываем, что именно неверно: email или пароль.
-  if (error) return fail("Неверный email или пароль");
+  // Д-87: логин → техническая почта учётной записи; писем она не получает.
+  const { error } = await supabase.auth.signInWithPassword({
+    email: loginToAuthEmail(login),
+    password: parsed.data.password,
+  });
+  // Не раскрываем, что именно неверно: логин или пароль.
+  if (error) return fail("Неверный логин или пароль");
 
   return redirectAfterAuth(next);
 }
@@ -41,31 +47,9 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * «Забыли пароль»: письмо со ссылкой (шаблон supabase/templates/recovery.html).
- * Ответ всегда одинаковый — нельзя узнать, зарегистрирован ли email.
+ * Новый пароль — обязательно после временного (Д-89). Затем сервер снимает признак смены
+ * (admin API, user_id — из проверенного токена) и обновляет сессию, чтобы новый токен был без него.
  */
-export async function requestPasswordReset(input: unknown): Promise<ActionResult> {
-  const parsed = forgotPasswordSchema.safeParse(input);
-  if (!parsed.success) return fail("Введите корректный email");
-
-  // Д-80: при превышении письмо не отправляем, но ответ тот же (Д-49 — не раскрываем адреса).
-  const limit = await rateLimit([
-    { name: "reset_ip", value: await clientIp() },
-    { name: "reset_email", value: parsed.data.email },
-  ]);
-  if (!limit.ok) return ok();
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${env.NEXT_PUBLIC_SITE_URL}/reset-password`,
-  });
-  // Любую ошибку (включая 429) не показываем: Supabase ограничивает частоту только для
-  // СУЩЕСТВУЮЩИХ адресов, и отдельное сообщение раскрыло бы, что учётная запись есть.
-  if (error) console.warn("resetPasswordForEmail:", error.status, error.code);
-  return ok();
-}
-
-/** Новый пароль: после приглашения (/set-password) или восстановления (/reset-password). */
 export async function setPassword(input: unknown): Promise<ActionResult> {
   const parsed = setPasswordSchema.safeParse(input);
   if (!parsed.success) return fail("Проверьте пароль");
@@ -75,9 +59,18 @@ export async function setPassword(input: unknown): Promise<ActionResult> {
   if (error) {
     return fail(
       error.code === "same_password"
-        ? "Новый пароль совпадает с текущим"
+        ? "Новый пароль должен отличаться от временного"
         : "Не удалось сохранить пароль",
     );
+  }
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
+  if (userId && data?.claims?.app_metadata?.must_change_password) {
+    const { error: flagError } = await createAdminClient().auth.admin.updateUserById(userId, {
+      app_metadata: { must_change_password: false },
+    });
+    if (flagError) return fail("Пароль сохранён, но не удалось завершить смену — войдите заново");
+    await supabase.auth.refreshSession();
   }
   // Пароль не обходит второй фактор: роли с MFA дальше идут на /mfa.
   return redirectAfterAuth("/");

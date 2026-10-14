@@ -19,7 +19,6 @@ trap cleanup EXIT
 mkdir -p "$tmp/supabase"
 sed -e 's/^project_id = .*/project_id = "bf-restore"/' \
     -e 's/= 5442\([0-9]\)/= 5453\1/' "$root/supabase/config.toml" > "$tmp/supabase/config.toml"
-cp -R "$root/supabase/templates" "$tmp/supabase/" 2>/dev/null || true
 # Нужна только БД; проверку готовности CLI (через исключённый Kong) пропускаем — ждём саму БД.
 # Имена сервисов у разных сборок CLI различаются (npx и setup-cli) — перечисляем оба набора; лишние
 # имена CLI только отметит предупреждением.

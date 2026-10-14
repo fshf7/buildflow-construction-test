@@ -14,7 +14,7 @@
 3. Миграции (запись в БД — только с явного «да» владельца): `npx supabase db push --linked --yes`;
    `npx supabase migration list --linked` — локальные = удалённые.
 4. Auth (Management API, `PATCH /v1/projects/<ref>/config/auth`): `site_url`, `uri_allow_list` = домен окружения,
-   `disable_signup = true`. После SMTP — шаблоны писем (`docs/SMTP_RESEND.md`).
+   `disable_signup = true`, `password_min_length = 10`. Почта не настраивается (Д-87).
 5. Ключи — из CLI сразу в Vercel (stdin): `npx supabase projects api-keys --project-ref <ref> --reveal -o json`.
 
 ## 2. Vercel
@@ -42,8 +42,10 @@
 - Включение деплоя: `STAGING_ENABLED=true` / `PRODUCTION_ENABLED=true` (production — только решением владельца).
 
 ## 4. Первый администратор
-- С SMTP: `npm run org:create -- --name … --admin-email … --admin-name … --yes` (env окружения) — письмо-приглашение.
-- Без SMTP (Д-78): `bash scripts/staging-org-create.sh "Организация" email "ФИО"` — пароль вводит сам администратор.
+- `bash scripts/staging-org-create.sh "Организация" "<логин: +992… | имя | email>" "ФИО"` — пароль вводит сам
+  администратор (скрытый ввод). Или `npm run org:create -- … --admin-login … --yes` без `--prompt-password` —
+  временный пароль показывается один раз в терминале, при первом входе обязательная смена.
+- Остальные сотрудники — администратор в «Участниках» (Д-87). Сброс пароля себе — `npm run password:reset`.
 
 ## 5. Проверка
 - `curl https://<домен>/api/health` → `{"status":"ok","db":"ok",…}`;

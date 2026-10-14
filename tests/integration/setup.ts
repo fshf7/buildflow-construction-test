@@ -113,8 +113,16 @@ export { must };
  * через API — возвращается клиент с сессией aal2.
  */
 export async function createCashier(orgId: string): Promise<SupabaseClient<Database>> {
+  return createMemberWithMfa(orgId, "cashier");
+}
+
+/** Одноразовый участник с подключённым вторым фактором (aal2) — кассир или администратор. */
+export async function createMemberWithMfa(
+  orgId: string,
+  roleCode: "cashier" | "org_admin",
+): Promise<SupabaseClient<Database>> {
   const { totp } = await import("../../e2e/helpers/totp");
-  const email = `it-cashier-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@buildflow.local`;
+  const email = `it-${roleCode}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@buildflow.local`;
   const password = "buildflow-local";
   const created = await service.auth.admin.createUser({ email, password, email_confirm: true });
   if (created.error || !created.data.user) throw new Error(created.error?.message ?? "createUser");
@@ -125,7 +133,7 @@ export async function createCashier(orgId: string): Promise<SupabaseClient<Datab
       .insert({
         organization_id: orgId,
         user_id: user.user.id,
-        full_name: "Кассир IT",
+        full_name: roleCode === "cashier" ? "Кассир IT" : "Администратор IT",
         email,
         all_projects: true,
       })
@@ -137,7 +145,7 @@ export async function createCashier(orgId: string): Promise<SupabaseClient<Datab
       .from("roles")
       .select("id")
       .eq("organization_id", orgId)
-      .eq("code", "cashier")
+      .eq("code", roleCode)
       .single(),
   );
   must(

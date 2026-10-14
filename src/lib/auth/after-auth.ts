@@ -13,6 +13,9 @@ import { safeNextPath } from "./redirect";
 export async function redirectAfterAuth(next?: string | null): Promise<never> {
   const target = safeNextPath(next);
   const supabase = await createClient();
+  // Д-89: временный пароль — сначала смена пароля, потом всё остальное (включая MFA).
+  const { data: claims } = await supabase.auth.getClaims();
+  if (claims?.claims?.app_metadata?.must_change_password) redirect("/set-password");
   const { data: requiresMfa } = await supabase.rpc("current_user_requires_mfa");
   if (requiresMfa) {
     redirect(target === "/" ? "/mfa" : `/mfa?next=${encodeURIComponent(target)}`);

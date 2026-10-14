@@ -18,7 +18,7 @@ const columns = helper.columns([
       <Link href={`/admin/members/${info.row.original.id}`} className="font-medium hover:underline">
         {info.getValue()}
         <span className="block text-xs font-normal text-muted-foreground">
-          {info.row.original.email}
+          {info.row.original.login ? `логин ${info.row.original.login}` : info.row.original.email}
         </span>
       </Link>
     ),

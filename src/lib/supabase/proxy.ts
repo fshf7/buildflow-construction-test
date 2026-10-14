@@ -5,17 +5,14 @@ import { env } from "@/env";
 
 import type { Database } from "./database.types";
 
-/** Пути, доступные без входа. /auth/confirm принимает ссылки из писем (приглашение, восстановление). */
-export const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth", "/api/health"] as const;
+/** Пути, доступные без входа. /auth/signout — выход; писем со ссылками нет (Д-87). */
+export const PUBLIC_PATHS = ["/login", "/auth", "/api/health"] as const;
 
 /** Пути, доступные вошедшему пользователю без второго фактора (иначе его негде подключить). */
-export const MFA_EXEMPT_PATHS = [
-  "/mfa",
-  "/set-password",
-  "/reset-password",
-  "/no-access",
-  "/auth",
-] as const;
+export const MFA_EXEMPT_PATHS = ["/mfa", "/set-password", "/no-access", "/auth"] as const;
+
+/** С временным паролем (Д-89) доступны только смена пароля и выход. */
+export const PASSWORD_CHANGE_PATHS = ["/set-password", "/auth/signout", "/api/health"] as const;
 
 function matches(paths: readonly string[], pathname: string): boolean {
   return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -69,7 +66,16 @@ export async function updateSession(request: NextRequest) {
     return redirectPreservingCookies(request, response, "/");
   }
 
-  // Д-29: org_admin / accountant / cashier без второго фактора — только на экран MFA.
+  // Д-89: временный пароль — только смена пароля (данных и так нет: member_id() = NULL в БД).
+  if (
+    isSignedIn &&
+    data?.claims?.app_metadata?.must_change_password &&
+    !matches(PASSWORD_CHANGE_PATHS, pathname)
+  ) {
+    return redirectPreservingCookies(request, response, "/set-password");
+  }
+
+  // Д-90: org_admin и cashier без второго фактора — только на экран MFA.
   // RLS и так не отдаст им данные без aal2; редирект — чтобы человек понял, что делать.
   if (isSignedIn && data?.claims?.aal !== "aal2" && !isMfaExemptPath(pathname)) {
     const { data: requiresMfa, error } = await supabase.rpc("current_user_requires_mfa");

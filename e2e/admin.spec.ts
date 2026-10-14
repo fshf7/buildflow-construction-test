@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 import { ADMIN_STATE, LOCAL_FOREMAN, login } from "./helpers/accounts";
-import { waitForConfirmLink } from "./helpers/mailpit";
 
 // Уникальные значения на прогон: тесты не мешают друг другу и повторным запускам.
 const run = Date.now().toString(36);
@@ -68,31 +67,6 @@ test.describe("администратор", () => {
     await expect(
       page.getByRole("row", { name: new RegExp(name) }).getByText("Сыпучие"),
     ).toBeVisible();
-  });
-
-  test("приглашение: письмо → пароль → вход завсклада", async ({ page, browser, isMobile }) => {
-    test.skip(isMobile, "приглашение проверяем один раз — на десктопе");
-    const email = `warehouse-${run}@buildflow.local`;
-
-    await page.goto("/admin/members/invite");
-    await page.getByLabel("ФИО").fill("Завсклад Тестов");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Заведующий складом").check();
-    await page.getByRole("button", { name: "Пригласить" }).click();
-    await expect(page).toHaveURL(/\/admin\/members$/);
-    await expect(page.getByRole("link", { name: new RegExp(email) })).toBeVisible();
-
-    // Новый человек: свой браузерный контекст без сессии администратора.
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-    const invited = await ctx.newPage();
-    await invited.goto(await waitForConfirmLink(email));
-    await expect(invited).toHaveURL(/\/set-password/);
-    await invited.getByLabel("Новый пароль").fill("warehouse-pass-1");
-    await invited.getByLabel("Повторите пароль").fill("warehouse-pass-1");
-    await invited.getByRole("button", { name: "Сохранить пароль" }).click();
-    // Заведующему складом MFA не требуется — сразу в приложение.
-    await expect(invited.getByRole("heading", { name: "Главная" })).toBeVisible();
-    await ctx.close();
   });
 
   test("журнал аудита показывает изменения", async ({ page }) => {

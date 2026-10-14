@@ -7,15 +7,15 @@ describe("org:create — аргументы", () => {
     const a = parseOrgCreateArgs([
       "--name",
       "СК Восток",
-      "--admin-email",
-      " Admin@Example.TJ ",
+      "--admin-login",
+      " +992 90 123 45 67 ",
       "--admin-name",
       "Иванов И.",
       "--yes",
     ]);
     expect(a).toEqual({
       name: "СК Восток",
-      adminEmail: "admin@example.tj",
+      adminLogin: "+992 90 123 45 67",
       adminName: "Иванов И.",
       yes: true,
       promptPassword: false,
@@ -23,7 +23,7 @@ describe("org:create — аргументы", () => {
   });
 
   it("--prompt-password: пароль спрашивается в терминале, не вместе с --password", () => {
-    const base = ["--name", "СК", "--admin-email", "a@b.tj", "--admin-name", "Иванов"];
+    const base = ["--name", "СК", "--admin-login", "a@b.tj", "--admin-name", "Иванов"];
     expect(parseOrgCreateArgs([...base, "--prompt-password"]).promptPassword).toBe(true);
     expect(() =>
       parseOrgCreateArgs([...base, "--prompt-password", "--password", "0123456789"]),
@@ -31,7 +31,7 @@ describe("org:create — аргументы", () => {
   });
 
   it("сообщает, чего не хватает", () => {
-    expect(() => parseOrgCreateArgs(["--name", "СК"])).toThrow(/--admin-email/);
+    expect(() => parseOrgCreateArgs(["--name", "СК"])).toThrow(/--admin-login/);
   });
 
   it("не принимает неизвестные флаги", () => {

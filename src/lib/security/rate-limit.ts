@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /** Лимиты (Д-80): [попыток, окно в секундах]. */
 export const LIMITS = {
   login_ip: [10, 15 * 60],
-  login_email: [5, 15 * 60],
+  login_id: [5, 15 * 60],
   reset_ip: [10, 60 * 60],
   reset_email: [3, 60 * 60],
   export_user: [30, 10 * 60],

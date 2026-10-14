@@ -23,15 +23,14 @@ setup("администратор: вход с подключением MFA", as
   await page.context().storageState({ path: ADMIN_STATE });
 });
 
-// Бухгалтер (Д-29: роль с MFA) — для сценариев закупок.
-setup("бухгалтер: вход с подключением MFA", async ({ page }) => {
+// Бухгалтер: второй фактор не обязателен (Д-90) — вход по паролю сразу в приложение.
+setup("бухгалтер: вход без MFA (Д-90)", async ({ page }) => {
   await login(page, LOCAL_ACCOUNTANT.email, LOCAL_ACCOUNTANT.password);
-  await expect(page).toHaveURL(/\/mfa/);
-  await enrollMfa(page, totp);
+  await expect(page.getByRole("heading", { name: "Главная" })).toBeVisible();
   await page.context().storageState({ path: ACCOUNTANT_STATE });
 });
 
-// Кассир (Д-29: роль с MFA) — для сценариев финансов.
+// Кассир (Д-90: роль с MFA) — для сценариев финансов.
 setup("кассир: вход с подключением MFA", async ({ page }) => {
   await login(page, LOCAL_CASHIER.email, LOCAL_CASHIER.password);
   await expect(page).toHaveURL(/\/mfa/);

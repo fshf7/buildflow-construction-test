@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
@@ -18,7 +17,7 @@ export function LoginForm({ next }: { next?: string }) {
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { login: "", password: "" },
   });
   const { errors } = form.formState;
 
@@ -34,26 +33,22 @@ export function LoginForm({ next }: { next?: string }) {
   return (
     <form onSubmit={onSubmit} noValidate>
       <FieldGroup>
-        <Field data-invalid={Boolean(errors.email)}>
-          <FieldLabel htmlFor="email">Email</FieldLabel>
+        <Field data-invalid={Boolean(errors.login)}>
+          <FieldLabel htmlFor="login">Логин</FieldLabel>
           <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            aria-invalid={Boolean(errors.email)}
-            {...form.register("email")}
+            id="login"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="+992… или имя"
+            aria-invalid={Boolean(errors.login)}
+            {...form.register("login")}
           />
-          <FieldError errors={[errors.email]} />
+          <FieldError errors={[errors.login]} />
         </Field>
 
         <Field data-invalid={Boolean(errors.password)}>
-          <div className="flex items-center justify-between">
-            <FieldLabel htmlFor="password">Пароль</FieldLabel>
-            <Link href="/forgot-password" className="text-sm underline-offset-4 hover:underline">
-              Забыли пароль?
-            </Link>
-          </div>
+          <FieldLabel htmlFor="password">Пароль</FieldLabel>
           <Input
             id="password"
             type="password"
@@ -73,6 +68,9 @@ export function LoginForm({ next }: { next?: string }) {
         <Button type="submit" size="lg" className="w-full" disabled={isPending}>
           {isPending ? "Вход…" : "Войти"}
         </Button>
+        <p className="text-center text-sm text-muted-foreground">
+          Забыли пароль? Обратитесь к администратору.
+        </p>
       </FieldGroup>
     </form>
   );

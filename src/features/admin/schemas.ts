@@ -1,23 +1,31 @@
 import { z } from "zod";
 
+import { isValidLogin } from "@/lib/auth/login";
 import { ROLE_CODES } from "@/lib/auth/permissions";
 
 const roles = z.array(z.enum(ROLE_CODES)).min(1, { error: "Выберите хотя бы одну роль" });
 
 const fullName = z.string().trim().min(2, { error: "Укажите ФИО" }).max(200);
 
-export const inviteMemberSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .pipe(z.email({ error: "Введите корректный email" })),
+/** Новый сотрудник (Д-87): вход по логину; email — только контакт, необязателен. */
+export const createMemberSchema = z.object({
   fullName,
+  login: z.string().trim().refine(isValidLogin, {
+    error: "Телефон в формате +992XXXXXXXXX или имя латиницей (3–32 символа)",
+  }),
+  email: z.union([
+    z.literal(""),
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.email({ error: "Введите корректный email" })),
+  ]),
   roles,
   allProjects: z.boolean(),
   projectIds: z.array(z.uuid()),
 });
-export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
+export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 
 export const updateMemberSchema = z.object({
   memberId: z.uuid(),
@@ -35,3 +43,9 @@ export const resetMfaSchema = z.object({
   reason: z.string().trim().min(3, { error: "Укажите причину" }).max(500),
 });
 export type ResetMfaInput = z.infer<typeof resetMfaSchema>;
+
+export const resetPasswordSchema = z.object({
+  memberId: z.uuid(),
+  reason: z.string().trim().min(3, { error: "Укажите причину" }).max(500),
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

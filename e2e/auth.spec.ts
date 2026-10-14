@@ -12,7 +12,7 @@ test("неверный пароль показывает ошибку", async ({
   await submitLogin(page, LOCAL_FOREMAN.email, "wrong-password");
   // role="alert" есть и у служебного анонсера маршрутов Next.js — фильтруем по тексту.
   await expect(
-    page.getByRole("alert").filter({ hasText: "Неверный email или пароль" }),
+    page.getByRole("alert").filter({ hasText: "Неверный логин или пароль" }),
   ).toBeVisible();
 });
 
