@@ -15,7 +15,9 @@ test("страницы входа: скрипты не заблокирован�
   await page.getByLabel("Пароль").fill("wrong-password-123");
   await page.getByRole("button", { name: "Войти" }).click();
   // Ошибка показана клиентским кодом — значит, страница ожила.
-  await expect(page.getByRole("alert").first()).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: /Неверный email или пароль|Слишком много попыток/ }),
+  ).toBeVisible();
   expect(violations(msgs)).toEqual([]);
 });
 

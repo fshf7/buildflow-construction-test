@@ -41,7 +41,9 @@ test("неверный пароль — понятная ошибка", async ({
   await page.getByLabel("Email").fill("nobody@example.com");
   await page.getByLabel("Пароль").fill("wrong-password-123");
   await page.getByRole("button", { name: "Войти" }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: /Неверный email или пароль|Слишком много попыток/ }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/login/);
 });
 
@@ -57,10 +59,12 @@ test("перебор пароля ограничен (Д-80): не больше 
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Пароль").fill("wrong-password-123");
     await page.getByRole("button", { name: "Войти" }).click();
-    await expect(page.getByRole("alert").first()).toBeVisible();
-    limited =
-      (await page.getByRole("alert").first().textContent())?.includes("Слишком много попыток") ??
-      false;
+    // Сообщение формы (у Next.js есть и пустой alert-анонсер маршрутов — его не берём).
+    const message = page
+      .getByRole("alert")
+      .filter({ hasText: /Неверный email или пароль|Слишком много попыток/ });
+    await expect(message).toBeVisible();
+    limited = ((await message.textContent()) ?? "").includes("Слишком много попыток");
   }
   expect(limited).toBe(true);
 });
