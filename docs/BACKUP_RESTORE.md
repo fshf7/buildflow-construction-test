@@ -40,7 +40,7 @@ mkdir backup && tar -xzf backup.tar.gz -C backup
    `scripts/ci/normalize-db-url.py`).
 3. Восстановить (порядок важен; Supabase сам создаёт свои схемы `auth`/`storage`):
    ```bash
-   psql "$DB_URL" -v ON_ERROR_STOP=1 -f backup/roles.sql
+   grep -v 'ON PARAMETER' backup/roles.sql | psql "$DB_URL" -v ON_ERROR_STOP=1 -f -   # служебные GRANT — их создаёт сам проект
    psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f backup/schema.sql
    psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction \
      -c "set session_replication_role = replica" -f backup/data.sql

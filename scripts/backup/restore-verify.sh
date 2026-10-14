@@ -21,15 +21,21 @@ sed -e 's/^project_id = .*/project_id = "bf-restore"/' \
     -e 's/= 5442\([0-9]\)/= 5453\1/' "$root/supabase/config.toml" > "$tmp/supabase/config.toml"
 cp -R "$root/supabase/templates" "$tmp/supabase/" 2>/dev/null || true
 # Нужна только БД; проверку готовности CLI (через исключённый Kong) пропускаем — ждём саму БД.
+# Имена сервисов у разных сборок CLI различаются (npx и setup-cli) — перечисляем оба набора; лишние
+# имена CLI только отметит предупреждением.
 $SB start --workdir "$tmp" --ignore-health-check \
-  -x analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,storage,studio,vector >/dev/null
+  -x analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,storage,studio,vector,gotrue,logflare,mailpit,postgres-meta,postgrest,storage-api,supavisor >/dev/null
 db="supabase_db_bf-restore"
 for _ in $(seq 1 60); do docker exec "$db" pg_isready -U postgres -q && break; sleep 2; done
 docker exec "$db" pg_isready -U postgres -q || { echo "Временная БД не поднялась" >&2; exit 1; }
 psql_r() { docker exec -i "$db" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 "$@"; }
 
 started=$(date +%s)
-[[ -s "$dump/roles.sql" ]] && psql_r -q -f - < "$dump/roles.sql" >/dev/null
+# Роли: «GRANT SET ON PARAMETER» служебных ролей Supabase выполняет только суперпользователь платформы
+# (новый проект создаёт их сам) — пропускаем; остальное — со строгой остановкой на ошибке.
+if [[ -s "$dump/roles.sql" ]]; then
+  grep -v 'ON PARAMETER' "$dump/roles.sql" | psql_r -q -f - >/dev/null
+fi
 psql_r -q --single-transaction -f - < "$dump/schema.sql" >/dev/null
 { echo "set session_replication_role = replica;"; cat "$dump/data-app.sql"; } | psql_r -q --single-transaction -f - >/dev/null
 seconds=$(( $(date +%s) - started ))
