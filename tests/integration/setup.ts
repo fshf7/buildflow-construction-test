@@ -43,7 +43,7 @@ export type Fixture = {
 
 /** Объект теста, назначенный кладовщику; материал и поставщик — уникальные. */
 export async function createFixture(tag: string): Promise<Fixture> {
-  await seedLocal();
+  await seedLocal({ enforceMfa: true }); // строгий режим Д-90 (Д-91: включается флагом)
   const run = `${tag}-${Date.now().toString(36)}`;
 
   const org = must(

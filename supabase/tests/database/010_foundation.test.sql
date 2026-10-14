@@ -51,6 +51,9 @@ insert into ids select 'org_a', public.create_organization('Стройка А', 
 insert into ids select 'org_b', public.create_organization('Стройка Б', v, 'Админ Б', 'admin-b@test.local')
   from ids where k = 'admin_b';
 
+-- Этот файл проверяет строгий режим: второй фактор включён (Д-91; режим «выключен» — 150_mfa_optional).
+update public.organizations set mfa_enforced = true;
+
 -- 1–4. create_organization
 select is((select count(*)::int from public.roles where organization_id = (select v from ids where k='org_a')),
   6, 'создано 6 ролей');

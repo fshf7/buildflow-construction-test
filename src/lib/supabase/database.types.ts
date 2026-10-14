@@ -1740,6 +1740,7 @@ export type Database = {
           created_by: string | null;
           default_currency: string;
           id: string;
+          mfa_enforced: boolean;
           name: string;
           tax_id: string | null;
           timezone: string;
@@ -1750,6 +1751,7 @@ export type Database = {
           created_by?: string | null;
           default_currency?: string;
           id?: string;
+          mfa_enforced?: boolean;
           name: string;
           tax_id?: string | null;
           timezone?: string;
@@ -1760,6 +1762,7 @@ export type Database = {
           created_by?: string | null;
           default_currency?: string;
           id?: string;
+          mfa_enforced?: boolean;
           name?: string;
           tax_id?: string | null;
           timezone?: string;

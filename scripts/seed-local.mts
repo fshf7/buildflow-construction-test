@@ -5,6 +5,8 @@
  *
  * Идемпотентен; пароли при каждом запуске возвращаются к исходным (тесты их меняют).
  * --reset-mfa удаляет второй фактор администратора, бухгалтера и кассира (E2E подключает его заново, где он обязателен).
+ * --enforce-mfa включает обязательный второй фактор организации (Д-91: по умолчанию выключен) —
+ * E2E и интеграционные тесты проверяют строгий режим (Д-90).
  */
 import { pathToFileURL } from "node:url";
 
@@ -336,7 +338,10 @@ async function ensurePhase4Demo(
   console.log("Фаза 4: управляющие, объект WEST, состав бригады и тарифы");
 }
 
-export async function seedLocal({ resetMfa = false }: { resetMfa?: boolean } = {}): Promise<void> {
+export async function seedLocal({
+  resetMfa = false,
+  enforceMfa = false,
+}: { resetMfa?: boolean; enforceMfa?: boolean } = {}): Promise<void> {
   const { apiUrl, secretKey } = readLocalSupabase();
   const admin = createClient(apiUrl, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -362,6 +367,13 @@ export async function seedLocal({ resetMfa = false }: { resetMfa?: boolean } = {
     console.log(`Создана организация «${LOCAL_ORG_NAME}»`);
   }
 
+  // Д-91: флаг выставляется при каждом запуске — обычный seed возвращает режим «выключен».
+  const { error: mfaError } = await admin
+    .from("organizations")
+    .update({ mfa_enforced: enforceMfa })
+    .eq("id", org.id);
+  if (mfaError) throw mfaError;
+
   for (const account of LOCAL_MEMBERS) {
     await ensureMember(admin, org.id, adminId, account);
   }
@@ -378,7 +390,10 @@ export async function seedLocal({ resetMfa = false }: { resetMfa?: boolean } = {
 
 // Запуск как скрипта (а не импорт).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  seedLocal({ resetMfa: process.argv.includes("--reset-mfa") }).catch((err: unknown) => {
+  seedLocal({
+    resetMfa: process.argv.includes("--reset-mfa"),
+    enforceMfa: process.argv.includes("--enforce-mfa"),
+  }).catch((err: unknown) => {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);
   });

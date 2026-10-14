@@ -50,6 +50,9 @@ insert into ids values
 insert into ids select 'org', public.create_organization('А', v, 'Админ', 'admin@t.local') from ids where k = 'admin';
 insert into ids select 'org_b', public.create_organization('Б', v, 'Админ Б', 'admin-b@t.local') from ids where k = 'admin_b';
 
+-- Этот файл проверяет строгий режим: второй фактор включён (Д-91; режим «выключен» — 150_mfa_optional).
+update public.organizations set mfa_enforced = true;
+
 select pg_temp.login((select v from ids where k = 'admin'), 'aal2');
 select public.add_member((select v from ids where k='org'), (select v from ids where k='acc'), 'acc@t.local',
   'Бухгалтер', array['accountant'], true, '{}');

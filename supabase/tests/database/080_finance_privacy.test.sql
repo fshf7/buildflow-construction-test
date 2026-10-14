@@ -52,6 +52,9 @@ insert into ids values
   ('foreman2', pg_temp.mk_user('foreman2@t.local')), ('pm', pg_temp.mk_user('pm@t.local'));
 insert into ids select 'org', public.create_organization('Стройка', pg_temp.id('admin'), 'Админ', 'admin@t.local');
 
+-- Этот файл проверяет строгий режим: второй фактор включён (Д-91; режим «выключен» — 150_mfa_optional).
+update public.organizations set mfa_enforced = true;
+
 -- Участники и объект (как администратор со вторым фактором).
 select pg_temp.login(pg_temp.id('admin'), 'aal2');
 insert into public.projects (organization_id, code, name) values (pg_temp.id('org'), 'P1', 'ЖК Восток');

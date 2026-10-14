@@ -1294,3 +1294,12 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
   `setPassword` снимает признак admin API и обновляет сессию.
 - MFA: `private.requires_mfa`, `current_user_requires_mfa` — только `org_admin`, `cashier`.
 - Удалено: приглашения по email, `/forgot-password`, `/reset-password`, `/auth/confirm`, шаблоны писем.
+
+## 17. Второй фактор по настройке организации (миграция `20261020000000_mfa_optional.sql`, Д-91)
+
+- `organizations.mfa_enforced boolean not null default false`; на запись клиенту закрыта (грант UPDATE — по колонкам).
+- `private.requires_mfa`, `current_user_requires_mfa` — роль `org_admin`/`cashier` **и** `mfa_enforced`; через них же —
+  `has_permission`, `my_access`, proxy, `redirectAfterAuth`, layout (код приложения не менялся).
+- `private.require_admin_aal2`, `reset_member_mfa` — aal2 только при `requires_mfa`.
+- Тесты: pgTAP `150_mfa_optional` (оба режима); `010`, `020`, `080`, `140`, интеграционные и E2E — режим «включён»
+  (`seed-local --enforce-mfa`, `seedLocal({ enforceMfa: true })`).
