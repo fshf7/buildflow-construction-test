@@ -1,0 +1,119 @@
+name: Backup
+
+# Ночной бэкап (Д-82; на Free-плане Supabase своих восстановимых бэкапов нет):
+# дамп → проверка восстановлением (число строк + сверка) → шифрование → артефакт на 14 дней.
+# Сбой → задача в репозитории (письмо от GitHub); следующий успех закрывает её.
+on:
+  schedule:
+    - cron: "0 22 * * *" # 03:00 по Душанбе (UTC+5)
+  workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "Проверить уведомление: искусственный сбой после дампа"
+        type: boolean
+        default: false
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  backup:
+    name: Бэкап ${{ matrix.env }}
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [staging, production]
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.env }}
+    timeout-minutes: 30
+    env:
+      RAW_DB_URL: ${{ matrix.env == 'staging' && secrets.STAGING_DB_URL || secrets.PRODUCTION_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Окружение настроено?
+        id: cfg
+        run: |
+          if [ -z "$RAW_DB_URL" ]; then
+            echo "::notice::${{ matrix.env }}: строка подключения не задана — бэкап пропущен"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::${{ matrix.env }}: не задан секрет BACKUP_PASSPHRASE — бэкап без шифрования не делаем"
+            exit 1
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        if: steps.cfg.outputs.ready == 'true'
+      - uses: supabase/setup-cli@v1
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          version: 2.108.0
+      - name: Строка подключения
+        if: steps.cfg.outputs.ready == 'true'
+        run: python3 scripts/ci/normalize-db-url.py
+      - name: Дамп
+        if: steps.cfg.outputs.ready == 'true'
+        run: bash scripts/backup/dump.sh backup
+      - name: Искусственный сбой (проверка уведомления)
+        if: steps.cfg.outputs.ready == 'true' && inputs.simulate_failure
+        run: |
+          echo "::error::Искусственный сбой по запросу (simulate_failure)"
+          exit 1
+      - name: Проверка восстановлением
+        if: steps.cfg.outputs.ready == 'true'
+        run: bash scripts/backup/restore-verify.sh backup
+      - name: Шифрование
+        if: steps.cfg.outputs.ready == 'true'
+        id: enc
+        run: |
+          name="buildflow-${{ matrix.env }}-$(date -u +%Y%m%d-%H%M)"
+          tar -czf "$name.tar.gz" -C backup .
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o "$name.tar.gz.gpg" "$name.tar.gz"
+          rm -rf backup "$name.tar.gz"
+          size=$(du -k "$name.tar.gz.gpg" | cut -f1)
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "### Бэкап ${{ matrix.env }}: $name.tar.gz.gpg, $((size / 1024)) МБ (${size} КБ), хранится 14 дней" >> "$GITHUB_STEP_SUMMARY"
+          # 14 копий в лимите артефактов Free (500 МБ на репозиторий) — предупреждаем заранее.
+          if [ $((size * 14)) -gt $((400 * 1024)) ]; then
+            echo "::warning::14 копий займут больше 400 МБ — лимит артефактов GitHub Free 500 МБ"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          name: ${{ steps.enc.outputs.name }}
+          path: ${{ steps.enc.outputs.name }}.tar.gz.gpg
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Уведомление о сбое
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          label="backup-${{ matrix.env }}"
+          url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh label create "$label" --repo "${{ github.repository }}" --color B60205 --force >/dev/null
+          open=$(gh issue list --repo "${{ github.repository }}" --label "$label" --state open --json number -q '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --repo "${{ github.repository }}" --body "Снова сбой: $url"
+          else
+            gh issue create --repo "${{ github.repository }}" --label "$label" \
+              --title "Бэкап ${{ matrix.env }} не прошёл" \
+              --body "Ночной бэкап или проверка восстановления не прошли: $url. Порядок действий — docs/BACKUP_RESTORE.md."
+          fi
+      - name: Закрыть задачу о сбое
+        if: success() && steps.cfg.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          label="backup-${{ matrix.env }}"
+          for n in $(gh issue list --repo "${{ github.repository }}" --label "$label" --state open --json number -q '.[].number'); do
+            gh issue close "$n" --repo "${{ github.repository }}" --comment "Бэкап снова успешен: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          done

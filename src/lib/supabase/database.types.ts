@@ -3710,6 +3710,16 @@ export type Database = {
       delete_work_act_draft: { Args: { p_id: string }; Returns: undefined };
       find_user_id_by_email: { Args: { p_email: string }; Returns: string };
       health: { Args: never; Returns: number };
+      import_catalog: {
+        Args: {
+          p_key: string;
+          p_kind: string;
+          p_mode: string;
+          p_org: string;
+          p_rows: Json;
+        };
+        Returns: Json;
+      };
       issue_purchase_request: {
         Args: { p_id: string; p_key: string };
         Returns: Json;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/page-header";
+import { buttonVariants } from "@/components/ui/button";
 import {
   MaterialsSection,
   SuppliersSection,
@@ -30,6 +31,11 @@ export default async function CatalogPage({ searchParams }: PageProps<"/catalog"
       <PageHeader
         title="Справочники"
         description="Записи не удаляются — на них ссылаются документы. Ненужное убирайте в архив."
+        actions={
+          <Link href="/catalog/import" className={buttonVariants({ variant: "outline" })}>
+            Импорт из Excel
+          </Link>
+        }
       />
       {/* Вкладки — ссылки: состояние в URL, работает «назад» и обновление страницы */}
       <nav aria-label="Справочники" className="flex gap-1 overflow-x-auto border-b">

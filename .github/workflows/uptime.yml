@@ -1,0 +1,53 @@
+name: Uptime
+
+# Доступность (Д-84): раз в час /api/health окружений (переменные репозитория STAGING_APP_URL,
+# PRODUCTION_APP_URL). Одна job на всё — бережём минуты Actions (Free: 2000 мин/мес).
+# Сбой → задача в репозитории; восстановление закрывает её. Пинги заодно не дают Free-проекту
+# Supabase уснуть после 7 дней без активности.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+jobs:
+  ping:
+    name: Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Проверка окружений
+        env:
+          STAGING: ${{ vars.STAGING_APP_URL }}
+          PRODUCTION: ${{ vars.PRODUCTION_APP_URL }}
+        run: |
+          failed=0
+          for pair in "staging=$STAGING" "production=$PRODUCTION"; do
+            env="${pair%%=*}"; url="${pair#*=}"
+            [ -n "$url" ] || { echo "$env: адрес не задан — пропуск"; continue; }
+            ok=false
+            for attempt in 1 2 3; do
+              code=$(curl -s -o health.json -w '%{http_code}' --max-time 20 "$url/api/health" || true)
+              if [ "$code" = "200" ] && grep -q '"db":"ok"' health.json; then ok=true; break; fi
+              sleep 20
+            done
+            label="uptime-$env"
+            open=$(gh issue list --repo "$REPO" --label "$label" --state open --json number -q '.[0].number' 2>/dev/null || true)
+            if $ok; then
+              echo "$env: ok $(cat health.json)"
+              [ -z "$open" ] || gh issue close "$open" --repo "$REPO" --comment "Снова доступен: $RUN_URL"
+            else
+              failed=1
+              echo "::error::$env: $url/api/health ответил $code"
+              gh label create "$label" --repo "$REPO" --color D93F0B --force >/dev/null
+              [ -n "$open" ] || gh issue create --repo "$REPO" --label "$label" \
+                --title "$env недоступен" --body "Health-check не прошёл (код $code): $RUN_URL"
+            fi
+          done
+          exit $failed

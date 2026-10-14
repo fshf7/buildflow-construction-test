@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { PageHeader } from "@/components/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import Link from "next/link";
 import { CrewsSection } from "@/features/warehouse/components/crews-section";
 import { requirePermission } from "@/lib/auth/access";
 import { hasPermission } from "@/lib/auth/access-model";
@@ -38,6 +40,16 @@ export default async function CrewsPage() {
       <PageHeader
         title="Бригады"
         description="Откройте бригаду, чтобы увидеть состав и договорные тарифы."
+        actions={
+          hasPermission(org, "crews.manage") ? (
+            <Link
+              href="/catalog/import?kind=crews"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Импорт из Excel
+            </Link>
+          ) : null
+        }
       />
       <CrewsSection
         canManage={hasPermission(org, "crews.manage")}
