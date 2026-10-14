@@ -22,4 +22,7 @@ print(f"::add-mask::{quote(unquote(password), safe='')}")
 print(f"::add-mask::{url}")
 with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
     env.write(f"DB_URL={url}\n")
-print("Строка подключения подготовлена (значение скрыто).")
+# Структура без секрета — для разбора ошибок подключения.
+host, _, rest_path = hostpart.partition("/")
+print(f"Строка подключения подготовлена: пользователь {unquote(user)}, хост {host}, база {rest_path or '-'}, "
+      f"пароль {len(unquote(password))} симв. (значение скрыто).")
