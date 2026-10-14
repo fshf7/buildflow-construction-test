@@ -1,6 +1,6 @@
 # Настройка окружения (staging / production)
 
-> Пошагово, как настраивался staging 13.10.2026; production — так же, в отдельном проекте Supabase (Free, Д-79).
+> Пошагово, как настраивался staging 13.10.2026; production — так же, в отдельном проекте Supabase на плане Pro (Д-86).
 > Секреты передаются только через stdin/скрытый ввод, в чат и файлы не попадают.
 
 ## 0. Что нужно
@@ -50,3 +50,31 @@
 - smoke: `E2E_BASE_URL=… E2E_SUPABASE_URL=… E2E_SUPABASE_PUBLISHABLE_KEY=… npx playwright test -c playwright.smoke.config.ts`;
 - сверка на удалённой БД — `scripts/backup/sql/reconcile.sql` (всё 0);
 - Actions → Backup → Run workflow — зелёный, с проверкой восстановления.
+
+## 6. Где хранятся секреты владельца (Связка ключей macOS)
+Пароль БД и ключ шифрования бэкапов хранятся в Связке ключей Mac владельца (учётная запись `buildflow`) и в
+секретах окружения GitHub. Из GitHub секрет прочитать нельзя — источник для восстановления и ручной работы —
+Связка ключей. Значения не печатайте в терминал: подставляйте через переменную или pipe.
+
+| Что | Сервис в Связке ключей | Где ещё |
+|---|---|---|
+| Пароль БД staging (`postgres`, проект `rcinzvflyzjusvrtcivb`) | `BuildFlow staging DB password` | GitHub `staging` → `STAGING_DB_URL` (в составе строки подключения) |
+| Ключ шифрования бэкапов staging | `BuildFlow staging BACKUP_PASSPHRASE` | GitHub `staging` → `BACKUP_PASSPHRASE` |
+
+Достать (в переменную, без вывода):
+```bash
+P=$(security find-generic-password -s "BuildFlow staging DB password" -w)
+K=$(security find-generic-password -s "BuildFlow staging BACKUP_PASSPHRASE" -w)
+# … использовать "$P" / "$K" …
+unset P K
+```
+Расшифровать копию бэкапа ключом из Связки ключей:
+```bash
+security find-generic-password -s "BuildFlow staging BACKUP_PASSPHRASE" -w | tr -d '\n' \
+  | gpg --batch --pinentry-mode loopback --passphrase-fd 0 --decrypt buildflow-staging-….tar.gz.gpg > backup.tar.gz
+```
+Смена пароля БД (ротация): новый пароль `openssl rand` → Management API `PATCH /v1/projects/<ref>/database/password`
+→ Связка ключей (`security -i`, чтобы значение не попало в аргументы процесса) → `gh secret set <ENV>_DB_URL`
+(строка Session pooler целиком, с хостом) → проверка `select 1`. Для production — те же шаги с сервисами
+`BuildFlow production …`. Потеря Mac владельца: секреты GitHub остаются рабочими, но прочитать их нельзя —
+ключ бэкапов храните также в менеджере паролей (иначе старые копии не расшифровать).

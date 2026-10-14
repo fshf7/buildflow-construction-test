@@ -7,10 +7,10 @@
 
 | | staging | production |
 |---|---|---|
-| Supabase | `construction` (ref `rcinzvflyzjusvrtcivb`, ap-south-1), Free | **нет** — отдельный проект на втором бесплатном аккаунте (Д-79) |
+| Supabase | `construction` (ref `rcinzvflyzjusvrtcivb`, ap-south-1), Free | **нет** — для пилота **только Supabase Pro** (Д-86) |
 | Vercel | `buildflow-staging`, https://buildflow-construction-staging.vercel.app | нет |
 | GitHub environment | `staging`, деплой после зелёного CI (`STAGING_ENABLED=true`) | `production` пустой; деплой только вручную, `PRODUCTION_ENABLED` **не включён** (решение владельца) |
-| Бэкап | `backup.yml` — ждёт `BACKUP_PASSPHRASE` и рабочий `STAGING_DB_URL` | после создания |
+| Бэкап | `backup.yml` — ночью, с проверкой восстановлением; первый прогон 14.10.2026 зелёный | бэкапы Pro + свой `backup.yml` |
 | Uptime | `uptime.yml` — `STAGING_APP_URL` | `PRODUCTION_APP_URL` после создания |
 
 ## Чек-лист
@@ -26,24 +26,24 @@
 - [x] Документация: `USER_GUIDE.md`, `RECONCILIATION_SCENARIO.md`, `PILOT_QUESTIONS.md`, `RUNBOOK.md`, `SMTP_RESEND.md`.
 
 ### Ждёт владельца
-- [ ] `STAGING_DB_URL` с правильным паролем БД (сейчас деплой и бэкап падают на `password authentication failed`).
 - [ ] Второй фактор администратора staging (в БД фактора нет — подключить при входе).
-- [ ] `BACKUP_PASSPHRASE` для staging (и позже production) — хранить также вне GitHub.
+- [ ] Ключ бэкапов staging (Связка ключей: `BuildFlow staging BACKUP_PASSPHRASE`) — сохранить также в менеджер паролей.
 - [ ] DSN Sentry (бесплатный план Developer) — по желанию.
 - [ ] SMTP через Resend (`SMTP_RESEND.md`) — без него приглашения и восстановление пароля не работают.
-- [ ] Production: проект Supabase на втором аккаунте → вход CLI (`supabase login --profile prod`) → «да» на запись в БД → настройка по `RUNBOOK.md`.
+- [ ] Production: проект Supabase на плане **Pro** (Д-86) → вход CLI → «да» на запись в БД → настройка по `RUNBOOK.md`.
 
 ### До пилота — после этого
-- [ ] Первый ночной бэкап staging зелёный; искусственный сбой создаёт задачу, успех закрывает её.
+- [x] Пароль БД staging сменён, автодеплой staging работает; первый бэкап staging зелёный, копия расшифровывается ключом из Связки ключей; уведомление о сбое проверено (`BACKUP_RESTORE.md`).
 - [ ] Ручное полное восстановление (с Auth) в отдельный проект — время в протокол `BACKUP_RESTORE.md` (RTO).
 - [ ] Сверка на обезличенных документах с бухгалтером и кассиром (`RECONCILIATION_SCENARIO.md`).
 - [ ] Ответы на `PILOT_QUESTIONS.md` → ТЗ 1.0.
 
-### Ограничения Free (Д-79), принятые владельцем
-Нет PITR и восстановимых бэкапов Supabase (свой бэкап, RPO ≈ 24 ч); пауза проекта после 7 дней без активности
-(ночной бэкап и uptime держат его активным); БД 500 МБ; Storage 1 ГБ; без SLA. GitHub Free: 2 000 минут
-Actions в месяц (CI + бэкап + uptime укладываются), артефакты 500 МБ; обязательный ревьюер production-деплоя
-недоступен — ручной запуск с подтверждением.
+### Production — только Supabase Pro (Д-86)
+Для пилота production — **Supabase Pro**: ежедневные бэкапы платформы, проект не засыпает, больше лимитов.
+Свой ночной бэкап с проверкой восстановлением (Д-82) остаётся дополнительной защитой. **Uptime-пинги — только
+мониторинг; против засыпания на них не полагаемся** (на Free проект засыпает после 7 дней без активности —
+это допустимо только для staging). GitHub Free: 2 000 минут Actions в месяц (CI + бэкап + uptime укладываются),
+артефакты 500 МБ; обязательный ревьюер production-деплоя недоступен — ручной запуск с подтверждением.
 
 ## Условия ТЗ §12
 
@@ -57,4 +57,4 @@ Actions в месяц (CI + бэкап + uptime укладываются), ар�
 | Утверждённые акты неизменяемы | триггеры + тесты |
 | Повторные запросы не дублируют операции | idempotency keys + тесты |
 | Аудит | да |
-| Восстановление резервной копии проверено | локально — да (протокол); staging — после пароля БД и `BACKUP_PASSPHRASE`; ручное с Auth — до пилота |
+| Восстановление резервной копии проверено | локально и staging — да (автоматически каждую ночь, протокол); ручное полное с Auth — до пилота |
