@@ -67,3 +67,15 @@ export function formatMoney(value: number | string | null | undefined, currency 
   if (value === null || value === undefined || value === "") return "—";
   return `${moneyFmt.format(Number(value))} ${currency}`;
 }
+
+/** Инициалы для аватара: «Иван Петров» → «ИП», «ivan.petrov@site.tj» → «IP», «sklad» → «S». */
+export function initials(name: string): string {
+  const base = name.includes("@") ? name.slice(0, name.indexOf("@")) : name;
+  const words = base.split(/[\s._-]+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  return words
+    .slice(0, 2)
+    .map((w) => w[0]!)
+    .join("")
+    .toUpperCase();
+}

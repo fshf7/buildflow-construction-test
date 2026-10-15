@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyToNull, formatDate, formatDateTime, formatMoney, formatQuantity } from "./format";
+import {
+  emptyToNull,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatQuantity,
+  initials,
+} from "./format";
 
 describe("format", () => {
   it("дата из Postgres без сдвига пояса", () => {
@@ -23,5 +30,13 @@ describe("количества и деньги", () => {
   });
   it("деньги — два знака и валюта", () => {
     expect(formatMoney("1234.5")).toBe("1\u00a0234,50 TJS");
+  });
+  it("инициалы для аватара", () => {
+    expect(initials("Иван Петров")).toBe("ИП");
+    expect(initials("  иван   петров сидорович ")).toBe("ИП");
+    expect(initials("Бухгалтер")).toBe("Б");
+    expect(initials("ivan.petrov@site.tj")).toBe("IP");
+    expect(initials("")).toBe("?");
+    expect(initials("@site.tj")).toBe("?");
   });
 });

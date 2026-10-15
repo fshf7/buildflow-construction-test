@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-/** Вкладки раздела — ссылки (состояние в URL). */
+/** Вкладки раздела — ссылки (состояние в URL). Сегментная «капсула», активная вкладка — фиолетовая. */
 export function SectionTabs({
   tabs,
   label,
@@ -15,7 +15,10 @@ export function SectionTabs({
 }) {
   const pathname = usePathname();
   return (
-    <nav aria-label={label} className="flex gap-1 overflow-x-auto border-b print:hidden">
+    <nav
+      aria-label={label}
+      className="flex w-fit max-w-full [scrollbar-width:none] gap-1 overflow-x-auto rounded-full bg-muted p-1 print:hidden"
+    >
       {tabs.map((t) => {
         const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
         return (
@@ -24,10 +27,10 @@ export function SectionTabs({
             href={t.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap",
+              "flex h-9 shrink-0 items-center rounded-full px-4 text-sm font-medium whitespace-nowrap transition-colors",
               active
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                : "text-muted-foreground hover:bg-background hover:text-foreground",
             )}
           >
             {t.label}

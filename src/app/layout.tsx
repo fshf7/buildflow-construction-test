@@ -28,7 +28,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   await headers();
   return (
     <html lang="ru" className={`${inter.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+      <body className="flex min-h-full flex-col bg-page font-sans text-foreground">
         {children}
         <Toaster />
       </body>

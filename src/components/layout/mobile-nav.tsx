@@ -21,16 +21,21 @@ export function MobileNav({ allowedHrefs }: { allowedHrefs: readonly string[] })
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon-lg" className="md:hidden" aria-label="Открыть меню">
+        <Button
+          variant="outline"
+          size="icon-lg"
+          className="size-10 rounded-full md:hidden"
+          aria-label="Открыть меню"
+        >
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0">
-        <SheetHeader className="border-b">
-          <SheetTitle>BuildFlow</SheetTitle>
+      <SheetContent side="left" className="w-72 border-none bg-panel p-0 text-panel-foreground">
+        <SheetHeader className="border-b border-panel-muted px-5 py-4">
+          <SheetTitle className="text-panel-foreground">BuildFlow</SheetTitle>
           <SheetDescription className="sr-only">Разделы системы</SheetDescription>
         </SheetHeader>
-        <div className="p-3">
+        <div className="overflow-y-auto p-3">
           <NavLinks allowedHrefs={allowedHrefs} onNavigate={() => setOpen(false)} />
         </div>
       </SheetContent>
