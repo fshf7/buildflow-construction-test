@@ -2,24 +2,17 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatMoney, formatQuantity } from "@/lib/format";
+import { formatQuantity } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import type { RequestDetail } from "../queries";
 
-/** Строки заявки: заказано / принято / осталось / расхождение (Д-53); цены — только с prices.view. */
-export function RequestLinesTable({
-  request,
-  withPrices,
-}: {
-  request: RequestDetail;
-  withPrices: boolean;
-}) {
+/** Строки заявки: заказано / принято / осталось / расхождение (Д-53). Цен и поставщиков в заявке нет (Д-92). */
+export function RequestLinesTable({ request }: { request: RequestDetail }) {
   const showReceipt = request.status !== "DRAFT" && request.status !== "CANCELLED";
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -28,19 +21,13 @@ export function RequestLinesTable({
           <TableRow>
             <TableHead>№</TableHead>
             <TableHead>Материал</TableHead>
-            <TableHead>Поставщик</TableHead>
+            <TableHead>Комментарий</TableHead>
             <TableHead className="text-right">Заказано</TableHead>
             {showReceipt ? (
               <>
                 <TableHead className="text-right">Принято</TableHead>
                 <TableHead className="text-right">Осталось</TableHead>
                 <TableHead className="text-right">Расхождение</TableHead>
-              </>
-            ) : null}
-            {withPrices ? (
-              <>
-                <TableHead className="text-right">Цена</TableHead>
-                <TableHead className="text-right">Сумма</TableHead>
               </>
             ) : null}
           </TableRow>
@@ -50,7 +37,7 @@ export function RequestLinesTable({
             <TableRow key={l.id}>
               <TableCell>{l.lineNo}</TableCell>
               <TableCell>{l.materialName}</TableCell>
-              <TableCell>{l.supplierName ?? "—"}</TableCell>
+              <TableCell className="text-muted-foreground">{l.note ?? "—"}</TableCell>
               <TableCell className="text-right">{formatQuantity(l.quantity, l.unit)}</TableCell>
               {showReceipt ? (
                 <>
@@ -71,31 +58,9 @@ export function RequestLinesTable({
                   </TableCell>
                 </>
               ) : null}
-              {withPrices ? (
-                <>
-                  <TableCell className="text-right">
-                    {l.price === null ? "—" : formatMoney(l.price, request.currency)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {l.amount === null ? "—" : formatMoney(l.amount, request.currency)}
-                  </TableCell>
-                </>
-              ) : null}
             </TableRow>
           ))}
         </TableBody>
-        {withPrices ? (
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={showReceipt ? 8 : 5} className="text-right">
-                Итого
-              </TableCell>
-              <TableCell className="text-right font-semibold">
-                {formatMoney(request.total, request.currency)}
-              </TableCell>
-            </TableRow>
-          </TableFooter>
-        ) : null}
       </Table>
     </div>
   );

@@ -11,7 +11,7 @@ import { formatQuantity } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Приёмка" };
 
-// Шаг 1 из 3: что привезли — выбрать «заявка + поставщик».
+// Шаг 1 из 3: что привезли — выбрать заявку (поставщика склад укажет на следующем шаге, Д-92).
 export default async function ReceivePage({ searchParams }: PageProps<"/warehouse/receive">) {
   const org = await requirePermission("goods_receipts.post");
   const { project: requested } = await searchParams;
@@ -27,14 +27,13 @@ export default async function ReceivePage({ searchParams }: PageProps<"/warehous
       ) : (
         <ul className="flex flex-col gap-2">
           {targets.map((t) => (
-            <li key={`${t.requestId}:${t.supplierId}`}>
+            <li key={t.requestId}>
               <Link
-                href={`/warehouse/receive/${t.requestId}/${t.supplierId}?project=${project.id}`}
+                href={`/warehouse/receive/${t.requestId}?project=${project.id}`}
                 className="flex items-center gap-3 rounded-xl border p-4 hover:bg-muted/50 active:bg-muted"
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-base font-semibold">{t.supplierName}</span>
-                  <span className="text-xs text-muted-foreground">Заявка {t.requestNumber}</span>
+                  <span className="text-base font-semibold">Заявка {t.requestNumber}</span>
                   <span className="text-sm">
                     {t.lines.length === 0
                       ? "Всё по заявке уже принято"

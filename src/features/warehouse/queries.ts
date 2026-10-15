@@ -31,12 +31,10 @@ export async function listBalances(projectId: string): Promise<Balance[]> {
 export type ReceiptTarget = {
   requestId: string;
   requestNumber: string;
-  supplierId: string;
-  supplierName: string;
   lines: { name: string; unit: string; remaining: number }[];
 };
 
-/** Что ждём от поставщиков: заявки в работе × поставщик, строки с остатком к приёмке. */
+/** Что ждём: заявки в работе и строки с остатком к приёмке. Поставщика склад выбирает при приёмке (Д-92). */
 export async function listReceiptTargets(projectId: string): Promise<ReceiptTarget[]> {
   const supabase = await createClient();
   const { data: requests, error } = await supabase
@@ -48,17 +46,15 @@ export async function listReceiptTargets(projectId: string): Promise<ReceiptTarg
   if (error) throw new Error(error.message);
   if (requests.length === 0) return [];
 
-  const [{ data: lines, error: lError }, { data: suppliers, error: sError }] = await Promise.all([
-    supabase
-      .from("purchase_request_fulfillment")
-      .select("purchase_request_id, supplier_id, remaining, material_id")
-      .in(
-        "purchase_request_id",
-        requests.map((r) => r.id),
-      ),
-    supabase.from("suppliers").select("id, name"),
-  ]);
-  if (lError || sError) throw new Error((lError ?? sError)!.message);
+  const { data: lines, error: lError } = await supabase
+    .from("purchase_request_fulfillment")
+    .select("purchase_request_id, remaining, material_id, line_no")
+    .in(
+      "purchase_request_id",
+      requests.map((r) => r.id),
+    )
+    .order("line_no");
+  if (lError) throw new Error(lError.message);
   const materialIds = [
     ...new Set(lines.map((l) => l.material_id).filter((m): m is string => Boolean(m))),
   ];
@@ -69,33 +65,22 @@ export async function listReceiptTargets(projectId: string): Promise<ReceiptTarg
   if (mError) throw new Error(mError.message);
 
   const mat = new Map(materials.map((m) => [m.id, m]));
-  const sup = new Map(suppliers.map((s) => [s.id, s.name]));
-  const targets = new Map<string, ReceiptTarget>();
-  for (const r of requests) {
-    for (const l of lines.filter((x) => x.purchase_request_id === r.id && x.supplier_id)) {
-      const key = `${r.id}:${l.supplier_id}`;
-      const target = targets.get(key) ?? {
-        requestId: r.id,
-        requestNumber: r.number ?? "",
-        supplierId: l.supplier_id!,
-        supplierName: sup.get(l.supplier_id!) ?? "",
-        lines: [],
-      };
-      if (Number(l.remaining) > 0) {
+  const targets = requests.map((r): ReceiptTarget => ({
+    requestId: r.id,
+    requestNumber: r.number ?? "",
+    lines: lines
+      .filter((l) => l.purchase_request_id === r.id && Number(l.remaining) > 0)
+      .map((l) => {
         const m = mat.get(l.material_id!);
-        target.lines.push({
+        return {
           name: m?.name ?? "",
           unit: m?.units_of_measure?.code ?? "",
           remaining: Number(l.remaining),
-        });
-      }
-      targets.set(key, target);
-    }
-  }
+        };
+      }),
+  }));
   // Сначала то, что ещё ждём; полностью принятые — в конце (довоз сверх заказа возможен).
-  return [...targets.values()].sort(
-    (a, b) => Number(b.lines.length > 0) - Number(a.lines.length > 0),
-  );
+  return targets.sort((a, b) => Number(b.lines.length > 0) - Number(a.lines.length > 0));
 }
 
 export type ReceiveLine = {
@@ -108,24 +93,21 @@ export type ReceiveLine = {
   remaining: number;
 };
 
-export async function receiveFormData(requestId: string, supplierId: string) {
+export async function receiveFormData(requestId: string) {
   const supabase = await createClient();
-  const [{ data: req, error }, { data: lines, error: lError }, { data: supplier, error: sError }] =
-    await Promise.all([
-      supabase
-        .from("purchase_requests")
-        .select("id, number, project_id, status")
-        .eq("id", requestId)
-        .maybeSingle(),
-      supabase
-        .from("purchase_request_fulfillment")
-        .select("purchase_request_item_id, material_id, ordered, received, remaining, line_no")
-        .eq("purchase_request_id", requestId)
-        .eq("supplier_id", supplierId)
-        .order("line_no"),
-      supabase.from("suppliers").select("name").eq("id", supplierId).maybeSingle(),
-    ]);
-  if (error || lError || sError) throw new Error((error ?? lError ?? sError)!.message);
+  const [{ data: req, error }, { data: lines, error: lError }] = await Promise.all([
+    supabase
+      .from("purchase_requests")
+      .select("id, number, project_id, status")
+      .eq("id", requestId)
+      .maybeSingle(),
+    supabase
+      .from("purchase_request_fulfillment")
+      .select("purchase_request_item_id, material_id, ordered, received, remaining, line_no")
+      .eq("purchase_request_id", requestId)
+      .order("line_no"),
+  ]);
+  if (error || lError) throw new Error((error ?? lError)!.message);
   if (!req) return null;
   const { data: materials } = await supabase
     .from("materials")
@@ -137,7 +119,6 @@ export async function receiveFormData(requestId: string, supplierId: string) {
     requestNumber: req.number ?? "",
     projectId: req.project_id,
     status: req.status,
-    supplierName: supplier?.name ?? "",
     lines: lines.map((l): ReceiveLine => ({
       purchaseRequestItemId: l.purchase_request_item_id!,
       materialId: l.material_id!,

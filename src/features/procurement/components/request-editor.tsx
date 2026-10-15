@@ -11,27 +11,26 @@ import { NativeSelect } from "@/components/native-select";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { toNumber } from "@/lib/decimal";
-import { formatMoney } from "@/lib/format";
 import { useDocumentId } from "@/lib/idempotency";
 import type { MaterialOption, Option } from "@/features/shared/lookups";
 
 import { saveRequestDraft } from "../actions";
 import { requestDraftSchema, type RequestDraftInput } from "../schemas";
 
-const emptyLine = { materialId: "", quantity: "", supplierId: "", price: "", note: "" };
+const emptyLine = { materialId: "", quantity: "", note: "" };
 
-/** Черновик заявки: объект, строки (материал, количество, поставщик, цена). US-01. */
+/**
+ * Черновик заявки склада для снабженца (US-01, Д-92): объект, строки «материал + количество».
+ * Поставщика и цены в заявке нет — поставщика выбирает склад при приёмке, цены вносит бухгалтер из накладной.
+ */
 export function RequestEditor({
   initial,
   projects,
   materials,
-  suppliers,
 }: {
   initial?: RequestDraftInput;
   projects: Option[];
   materials: MaterialOption[];
-  suppliers: Option[];
 }) {
   const router = useRouter();
   const id = useDocumentId(initial?.id);
@@ -53,12 +52,6 @@ export function RequestEditor({
   const { errors } = form.formState;
   const unitOf = new Map(materials.map((m) => [m.id, m.unit]));
 
-  const total = lines.reduce((sum, l) => {
-    const q = toNumber(l.quantity || "0");
-    const p = toNumber(l.price || "0");
-    return Number.isFinite(q * p) ? sum + q * p : sum;
-  }, 0);
-
   const onSubmit = form.handleSubmit((values) => {
     setServerError(null);
     startTransition(async () => {
@@ -75,7 +68,7 @@ export function RequestEditor({
   return (
     <form onSubmit={onSubmit} noValidate>
       <FieldGroup>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field data-invalid={Boolean(errors.projectId)}>
             <FieldLabel htmlFor="projectId">Объект</FieldLabel>
             <NativeSelect
@@ -91,22 +84,13 @@ export function RequestEditor({
             <FieldLabel htmlFor="neededBy">Нужно к</FieldLabel>
             <Input id="neededBy" type="date" {...form.register("neededBy")} />
           </Field>
-          <Field>
-            <FieldLabel htmlFor="currency">Валюта</FieldLabel>
-            <NativeSelect
-              id="currency"
-              options={["TJS", "USD", "RUB", "CNY"].map((c) => ({ value: c, label: c }))}
-              {...form.register("currency")}
-            />
-          </Field>
         </div>
 
         <div className="flex flex-col gap-3">
-          <div className="hidden grid-cols-[1fr_7rem_1fr_7rem_2.5rem] gap-2 text-xs font-medium text-muted-foreground lg:grid">
+          <div className="hidden grid-cols-[1fr_9rem_1fr_2.5rem] gap-2 text-xs font-medium text-muted-foreground lg:grid">
             <span>Материал</span>
             <span>Количество</span>
-            <span>Поставщик</span>
-            <span>Цена за ед.</span>
+            <span>Комментарий для снабженца</span>
             <span />
           </div>
           {fields.map((field, index) => {
@@ -114,7 +98,7 @@ export function RequestEditor({
             return (
               <div
                 key={field.id}
-                className="grid gap-2 rounded-lg border p-3 lg:grid-cols-[1fr_7rem_1fr_7rem_2.5rem] lg:border-0 lg:p-0"
+                className="grid gap-2 rounded-lg border p-3 lg:grid-cols-[1fr_9rem_1fr_2.5rem] lg:border-0 lg:p-0"
               >
                 <NativeSelect
                   aria-label={`Материал, строка ${index + 1}`}
@@ -135,18 +119,10 @@ export function RequestEditor({
                     {unitOf.get(lines[index]?.materialId ?? "") ?? ""}
                   </span>
                 </div>
-                <NativeSelect
-                  aria-label={`Поставщик, строка ${index + 1}`}
-                  placeholder="Поставщик"
-                  options={suppliers.map((s) => ({ value: s.id, label: s.label }))}
-                  {...form.register(`lines.${index}.supplierId`)}
-                />
                 <Input
-                  aria-label={`Цена, строка ${index + 1}`}
-                  aria-invalid={Boolean(lineErrors?.price)}
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  {...form.register(`lines.${index}.price`)}
+                  aria-label={`Комментарий, строка ${index + 1}`}
+                  placeholder="Марка, размер, срочность…"
+                  {...form.register(`lines.${index}.note`)}
                 />
                 <Button
                   type="button"
@@ -159,23 +135,18 @@ export function RequestEditor({
                   <Trash2 />
                 </Button>
                 {lineErrors ? (
-                  <p className="text-sm text-destructive lg:col-span-5">
-                    {lineErrors.materialId?.message ??
-                      lineErrors.quantity?.message ??
-                      lineErrors.price?.message}
+                  <p className="text-sm text-destructive lg:col-span-4">
+                    {lineErrors.materialId?.message ?? lineErrors.quantity?.message}
                   </p>
                 ) : null}
               </div>
             );
           })}
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
             <Button type="button" variant="outline" onClick={() => append(emptyLine)}>
               <Plus />
               Добавить строку
             </Button>
-            <span className="text-sm">
-              Итого: <b>{formatMoney(total, form.getValues("currency"))}</b>
-            </span>
           </div>
           <FieldError
             errors={[errors.lines?.root ?? (errors.lines as { message?: string } | undefined)]}

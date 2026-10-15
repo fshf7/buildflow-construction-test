@@ -190,8 +190,11 @@ purchase_request_items   -- STD; строки заявки
   purchase_request_id, project_id NOT NULL (денорм., составной FK)
   line_no int NOT NULL, material_id NOT NULL, unit_id NOT NULL
   quantity    numeric(18,4) NOT NULL CHECK (> 0)
-  supplier_id uuid NULL FK suppliers              -- «одна заявка — несколько поставщиков» = поставщик на строке
-  price       numeric(18,4) NULL CHECK (>= 0)     -- 🔒 цена
+  -- Д-92: заявку оформляет склад; поставщика и цены в заявке нет — новые заявки оставляют три колонки
+  -- ниже пустыми (колонки не удалены: на staging есть данные). Поставщик — в приёмке, цены — в накладной;
+  -- «одна заявка — несколько поставщиков» = несколько приёмок и накладных по заявке.
+  supplier_id uuid NULL FK suppliers              -- не заполняется (Д-92)
+  price       numeric(18,4) NULL CHECK (>= 0)     -- 🔒 не заполняется (Д-92)
   amount      numeric(18,2) GENERATED ALWAYS AS (round(quantity*price, 2)) STORED   -- 🔒
   currency    char(3) NOT NULL default 'TJS'
   UNIQUE(purchase_request_id, line_no); INDEX(material_id), (supplier_id)
@@ -588,7 +591,8 @@ erDiagram
 | `members.manage` (пользователи, роли, назначения)                       |     |       |       |        |        | ✓     |
 | `catalog.manage` (материалы, единицы, поставщики)                       | ✓   |       |       |        |        | ✓     |
 | `purchase_requests.view`                                                | ✓   | ✓     |       |        | ✓      |       |
-| `purchase_requests.manage`                                              | ✓   |       |       |        |        |       |
+| `purchase_requests.manage` (создать, изменить, выдать, отменить; Д-92)   |     | ✓     |       |        |        |       |
+| `purchase_requests.review` (сверка, расхождение, закрытие; Д-92)         | ✓   |       |       |        |        |       |
 | `prices.view` 🔒                                                        | ✓   |       |       |        | ✓      |       |
 | `supplier_invoices.view` (без цен)                                      | ✓   | ✓     | ✓     |        | ✓      |       |
 | `supplier_invoices.manage`                                              | ✓   |       |       |        |        |       |
@@ -636,9 +640,9 @@ erDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> DRAFT
-    DRAFT --> ISSUED : issue (бух) — номер ЗК
-    DRAFT --> CANCELLED : cancel (бух)
-    ISSUED --> CANCELLED : cancel (бух), если нет проведённых приёмок
+    DRAFT --> ISSUED : issue (склад) — номер ЗК
+    DRAFT --> CANCELLED : cancel (склад)
+    ISSUED --> CANCELLED : cancel (склад), если нет проведённых приёмок
     ISSUED --> PARTIALLY_RECEIVED : система (приёмка)
     ISSUED --> RECEIVED : система (приёмка)
     PARTIALLY_RECEIVED --> RECEIVED : система
@@ -654,11 +658,11 @@ stateDiagram-v2
 
 | Переход                      | Кто                        | Условия                                                                                |
 | ---------------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| DRAFT→ISSUED                 | `purchase_requests.manage` | ≥1 строка, у каждой строки поставщик и цена                                            |
+| DRAFT→ISSUED                 | `purchase_requests.manage` | ≥1 строка (поставщика и цены в заявке нет, Д-92)                                       |
 | →PARTIALLY_RECEIVED/RECEIVED | система                    | пересчёт по `purchase_request_fulfillment`: все строки `received ≥ ordered` → RECEIVED |
-| →ACCOUNTING_REVIEW           | `purchase_requests.manage` | нет черновиков приёмок по заявке                                                       |
-| →CLOSED                      | `purchase_requests.manage` | все связанные накладные CONFIRMED или CANCELLED                                        |
-| →DISCREPANCY / обратно       | `purchase_requests.manage` | обязательный комментарий; правила разрешения — [TZ-open]                               |
+| →ACCOUNTING_REVIEW           | `purchase_requests.review` | нет черновиков приёмок по заявке                                                       |
+| →CLOSED                      | `purchase_requests.review` | все связанные накладные CONFIRMED или CANCELLED                                        |
+| →DISCREPANCY / обратно       | `purchase_requests.review` | обязательный комментарий; правила разрешения — [TZ-open]                               |
 | →CANCELLED                   | `purchase_requests.manage` | из DRAFT/ISSUED без проведённых приёмок                                                |
 
 Приёмка по заявке разрешена в ISSUED / PARTIALLY_RECEIVED / RECEIVED (довоз сверх заказа). В ACCOUNTING_REVIEW, DISCREPANCY, CLOSED, CANCELLED — нет.
@@ -676,7 +680,8 @@ stateDiagram-v2
     CONFIRMED --> CANCELLED : cancel (бух), если paid_amount = 0 → payable CANCELLED
 ```
 
-Всё делает `supplier_invoices.manage`. `UNDER_REVIEW` = сверка с приёмками (кол-во) и заявкой (цены).
+Всё делает `supplier_invoices.manage`. `UNDER_REVIEW` = сверка с приёмками (кол-во). Цены впервые попадают в систему из накладной (Д-92) —
+сверять их с заявкой не с чем; заготовка накладной из заявки = принятое от этого поставщика по заявке.
 Подтверждение — сверка документа и основание оплаты (Д-13): создаётся `payable` (SUPPLIER), кассир платит без
 `payment_request`. Это не согласование: бухгалтер может подтвердить накладную, которую сам ввёл (Д-14).
 Строки редактируемы только в ENTERED.

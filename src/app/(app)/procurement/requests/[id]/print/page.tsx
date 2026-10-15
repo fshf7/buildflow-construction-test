@@ -4,18 +4,19 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/print-button";
 import { getRequest } from "@/features/procurement/queries";
 import { requirePermission } from "@/lib/auth/access";
-import { formatDate, formatMoney, formatQuantity } from "@/lib/format";
+import { formatDate, formatQuantity } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Печать заявки" };
 
-// US-01: печатная форма заявки (Д-04: HTML + print CSS; PDF — P1). Содержит цены → prices.view.
+// US-01: печатная форма заявки для снабженца (Д-04: HTML + print CSS; PDF — P1). Печатает склад,
+// поэтому цен и поставщиков в форме нет (Д-92) — достаточно права видеть заявки.
 // TODO(TZ-open): утверждённая форма документа не определена — макет предварительный.
 export default async function PrintRequestPage({
   params,
 }: PageProps<"/procurement/requests/[id]/print">) {
-  const org = await requirePermission("prices.view");
+  const org = await requirePermission("purchase_requests.view");
   const { id } = await params;
-  const request = await getRequest(org.id, id, true);
+  const request = await getRequest(org.id, id);
   if (!request) notFound();
 
   return (
@@ -37,10 +38,8 @@ export default async function PrintRequestPage({
           <tr>
             <th>№</th>
             <th className="text-left">Материал</th>
-            <th className="text-left">Поставщик</th>
             <th className="text-right">Кол-во</th>
-            <th className="text-right">Цена</th>
-            <th className="text-right">Сумма</th>
+            <th className="text-left">Комментарий</th>
           </tr>
         </thead>
         <tbody>
@@ -48,24 +47,10 @@ export default async function PrintRequestPage({
             <tr key={l.id}>
               <td className="text-center">{l.lineNo}</td>
               <td>{l.materialName}</td>
-              <td>{l.supplierName ?? "—"}</td>
               <td className="text-right whitespace-nowrap">{formatQuantity(l.quantity, l.unit)}</td>
-              <td className="text-right whitespace-nowrap">
-                {formatMoney(l.price, request.currency)}
-              </td>
-              <td className="text-right whitespace-nowrap">
-                {formatMoney(l.amount, request.currency)}
-              </td>
+              <td>{l.note ?? ""}</td>
             </tr>
           ))}
-          <tr>
-            <td colSpan={5} className="text-right font-bold">
-              Итого
-            </td>
-            <td className="text-right font-bold whitespace-nowrap">
-              {formatMoney(request.total, request.currency)}
-            </td>
-          </tr>
         </tbody>
       </table>
       {request.note ? <p className="mt-4 text-sm">Примечание: {request.note}</p> : null}

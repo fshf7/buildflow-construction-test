@@ -15,27 +15,16 @@ export type RequestListRow = {
   status: RequestStatus;
   hasDiscrepancy: boolean;
   projectLabel: string;
-  suppliers: string[];
   linesCount: number;
-  total: number | null; // null — нет права prices.view
-  currency: string;
 };
 
-/** Список заявок с фильтрами (серверная фильтрация, параметры из URL). */
-export async function listRequests(
-  orgId: string,
-  f: ListFilters,
-  withPrices: boolean,
-): Promise<RequestListRow[]> {
+/** Список заявок с фильтрами (серверная фильтрация, параметры из URL). Цен и поставщиков в заявке нет (Д-92). */
+export async function listRequests(orgId: string, f: ListFilters): Promise<RequestListRow[]> {
   const supabase = await createClient();
-  // Фильтр по поставщику — через строки (inner join).
-  const items = f.supplier
-    ? "purchase_request_items!inner(id, supplier_id, suppliers(name))"
-    : "purchase_request_items(id, supplier_id, suppliers(name))";
   let query = supabase
     .from("purchase_requests")
     .select(
-      `id, number, doc_date, status, has_discrepancy, currency, projects(code, name), ${items}`,
+      "id, number, doc_date, status, has_discrepancy, projects(code, name), purchase_request_items(id)",
     )
     .eq("organization_id", orgId)
     .order("doc_date", { ascending: false })
@@ -43,53 +32,21 @@ export async function listRequests(
     .limit(200);
   if (f.status) query = query.eq("status", f.status as RequestStatus);
   if (f.project) query = query.eq("project_id", f.project);
-  if (f.supplier) query = query.eq("purchase_request_items.supplier_id", f.supplier);
   if (f.from) query = query.gte("doc_date", f.from);
   if (f.to) query = query.lte("doc_date", f.to);
   if (f.q) query = query.ilike("number", `%${f.q}%`);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  const totals = withPrices
-    ? await requestTotals(data.map((r) => r.id))
-    : new Map<string, number>();
-  return data.map((r) => {
-    const lines = r.purchase_request_items as { id: string; suppliers: { name: string } | null }[];
-    return {
-      id: r.id,
-      number: r.number,
-      docDate: r.doc_date,
-      status: r.status,
-      hasDiscrepancy: r.has_discrepancy,
-      projectLabel: r.projects ? `${r.projects.code} — ${r.projects.name}` : "—",
-      suppliers: [
-        ...new Set(lines.map((l) => l.suppliers?.name).filter((n): n is string => Boolean(n))),
-      ],
-      linesCount: lines.length,
-      total: withPrices ? (totals.get(r.id) ?? 0) : null,
-      currency: r.currency,
-    };
-  });
-}
-
-/** Суммы заявок — только через витрину цен (§5.4). */
-async function requestTotals(ids: string[]): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("purchase_request_items_priced")
-    .select("purchase_request_id, amount")
-    .in("purchase_request_id", ids);
-  if (error) throw new Error(error.message);
-  const map = new Map<string, number>();
-  for (const row of data) {
-    if (!row.purchase_request_id) continue;
-    map.set(
-      row.purchase_request_id,
-      (map.get(row.purchase_request_id) ?? 0) + Number(row.amount ?? 0),
-    );
-  }
-  return map;
+  return data.map((r) => ({
+    id: r.id,
+    number: r.number,
+    docDate: r.doc_date,
+    status: r.status,
+    hasDiscrepancy: r.has_discrepancy,
+    projectLabel: r.projects ? `${r.projects.code} — ${r.projects.name}` : "—",
+    linesCount: r.purchase_request_items.length,
+  }));
 }
 
 export type RequestLine = {
@@ -99,11 +56,7 @@ export type RequestLine = {
   materialName: string;
   unit: string;
   quantity: number;
-  supplierId: string | null;
-  supplierName: string | null;
   note: string | null;
-  price: number | null; // null — цена не задана или нет prices.view
-  amount: number | null;
   received: number;
   remaining: number;
   diff: number;
@@ -120,10 +73,8 @@ export type RequestDetail = {
   projectId: string;
   projectLabel: string;
   neededBy: string | null;
-  currency: string;
   note: string | null;
   lines: RequestLine[];
-  total: number | null;
   invoices: {
     id: string;
     number: string | null;
@@ -134,22 +85,19 @@ export type RequestDetail = {
   receipts: {
     id: string;
     number: string | null;
+    supplierId: string;
     supplierName: string;
     status: string;
     docDate: string;
   }[];
 };
 
-export async function getRequest(
-  orgId: string,
-  id: string,
-  withPrices: boolean,
-): Promise<RequestDetail | null> {
+export async function getRequest(orgId: string, id: string): Promise<RequestDetail | null> {
   const supabase = await createClient();
   const { data: r, error } = await supabase
     .from("purchase_requests")
     .select(
-      "id, number, doc_date, status, has_discrepancy, status_comment, cancel_reason, project_id, needed_by, currency, note, projects(code, name)",
+      "id, number, doc_date, status, has_discrepancy, status_comment, cancel_reason, project_id, needed_by, note, projects(code, name)",
     )
     .eq("organization_id", orgId)
     .eq("id", id)
@@ -157,27 +105,16 @@ export async function getRequest(
   if (error) throw new Error(error.message);
   if (!r) return null;
 
-  const [items, fulfillment, priced, invoices, receipts] = await Promise.all([
+  const [items, fulfillment, invoices, receipts] = await Promise.all([
     supabase
       .from("purchase_request_items")
-      .select(
-        "id, line_no, material_id, quantity, supplier_id, note, materials(name, units_of_measure(code)), suppliers(name)",
-      )
+      .select("id, line_no, material_id, quantity, note, materials(name, units_of_measure(code))")
       .eq("purchase_request_id", id)
       .order("line_no"),
     supabase
       .from("purchase_request_fulfillment")
       .select("purchase_request_item_id, received, remaining, diff")
       .eq("purchase_request_id", id),
-    withPrices
-      ? supabase
-          .from("purchase_request_items_priced")
-          .select("id, price, amount")
-          .eq("purchase_request_id", id)
-      : Promise.resolve({
-          data: [] as { id: string | null; price: number | null; amount: number | null }[],
-          error: null,
-        }),
     supabase
       .from("supplier_invoices")
       .select("id, number, status, supplier_doc_number, suppliers(name)")
@@ -185,18 +122,16 @@ export async function getRequest(
       .order("created_at"),
     supabase
       .from("goods_receipts")
-      .select("id, number, status, doc_date, suppliers(name)")
+      .select("id, number, status, doc_date, supplier_id, suppliers(name)")
       .eq("purchase_request_id", id)
       .order("created_at"),
   ]);
-  for (const res of [items, fulfillment, priced, invoices, receipts])
+  for (const res of [items, fulfillment, invoices, receipts])
     if (res.error) throw new Error(res.error.message);
 
   const ful = new Map((fulfillment.data ?? []).map((f) => [f.purchase_request_item_id, f]));
-  const prices = new Map((priced.data ?? []).map((p) => [p.id, p]));
   const lines: RequestLine[] = (items.data ?? []).map((i) => {
     const f = ful.get(i.id);
-    const p = prices.get(i.id);
     return {
       id: i.id,
       lineNo: i.line_no,
@@ -204,11 +139,7 @@ export async function getRequest(
       materialName: i.materials?.name ?? "",
       unit: i.materials?.units_of_measure?.code ?? "",
       quantity: Number(i.quantity),
-      supplierId: i.supplier_id,
-      supplierName: i.suppliers?.name ?? null,
       note: i.note,
-      price: p?.price ?? null,
-      amount: p?.amount ?? null,
       received: Number(f?.received ?? 0),
       remaining: Number(f?.remaining ?? i.quantity),
       diff: Number(f?.diff ?? -i.quantity),
@@ -226,10 +157,8 @@ export async function getRequest(
     projectId: r.project_id,
     projectLabel: r.projects ? `${r.projects.code} — ${r.projects.name}` : "—",
     neededBy: r.needed_by,
-    currency: r.currency,
     note: r.note,
     lines,
-    total: withPrices ? lines.reduce((s, l) => s + Number(l.amount ?? 0), 0) : null,
     invoices: (invoices.data ?? []).map((v) => ({
       id: v.id,
       number: v.number,
@@ -240,6 +169,7 @@ export async function getRequest(
     receipts: (receipts.data ?? []).map((g) => ({
       id: g.id,
       number: g.number,
+      supplierId: g.supplier_id,
       supplierName: g.suppliers?.name ?? "",
       status: g.status,
       docDate: g.doc_date,
@@ -469,37 +399,39 @@ export async function getInvoice(
   };
 }
 
-/** Строки заявки поставщика с ценами — заготовка накладной. */
+/**
+ * Заготовка накладной по заявке: что склад принял от этого поставщика по заявке (проведённые
+ * приёмки). Поставщика и цен в заявке нет (Д-92) — цену бухгалтер вносит из накладной.
+ */
 export async function requestLinesForInvoice(requestId: string, supplierId: string) {
   const supabase = await createClient();
-  const [{ data: items, error }, { data: priced, error: pError }, { data: ful, error: fError }] =
-    await Promise.all([
-      supabase
-        .from("purchase_request_items")
-        .select("id, material_id, quantity, materials(name, unit_id)")
-        .eq("purchase_request_id", requestId)
-        .eq("supplier_id", supplierId)
-        .order("line_no"),
-      supabase
-        .from("purchase_request_items_priced")
-        .select("id, price")
-        .eq("purchase_request_id", requestId),
-      supabase
-        .from("purchase_request_fulfillment")
-        .select("purchase_request_item_id, received")
-        .eq("purchase_request_id", requestId),
-    ]);
-  if (error || pError || fError) throw new Error((error ?? pError ?? fError)!.message);
-  const prices = new Map(priced.map((p) => [p.id, p.price]));
-  const received = new Map(ful.map((f) => [f.purchase_request_item_id, Number(f.received ?? 0)]));
-  return items.map((i) => ({
-    purchaseRequestItemId: i.id,
-    materialId: i.material_id,
-    unitId: i.materials?.unit_id ?? "",
-    // В накладную по умолчанию — принятое количество (если уже принимали), иначе заказанное.
-    quantity: received.get(i.id) || Number(i.quantity),
-    price: prices.get(i.id) ?? 0,
-  }));
+  const { data, error } = await supabase
+    .from("goods_receipt_items")
+    .select(
+      "purchase_request_item_id, material_id, unit_id, received_quantity, line_no, goods_receipts!inner(purchase_request_id, supplier_id, status)",
+    )
+    .eq("goods_receipts.purchase_request_id", requestId)
+    .eq("goods_receipts.supplier_id", supplierId)
+    .eq("goods_receipts.status", "POSTED")
+    .order("line_no");
+  if (error) throw new Error(error.message);
+  // Несколько приёмок по одной строке заявки — одной строкой накладной.
+  const lines = new Map<
+    string,
+    { purchaseRequestItemId: string | null; materialId: string; unitId: string; quantity: number }
+  >();
+  for (const i of data) {
+    const key = i.purchase_request_item_id ?? `material:${i.material_id}`;
+    const line = lines.get(key) ?? {
+      purchaseRequestItemId: i.purchase_request_item_id,
+      materialId: i.material_id,
+      unitId: i.unit_id,
+      quantity: 0,
+    };
+    line.quantity += Number(i.received_quantity);
+    lines.set(key, line);
+  }
+  return [...lines.values()];
 }
 
 /** Корректировки приёмок, ожидающие решения бухгалтера. */

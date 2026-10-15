@@ -7,11 +7,10 @@ const optionalDate = z
   .trim()
   .refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), { error: "Дата в формате ГГГГ-ММ-ДД" });
 
+/** Строка заявки склада: только материал и количество (Д-92) — поставщика и цены в заявке нет. */
 export const requestLineSchema = z.object({
   materialId: z.uuid({ error: "Выберите материал" }),
   quantity: decimalString({ message: "Количество" }),
-  supplierId: z.union([z.uuid(), z.literal("")]),
-  price: z.union([decimalString({ allowZero: true, message: "Цена" }), z.literal("")]),
   note: z.string().trim().max(500),
 });
 
@@ -64,6 +63,15 @@ export const REQUEST_OPERATIONS = [
   "close_purchase_request",
 ] as const;
 export type RequestOperation = (typeof REQUEST_OPERATIONS)[number];
+
+/** Д-92: оформление заявки (выпуск, отмена) — склад; сверка, расхождение, закрытие — бухгалтер. */
+export function requestOperationPermission(
+  operation: RequestOperation,
+): "purchase_requests.manage" | "purchase_requests.review" {
+  return operation === "issue_purchase_request" || operation === "cancel_purchase_request"
+    ? "purchase_requests.manage"
+    : "purchase_requests.review";
+}
 
 export const INVOICE_OPERATIONS = [
   "submit_supplier_invoice",

@@ -7,8 +7,21 @@ import { DocumentActions, type DocumentAction } from "@/components/document-acti
 import { deleteDraft, runRequestOperation } from "../actions";
 import type { RequestStatus } from "../labels";
 
-/** Переходы заявки по state machine §4.1; доступность окончательно проверяет БД. */
-export function RequestActions({ id, status }: { id: string; status: RequestStatus }) {
+/**
+ * Переходы заявки по state machine §4.1; доступность окончательно проверяет БД.
+ * Д-92: оформление (выдать в работу, отменить, удалить черновик) — склад; сверка — бухгалтер.
+ */
+export function RequestActions({
+  id,
+  status,
+  canManage,
+  canReview,
+}: {
+  id: string;
+  status: RequestStatus;
+  canManage: boolean;
+  canReview: boolean;
+}) {
   const router = useRouter();
   const op =
     (operation: Parameters<typeof runRequestOperation>[0]) =>
@@ -97,5 +110,9 @@ export function RequestActions({ id, status }: { id: string; status: RequestStat
     ],
   };
 
-  return <DocumentActions actions={byStatus[status] ?? []} />;
+  const manageOnly = new Set(["issue", "cancel", "delete"]);
+  const actions = (byStatus[status] ?? []).filter((a) =>
+    manageOnly.has(a.id) ? canManage : canReview,
+  );
+  return <DocumentActions actions={actions} />;
 }

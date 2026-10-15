@@ -21,9 +21,10 @@ import { SubmitBar } from "./submit-bar";
 type Line = { purchaseRequestItemId: string; materialId: string; quantity: string };
 
 /**
- * Приёмка (US-02). По заявке — строки поставщика с остатком к приёмке, подставленным по умолчанию;
- * склад правит фактическое количество (можно больше заказанного — расхождение помечается).
- * Без заявки — поставщик и материалы вручную.
+ * Приёмка (US-02). Поставщика склад выбирает здесь — по документам машины (в заявке его нет, Д-92).
+ * По заявке — строки с остатком к приёмке, подставленным по умолчанию; склад правит фактическое
+ * количество (можно больше заказанного — расхождение помечается; 0 — этого не привезли).
+ * Без заявки — материалы вручную.
  */
 export function ReceiveForm({
   projectId,
@@ -32,8 +33,8 @@ export function ReceiveForm({
   materials,
 }: {
   projectId: string;
-  request?: { requestId: string; supplierId: string; lines: ReceiveLine[] };
-  suppliers?: Option[];
+  request?: { requestId: string; lines: ReceiveLine[] };
+  suppliers: Option[];
   materials?: MaterialOption[];
 }) {
   const router = useRouter();
@@ -41,7 +42,7 @@ export function ReceiveForm({
   const { key } = useIdempotencyKey();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [supplierId, setSupplierId] = useState(request?.supplierId ?? "");
+  const [supplierId, setSupplierId] = useState("");
   const [lines, setLines] = useState<Line[]>(
     request
       ? request.lines.map((l) => ({
@@ -81,19 +82,17 @@ export function ReceiveForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      {!request ? (
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="supplier">Поставщик</Label>
-          <NativeSelect
-            id="supplier"
-            className="h-11 text-base"
-            placeholder="Выберите поставщика"
-            options={(suppliers ?? []).map((s) => ({ value: s.id, label: s.label }))}
-            value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
-          />
-        </div>
-      ) : null}
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="supplier">Поставщик</Label>
+        <NativeSelect
+          id="supplier"
+          className="h-11 text-base"
+          placeholder="Выберите поставщика"
+          options={suppliers.map((s) => ({ value: s.id, label: s.label }))}
+          value={supplierId}
+          onChange={(e) => setSupplierId(e.target.value)}
+        />
+      </div>
 
       <ul className="flex flex-col divide-y rounded-lg border">
         {lines.map((line, index) => {

@@ -1,7 +1,7 @@
 -- Склад: US-02…US-04, идемпотентность, минус, сторно, корректировки (Д-06, Д-19, Д-21, Д-52, Д-53).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(56);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -94,19 +94,19 @@ insert into public.crews (organization_id, name, foreman_member_id)
 insert into ids select 'crew', id from public.crews where name = 'Бригада Каримова';
 select pg_temp.logout();
 
--- Заявка: цемент 20 кг у S1 по 1.5, песок 10 кг у S2 по 0.8 — выдана в работу.
-select pg_temp.login(pg_temp.id('acc'), 'aal2');
+-- Заявка склада (Д-92): цемент 20 кг, песок 10 кг — без поставщиков и цен (их нет в заявке).
+select pg_temp.login(pg_temp.id('wh'));
 insert into ids values ('req', gen_random_uuid());
 select public.save_purchase_request_draft(pg_temp.id('req'), pg_temp.id('p1'), null, 'TJS', null,
   jsonb_build_array(
-    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20, 'supplier_id', pg_temp.id('s1'), 'price', 1.5),
-    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10, 'supplier_id', pg_temp.id('s2'), 'price', 0.8)));
+    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20),
+    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10)));
 insert into ids select 'req_cement', id from public.purchase_request_items where material_id = pg_temp.id('cement');
 insert into ids select 'req_sand', id from public.purchase_request_items where material_id = pg_temp.id('sand');
 select pg_temp.logout();
 -- ---- конец фикстуры ----
 -- Заявка в работу.
-select pg_temp.login(pg_temp.id('acc'), 'aal2');
+select pg_temp.login(pg_temp.id('wh'));
 select public.issue_purchase_request(pg_temp.id('req'), gen_random_uuid());
 select pg_temp.logout();
 
@@ -153,12 +153,16 @@ select public.save_goods_receipt_draft(pg_temp.id('gr2'), pg_temp.id('p1'), pg_t
 select public.post_goods_receipt(pg_temp.id('gr2'), gen_random_uuid());
 select is((select status::text from public.purchase_requests where id = pg_temp.id('req')), 'RECEIVED',
   'вся заявка получена');
--- Строку чужого поставщика в приёмку не включить.
+-- Поставщика в заявке нет (Д-92): цемент принят от S1, песок — от S2, обе приёмки по одной заявке.
+select is((select count(distinct supplier_id)::int from public.goods_receipts
+           where purchase_request_id = pg_temp.id('req') and status = 'POSTED'), 2,
+  'по одной заявке приняли от двух поставщиков, выбранных при приёмке');
+-- Строку заявки в приёмку без заявки не включить.
 insert into ids values ('gr_bad', gen_random_uuid());
-select public.save_goods_receipt_draft(pg_temp.id('gr_bad'), pg_temp.id('p1'), pg_temp.id('s2'), pg_temp.id('req'), null, null,
+select public.save_goods_receipt_draft(pg_temp.id('gr_bad'), pg_temp.id('p1'), pg_temp.id('s2'), null, null, null,
   jsonb_build_array(jsonb_build_object('purchase_request_item_id', pg_temp.id('req_cement'), 'received_quantity', 1)));
 select throws_ok($$ select public.post_goods_receipt(pg_temp.id('gr_bad'), gen_random_uuid()) $$,
-  'P0001', 'BF_LINE_MISMATCH', 'строка заявки другого поставщика не принимается');
+  'P0001', 'BF_LINE_MISMATCH', 'строка заявки в приёмке без заявки не принимается');
 select lives_ok($$ select public.delete_document_draft('GOODS_RECEIPT', pg_temp.id('gr_bad')) $$, 'черновик удаляется');
 
 -- ===== US-03: выдача бригаде =====
@@ -230,6 +234,10 @@ select is(pg_temp.balance('cement'), 20::numeric, 'остаток 21 → 20');
 select pg_temp.logout();
 
 -- ===== После начала сверки — только через бухгалтера =====
+select pg_temp.login(pg_temp.id('wh'));
+select throws_ok($$ select public.start_purchase_review(pg_temp.id('req'), gen_random_uuid()) $$,
+  '42501', 'BF_FORBIDDEN', 'склад не начинает сверку заявки (Д-92)');
+select pg_temp.logout();
 select pg_temp.login(pg_temp.id('acc'), 'aal2');
 select is(public.start_purchase_review(pg_temp.id('req'), gen_random_uuid()) ->> 'status', 'ACCOUNTING_REVIEW',
   'бухгалтер начал сверку');

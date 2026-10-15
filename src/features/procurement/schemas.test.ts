@@ -1,21 +1,37 @@
 import { describe, expect, it } from "vitest";
 
-import { invoiceDraftSchema, listFiltersSchema, requestDraftSchema } from "./schemas";
+import {
+  invoiceDraftSchema,
+  listFiltersSchema,
+  REQUEST_OPERATIONS,
+  requestDraftSchema,
+  requestOperationPermission,
+} from "./schemas";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const material = "00000000-0000-4000-8000-000000000002";
 
 describe("заявка", () => {
-  it("строка: материал и количество обязательны, поставщик и цена — к выдаче", () => {
+  it("строка: материал и количество, без поставщика и цены (Д-92)", () => {
     const r = requestDraftSchema.safeParse({
       id,
       projectId: id,
       neededBy: "",
       currency: "TJS",
       note: "",
-      lines: [{ materialId: material, quantity: "20", supplierId: "", price: "", note: "" }],
+      lines: [{ materialId: material, quantity: "20", note: "" }],
     });
     expect(r.success).toBe(true);
+    // Поставщик и цена, даже если их прислали, в данные заявки не попадают.
+    const withExtra = requestDraftSchema.parse({
+      id,
+      projectId: id,
+      neededBy: "",
+      currency: "TJS",
+      note: "",
+      lines: [{ materialId: material, quantity: "20", note: "", supplierId: id, price: "1,5" }],
+    });
+    expect(withExtra.lines[0]).toEqual({ materialId: material, quantity: "20", note: "" });
   });
   it("пустая заявка не сохраняется", () => {
     const r = requestDraftSchema.safeParse({
@@ -27,6 +43,22 @@ describe("заявка", () => {
       lines: [],
     });
     expect(r.success).toBe(false);
+  });
+});
+
+describe("права на операции заявки (Д-92)", () => {
+  it("выпуск и отмена — склад, остальное — сверка бухгалтера", () => {
+    const byPermission = Object.groupBy(REQUEST_OPERATIONS, requestOperationPermission);
+    expect(byPermission["purchase_requests.manage"]).toEqual([
+      "issue_purchase_request",
+      "cancel_purchase_request",
+    ]);
+    expect(byPermission["purchase_requests.review"]).toEqual([
+      "start_purchase_review",
+      "mark_purchase_discrepancy",
+      "resolve_purchase_discrepancy",
+      "close_purchase_request",
+    ]);
   });
 });
 

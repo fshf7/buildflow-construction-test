@@ -1,7 +1,7 @@
 -- Цены скрыты от склада на уровне данных (§5.4, Д-24, Д-25): ни один путь в БД.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(28);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -94,20 +94,22 @@ insert into public.crews (organization_id, name, foreman_member_id)
 insert into ids select 'crew', id from public.crews where name = 'Бригада Каримова';
 select pg_temp.logout();
 
--- Заявка: цемент 20 кг у S1 по 1.5, песок 10 кг у S2 по 0.8 — выдана в работу.
-select pg_temp.login(pg_temp.id('acc'), 'aal2');
+-- Заявка склада (Д-92): цемент 20 кг, песок 10 кг — без поставщиков и цен (их нет в заявке).
+select pg_temp.login(pg_temp.id('wh'));
 insert into ids values ('req', gen_random_uuid());
 select public.save_purchase_request_draft(pg_temp.id('req'), pg_temp.id('p1'), null, 'TJS', null,
   jsonb_build_array(
-    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20, 'supplier_id', pg_temp.id('s1'), 'price', 1.5),
-    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10, 'supplier_id', pg_temp.id('s2'), 'price', 0.8)));
+    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20),
+    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10)));
 insert into ids select 'req_cement', id from public.purchase_request_items where material_id = pg_temp.id('cement');
 insert into ids select 'req_sand', id from public.purchase_request_items where material_id = pg_temp.id('sand');
 select pg_temp.logout();
 -- ---- конец фикстуры ----
--- Данные с ценами: заявка в работе, накладная подтверждена, приёмка проведена, вложения загружены.
-select pg_temp.login(pg_temp.id('acc'), 'aal2');
+-- Данные с ценами: заявка склада в работе (без цен, Д-92), накладная подтверждена, приёмка проведена, вложения загружены.
+select pg_temp.login(pg_temp.id('wh'));
 select public.issue_purchase_request(pg_temp.id('req'), gen_random_uuid());
+select pg_temp.logout();
+select pg_temp.login(pg_temp.id('acc'), 'aal2');
 insert into ids values ('inv', gen_random_uuid());
 select public.save_supplier_invoice_draft(pg_temp.id('inv'), pg_temp.id('p1'), pg_temp.id('s1'), pg_temp.id('req'),
   'Н-1', '2026-10-10', 'TJS', null, jsonb_build_array(jsonb_build_object('material_id', pg_temp.id('cement'),
@@ -175,7 +177,9 @@ select pg_temp.logout();
 
 -- ===== Бухгалтер (prices.view) — видит =====
 select pg_temp.login(pg_temp.id('acc'), 'aal2');
-select is((select sum(amount) from public.purchase_request_items_priced), 38.00::numeric, 'бухгалтер видит суммы заявки');
+select is((select sum(amount) from public.supplier_invoice_items_priced), 30.00::numeric, 'бухгалтер видит цены строк накладной');
+select is((select count(*)::int from public.purchase_request_items_priced where price is not null), 0,
+  'в заявке склада цен нет — цены только из накладной (Д-92)');
 select is((select total_amount from public.supplier_invoices_priced), 30.00::numeric, 'бухгалтер видит сумму накладной');
 select is((select count(*)::int from public.document_attachments where doc_type = 'SUPPLIER_INVOICE'), 1,
   'бухгалтер видит скан накладной');
@@ -186,12 +190,12 @@ select pg_temp.logout();
 
 -- Бухгалтеру второй фактор не обязателен (Д-90) — цены видит и без него.
 select pg_temp.login(pg_temp.id('acc'), 'aal1');
-select ok((select count(*)::int from public.purchase_request_items_priced) > 0, 'бухгалтер без MFA видит цены (Д-90)');
+select ok((select count(*)::int from public.supplier_invoice_items_priced) > 0, 'бухгалтер без MFA видит цены (Д-90)');
 select pg_temp.logout();
 
 -- ===== Управляющий: цены только по своим объектам =====
 select pg_temp.login(pg_temp.id('pm'));
-select is((select count(*)::int from public.purchase_request_items_priced), 2, 'управляющий видит цены своего объекта');
+select is((select count(*)::int from public.supplier_invoice_items_priced), 1, 'управляющий видит цены своего объекта');
 select pg_temp.logout();
 
 select * from finish();

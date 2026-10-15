@@ -95,13 +95,13 @@ insert into public.crews (organization_id, name, foreman_member_id)
 insert into ids select 'crew', id from public.crews where name = 'Бригада Каримова';
 select pg_temp.logout();
 
--- Заявка: цемент 20 кг у S1 по 1.5, песок 10 кг у S2 по 0.8 — выдана в работу.
-select pg_temp.login(pg_temp.id('acc'), 'aal2');
+-- Заявка склада (Д-92): цемент 20 кг, песок 10 кг — без поставщиков и цен (их нет в заявке).
+select pg_temp.login(pg_temp.id('wh'));
 insert into ids values ('req', gen_random_uuid());
 select public.save_purchase_request_draft(pg_temp.id('req'), pg_temp.id('p1'), null, 'TJS', null,
   jsonb_build_array(
-    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20, 'supplier_id', pg_temp.id('s1'), 'price', 1.5),
-    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10, 'supplier_id', pg_temp.id('s2'), 'price', 0.8)));
+    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20),
+    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10)));
 insert into ids select 'req_cement', id from public.purchase_request_items where material_id = pg_temp.id('cement');
 insert into ids select 'req_sand', id from public.purchase_request_items where material_id = pg_temp.id('sand');
 select pg_temp.logout();

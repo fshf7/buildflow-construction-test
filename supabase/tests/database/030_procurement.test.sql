@@ -1,7 +1,7 @@
 -- Закупки: заявки (§4.1) и накладные (§4.2). Д-13, Д-14, Д-58.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(30);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -94,22 +94,22 @@ insert into public.crews (organization_id, name, foreman_member_id)
 insert into ids select 'crew', id from public.crews where name = 'Бригада Каримова';
 select pg_temp.logout();
 
--- Заявка: цемент 20 кг у S1 по 1.5, песок 10 кг у S2 по 0.8 — выдана в работу.
-select pg_temp.login(pg_temp.id('acc'), 'aal2');
+-- Заявка склада (Д-92): цемент 20 кг, песок 10 кг — без поставщиков и цен (их нет в заявке).
+select pg_temp.login(pg_temp.id('wh'));
 insert into ids values ('req', gen_random_uuid());
 select public.save_purchase_request_draft(pg_temp.id('req'), pg_temp.id('p1'), null, 'TJS', null,
   jsonb_build_array(
-    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20, 'supplier_id', pg_temp.id('s1'), 'price', 1.5),
-    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10, 'supplier_id', pg_temp.id('s2'), 'price', 0.8)));
+    jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 20),
+    jsonb_build_object('material_id', pg_temp.id('sand'), 'quantity', 10)));
 insert into ids select 'req_cement', id from public.purchase_request_items where material_id = pg_temp.id('cement');
 insert into ids select 'req_sand', id from public.purchase_request_items where material_id = pg_temp.id('sand');
 select pg_temp.logout();
 -- ---- конец фикстуры ----
--- ===== Заявка (§4.1) =====
-select pg_temp.login(pg_temp.id('acc'), 'aal2');
+-- ===== Заявка (§4.1): оформляет склад (Д-92) =====
+select pg_temp.login(pg_temp.id('wh'));
 
 select is((select count(*)::int from public.purchase_request_items where purchase_request_id = pg_temp.id('req')), 2,
-  'US-01: заявка с двумя поставщиками сохранена');
+  'US-01: заявка склада сохранена');
 select is((select warehouse_id from public.purchase_requests where id = pg_temp.id('req')),
   (select id from public.warehouses where project_id = pg_temp.id('p1')), 'склад заявки = склад объекта');
 
@@ -130,24 +130,30 @@ select throws_ok($$ update public.purchase_requests set status = 'CLOSED' where 
 select throws_ok($$ select public.issue_purchase_request(pg_temp.id('req'), pg_temp.id('k_issue'), 'x') $$,
   '42883', null, 'лишних аргументов нет');
 
--- Неполная заявка не выдаётся.
+-- Поставщик и цена в заявке не задаются (Д-92): присланные ключи игнорируются, выдача без них.
 insert into ids values ('req2', gen_random_uuid());
 select public.save_purchase_request_draft(pg_temp.id('req2'), pg_temp.id('p1'), null, 'TJS', null,
-  jsonb_build_array(jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 5)));
-select throws_ok($$ select public.issue_purchase_request(pg_temp.id('req2'), gen_random_uuid()) $$,
-  'P0001', 'BF_LINE_INCOMPLETE', 'строка без поставщика и цены не выдаётся');
+  jsonb_build_array(jsonb_build_object('material_id', pg_temp.id('cement'), 'quantity', 5,
+                                       'supplier_id', pg_temp.id('s1'), 'price', 1.5)));
+select is(public.issue_purchase_request(pg_temp.id('req2'), gen_random_uuid()) ->> 'status', 'ISSUED',
+  'заявка без поставщика и цены выдаётся в работу');
 select throws_ok($$ select public.cancel_purchase_request(pg_temp.id('req2'), gen_random_uuid(), '') $$,
   'P0001', 'BF_REASON_REQUIRED', 'отмена без причины невозможна');
 select is(public.cancel_purchase_request(pg_temp.id('req2'), gen_random_uuid(), 'Ошибка ввода') ->> 'status',
-  'CANCELLED', 'черновик отменён с причиной');
+  'CANCELLED', 'выданная заявка без приёмок отменена с причиной');
 select pg_temp.logout();
+select is((select count(*)::int from public.purchase_request_items
+           where purchase_request_id = pg_temp.id('req2') and (supplier_id is not null or price is not null)), 0,
+  'поставщик и цена из запроса в строку заявки не попали');
 
--- Склад не создаёт и не видит цены заявки, но видит строки.
-select pg_temp.login(pg_temp.id('wh'));
+-- Бухгалтер заявки не оформляет (Д-92), но видит их строки.
+select pg_temp.login(pg_temp.id('acc'), 'aal2');
 select throws_ok($$ select public.save_purchase_request_draft(gen_random_uuid(), pg_temp.id('p1'), null, 'TJS', null, '[]') $$,
-  '42501', 'BF_FORBIDDEN', 'склад не создаёт заявки');
+  '42501', 'BF_FORBIDDEN', 'бухгалтер не создаёт заявки');
+select throws_ok($$ select public.cancel_purchase_request(pg_temp.id('req'), gen_random_uuid(), 'Не нужна') $$,
+  '42501', 'BF_FORBIDDEN', 'бухгалтер не отменяет заявку склада');
 select is((select count(*)::int from public.purchase_request_items where purchase_request_id = pg_temp.id('req')), 2,
-  'склад видит строки заявки (без цен)');
+  'бухгалтер видит строки заявки');
 select pg_temp.logout();
 
 -- ===== Накладная (§4.2, Д-13, Д-14) =====
@@ -198,6 +204,16 @@ select pg_temp.login(pg_temp.id('wh'));
 select throws_ok($$ select public.submit_supplier_invoice(pg_temp.id('inv'), gen_random_uuid()) $$,
   '42501', 'BF_FORBIDDEN', 'склад не работает с накладными');
 select pg_temp.logout();
+
+-- ===== Каталог прав (Д-92): заявку оформляет склад, сверяет и закрывает бухгалтер =====
+select is(
+  (select array_agg(r.code::text order by r.code) from public.permissions p join public.roles r on r.id = p.role_id
+   where p.organization_id = pg_temp.id('org') and p.code = 'purchase_requests.manage'),
+  array['warehouse'], 'purchase_requests.manage — только у склада');
+select is(
+  (select array_agg(r.code::text order by r.code) from public.permissions p join public.roles r on r.id = p.role_id
+   where p.organization_id = pg_temp.id('org') and p.code = 'purchase_requests.review'),
+  array['accountant'], 'purchase_requests.review — только у бухгалтера');
 
 select * from finish();
 rollback;

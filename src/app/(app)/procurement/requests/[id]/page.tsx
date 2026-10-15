@@ -24,16 +24,20 @@ export const metadata: Metadata = { title: "Заявка" };
 export default async function RequestPage({ params }: PageProps<"/procurement/requests/[id]">) {
   const org = await requirePermission("purchase_requests.view");
   const { id } = await params;
-  const withPrices = hasPermission(org, "prices.view");
-  const request = await getRequest(org.id, id, withPrices);
+  const request = await getRequest(org.id, id);
   if (!request) notFound();
+  // Д-92: заявку оформляет склад (manage), сверяет и закрывает бухгалтер (review).
   const canManage = hasPermission(org, "purchase_requests.manage");
+  const canReview = hasPermission(org, "purchase_requests.review");
   const canInvoice =
     hasPermission(org, "supplier_invoices.manage") &&
     !["DRAFT", "CANCELLED"].includes(request.status);
+  // Поставщики заявки — те, от кого склад уже принял по ней материал.
   const suppliers = [
     ...new Map(
-      request.lines.filter((l) => l.supplierId).map((l) => [l.supplierId!, l.supplierName!]),
+      request.receipts
+        .filter((g) => g.status === "POSTED")
+        .map((g) => [g.supplierId, g.supplierName]),
     ),
   ];
 
@@ -82,9 +86,16 @@ export default async function RequestPage({ params }: PageProps<"/procurement/re
         ) : null}
       </div>
 
-      {canManage ? <RequestActions id={request.id} status={request.status} /> : null}
+      {canManage || canReview ? (
+        <RequestActions
+          id={request.id}
+          status={request.status}
+          canManage={canManage}
+          canReview={canReview}
+        />
+      ) : null}
 
-      <RequestLinesTable request={request} withPrices={withPrices} />
+      <RequestLinesTable request={request} />
 
       <div className="grid gap-6 md:grid-cols-2">
         <section className="flex flex-col gap-2">
@@ -106,8 +117,9 @@ export default async function RequestPage({ params }: PageProps<"/procurement/re
               ))}
             </ul>
           )}
-          {canInvoice
-            ? suppliers.map(([supplierId, name]) => (
+          {canInvoice ? (
+            <div className="flex flex-wrap gap-2">
+              {suppliers.map(([supplierId, name]) => (
                 <Link
                   key={supplierId}
                   href={`/procurement/invoices/new?request=${id}&supplier=${supplierId}`}
@@ -115,8 +127,15 @@ export default async function RequestPage({ params }: PageProps<"/procurement/re
                 >
                   Ввести накладную: {name}
                 </Link>
-              ))
-            : null}
+              ))}
+              <Link
+                href={`/procurement/invoices/new?request=${id}`}
+                className={buttonVariants({ variant: "ghost", size: "sm" })}
+              >
+                Другой поставщик
+              </Link>
+            </div>
+          ) : null}
         </section>
         <section className="flex flex-col gap-2">
           <h2 className="font-semibold">Приёмки склада</h2>

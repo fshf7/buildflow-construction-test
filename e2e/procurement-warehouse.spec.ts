@@ -3,7 +3,8 @@ import { devices, expect, test } from "@playwright/test";
 import { ACCOUNTANT_STATE, LOCAL_STOREKEEPER, login } from "./helpers/accounts";
 import { createWarehouseFixture } from "./helpers/fixture";
 
-// Сквозной сценарий фазы 2 (US-01…US-04): бухгалтер — десктоп, склад — смартфон.
+// Сквозной сценарий фазы 2 (US-01…US-04): склад — смартфон (заявка, приёмка, выдача, возврат),
+// бухгалтер — десктоп (накладная с ценами, Д-92).
 test("заявка → приёмка 21 из 20 → выдача → минус запрещён → возврат → накладная", async ({
   browser,
   isMobile,
@@ -12,33 +13,7 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   test.setTimeout(120_000);
   const fx = await createWarehouseFixture();
 
-  // ---- US-01: бухгалтер создаёт заявку с двумя поставщиками и выдаёт её в работу ----
-  const accCtx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
-  const acc = await accCtx.newPage();
-  await acc.goto("/procurement/requests/new");
-  await acc.getByLabel("Объект").selectOption({ label: fx.projectLabel });
-  await acc.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
-  await acc.getByLabel("Количество, строка 1").fill("20");
-  await acc.getByLabel("Поставщик, строка 1").selectOption({ label: fx.s1 });
-  await acc.getByLabel("Цена, строка 1").fill("1,5");
-  await acc.getByRole("button", { name: "Добавить строку" }).click();
-  await acc.getByLabel("Материал, строка 2").selectOption({ label: `${fx.sand} (кг)` });
-  await acc.getByLabel("Количество, строка 2").fill("10");
-  await acc.getByLabel("Поставщик, строка 2").selectOption({ label: fx.s2 });
-  await acc.getByLabel("Цена, строка 2").fill("0,8");
-  await expect(acc.getByText("Итого: 38,00 TJS")).toBeVisible();
-  await acc.getByRole("button", { name: "Сохранить черновик" }).click();
-  await expect(acc.getByRole("heading", { name: "Черновик заявки" })).toBeVisible();
-  const requestUrl = acc.url();
-
-  await acc.getByRole("button", { name: "Выдать в работу" }).click();
-  await expect(acc.getByRole("heading", { name: /^Заявка ЗК-\d{4}-\d{6}$/ })).toBeVisible();
-  await expect(acc.getByText("Передана", { exact: true })).toBeVisible();
-  await acc.getByRole("link", { name: "Печать" }).click();
-  await expect(acc.getByRole("heading", { name: /Заявка на закупку № ЗК-/ })).toBeVisible();
-  await expect(acc.getByText("38,00 TJS")).toBeVisible();
-
-  // ---- US-02: склад с телефона принимает 21 кг при заказе 20 ----
+  // ---- US-01 (Д-92): склад с телефона оформляет заявку для снабженца — без поставщиков и цен ----
   const whCtx = await browser.newContext({
     ...devices["Pixel 7"],
     locale: "ru-RU",
@@ -46,10 +21,42 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   });
   const wh = await whCtx.newPage();
   await login(wh, LOCAL_STOREKEEPER.email, LOCAL_STOREKEEPER.password);
+  await wh.goto("/procurement/requests/new");
+  await wh.getByLabel("Объект").selectOption({ label: fx.projectLabel });
+  await wh.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
+  await wh.getByLabel("Количество, строка 1").fill("20");
+  await expect(wh.getByLabel("Поставщик, строка 1")).toHaveCount(0);
+  await expect(wh.getByLabel("Цена, строка 1")).toHaveCount(0);
+  await wh.getByRole("button", { name: "Добавить строку" }).click();
+  await wh.getByLabel("Материал, строка 2").selectOption({ label: `${fx.sand} (кг)` });
+  await wh.getByLabel("Количество, строка 2").fill("10");
+  await wh.getByRole("button", { name: "Сохранить черновик" }).click();
+  await expect(wh.getByRole("heading", { name: "Черновик заявки" })).toBeVisible();
+  const requestUrl = wh.url();
+
+  await wh.getByRole("button", { name: "Выдать в работу" }).click();
+  await expect(wh.getByRole("heading", { name: /^Заявка ЗК-\d{4}-\d{6}$/ })).toBeVisible();
+  await expect(wh.getByText("Передана", { exact: true })).toBeVisible();
+  const requestNumber = (await wh.getByRole("heading", { name: /^Заявка ЗК-/ }).textContent())!
+    .replace("Заявка ", "")
+    .trim();
+  await wh.getByRole("link", { name: "Печать" }).click();
+  await expect(wh.getByRole("heading", { name: /Заявка на закупку № ЗК-/ })).toBeVisible();
+  await expect(wh.getByText("TJS")).toHaveCount(0); // печатная форма для снабженца — без цен
+
+  // Бухгалтер заявки не оформляет (Д-92).
+  const accCtx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
+  const acc = await accCtx.newPage();
+  await acc.goto("/procurement/requests");
+  await expect(acc.getByRole("link", { name: "Новая заявка" })).toHaveCount(0);
+
+  // ---- US-02: склад принимает 21 кг при заказе 20; поставщика выбирает при приёмке ----
   await wh.goto(`/warehouse?project=${fx.projectId}`);
   await wh.getByRole("link", { name: "Принять" }).click(); // касание 1
-  await wh.getByRole("link", { name: new RegExp(fx.s1) }).click(); // касание 2
+  await wh.getByRole("link", { name: new RegExp(`Заявка ${requestNumber}`) }).click(); // касание 2
+  await wh.getByLabel("Поставщик").selectOption({ label: fx.s1 });
   await wh.getByLabel(`Принято: ${fx.cement}`).fill("21");
+  await wh.getByLabel(`Принято: ${fx.sand}`).fill(""); // песок этой машиной не привезли
   await wh.getByRole("button", { name: "Провести приёмку" }).click(); // касание 3
   await expect(wh.getByRole("heading", { name: /^Приёмка ПРМ-/ })).toBeVisible();
   await expect(wh.getByText("Принято 21 кг · заказано 20 кг")).toBeVisible();
@@ -99,6 +106,8 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   await expect(acc.getByText("Частично получена", { exact: true })).toBeVisible();
   await acc.getByRole("link", { name: `Ввести накладную: ${fx.s1}` }).click();
   await expect(acc.getByLabel("Количество, строка 1")).toHaveValue("21"); // принятое, а не заказанное
+  await expect(acc.getByLabel("Цена, строка 1")).toHaveValue(""); // цены в заявке нет — из бумажной накладной
+  await acc.getByLabel("Цена, строка 1").fill("1,5");
   await acc.getByLabel("№ накладной поставщика").fill(`Н-${Date.now()}`);
   await acc.getByLabel("Дата накладной").fill("2026-10-14");
   await acc.getByRole("button", { name: "Сохранить" }).click();

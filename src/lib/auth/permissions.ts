@@ -10,6 +10,7 @@ export const PERMISSIONS = [
   "catalog.manage",
   "purchase_requests.view",
   "purchase_requests.manage",
+  "purchase_requests.review",
   "prices.view",
   "supplier_invoices.view",
   "supplier_invoices.manage",

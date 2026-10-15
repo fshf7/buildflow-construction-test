@@ -6,14 +6,14 @@ import Link from "next/link";
 
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 import { REQUEST_STATUS_LABELS, REQUEST_STATUS_TONE } from "../labels";
 import type { RequestListRow } from "../queries";
 
 const helper = createColumnHelper<DataTableFeatures, RequestListRow>();
 
-const baseColumns = [
+const columns = helper.columns([
   helper.accessor("number", {
     header: "Номер",
     cell: (info) => (
@@ -27,10 +27,7 @@ const baseColumns = [
   }),
   helper.accessor("docDate", { header: "Дата", cell: (info) => formatDate(info.getValue()) }),
   helper.accessor("projectLabel", { header: "Объект" }),
-  helper.accessor("suppliers", {
-    header: "Поставщики",
-    cell: (info) => info.getValue().join(", ") || "—",
-  }),
+  helper.accessor("linesCount", { header: "Позиций" }),
   helper.accessor("status", {
     header: "Статус",
     cell: (info) => (
@@ -44,32 +41,8 @@ const baseColumns = [
       </span>
     ),
   }),
-];
+]);
 
-const totalColumn = helper.accessor("total", {
-  header: "Сумма",
-  cell: (info) => (
-    <span className="whitespace-nowrap">
-      {formatMoney(info.getValue(), info.row.original.currency)}
-    </span>
-  ),
-});
-
-const columnsWithPrices = helper.columns([...baseColumns, totalColumn]);
-const columnsWithoutPrices = helper.columns(baseColumns);
-
-export function RequestsTable({
-  rows,
-  withPrices,
-}: {
-  rows: RequestListRow[];
-  withPrices: boolean;
-}) {
-  return (
-    <DataTable
-      columns={withPrices ? columnsWithPrices : columnsWithoutPrices}
-      data={rows}
-      empty="Заявок по выбранным условиям нет"
-    />
-  );
+export function RequestsTable({ rows }: { rows: RequestListRow[] }) {
+  return <DataTable columns={columns} data={rows} empty="Заявок по выбранным условиям нет" />;
 }

@@ -32,29 +32,33 @@ export default async function NewInvoicePage({
     listRequestOptions(org.id),
   ]);
 
-  // Из заявки: строки этого поставщика с ценами заявки и принятым количеством.
+  // Из заявки: объект и заявка; если указан поставщик — строки из того, что склад принял от него
+  // по этой заявке. Цены в заявке нет (Д-92) — бухгалтер вносит её из бумажной накладной.
   let initial = {};
-  if (requestId && supplierId) {
+  if (requestId) {
     const supabase = await createClient();
     const { data: req } = await supabase
       .from("purchase_requests")
-      .select("project_id, currency")
+      .select("project_id")
       .eq("id", requestId)
       .maybeSingle();
-    const lines = await requestLinesForInvoice(requestId, supplierId);
+    const lines = supplierId ? await requestLinesForInvoice(requestId, supplierId) : [];
     initial = {
       projectId: req?.project_id,
-      supplierId,
       purchaseRequestId: requestId,
-      currency: req?.currency ?? "TJS",
-      lines: lines.map((l) => ({
-        materialId: l.materialId,
-        description: "",
-        unitId: l.unitId,
-        quantity: num(l.quantity),
-        price: num(Number(l.price ?? 0)),
-        purchaseRequestItemId: l.purchaseRequestItemId,
-      })),
+      ...(supplierId ? { supplierId } : {}),
+      ...(lines.length > 0
+        ? {
+            lines: lines.map((l) => ({
+              materialId: l.materialId,
+              description: "",
+              unitId: l.unitId,
+              quantity: num(l.quantity),
+              price: "",
+              purchaseRequestItemId: l.purchaseRequestItemId ?? "",
+            })),
+          }
+        : {}),
     };
   }
 

@@ -12,6 +12,7 @@ import {
   invoiceDraftSchema,
   REQUEST_OPERATIONS,
   requestDraftSchema,
+  requestOperationPermission,
   transitionSchema,
   type InvoiceOperation,
   type RequestOperation,
@@ -40,8 +41,6 @@ export async function saveRequestDraft(input: unknown): Promise<ActionResult<{ i
     p_lines: v.lines.map((l) => ({
       material_id: l.materialId,
       quantity: toNumber(l.quantity),
-      supplier_id: l.supplierId || null,
-      price: l.price === "" ? null : toNumber(l.price),
       note: l.note,
     })),
   });
@@ -58,7 +57,7 @@ export async function runRequestOperation(
   input: unknown,
 ): Promise<ActionResult<Result>> {
   if (!REQUEST_OPERATIONS.includes(operation)) return fail("Неизвестная операция");
-  const auth = await authorize("purchase_requests.manage");
+  const auth = await authorize(requestOperationPermission(operation));
   if (!auth.ok) return fail(auth.error);
   const parsed = transitionSchema.safeParse(input);
   if (!parsed.success) return fail("Неверный запрос");
