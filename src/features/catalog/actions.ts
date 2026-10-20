@@ -7,7 +7,7 @@ import { authorize } from "@/lib/auth/guard";
 import { emptyToNull } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-import { materialSchema, supplierSchema, unitSchema } from "./schemas";
+import { expenseCategorySchema, materialSchema, supplierSchema, unitSchema } from "./schemas";
 
 type PgError = { code?: string; message?: string } | null;
 
@@ -79,4 +79,29 @@ export async function saveSupplier(input: unknown): Promise<ActionResult> {
     ? await supabase.from("suppliers").update(row).eq("id", id).eq("organization_id", auth.org.id)
     : await supabase.from("suppliers").insert({ ...row, organization_id: auth.org.id });
   return saved(error, "Поставщик с таким ИНН уже есть");
+}
+
+export async function saveExpenseCategory(input: unknown): Promise<ActionResult> {
+  const auth = await authorize("catalog.manage");
+  if (!auth.ok) return fail(auth.error);
+  const parsed = expenseCategorySchema.safeParse(input);
+  if (!parsed.success) return fail("Проверьте поля формы");
+  const { id, ...v } = parsed.data;
+
+  const supabase = await createClient();
+  const row = {
+    name: v.name,
+    color: v.color,
+    via_warehouse: v.viaWarehouse,
+    sort_order: v.sortOrder,
+    is_active: v.isActive,
+  };
+  const { error } = id
+    ? await supabase
+        .from("expense_categories")
+        .update(row)
+        .eq("id", id)
+        .eq("organization_id", auth.org.id)
+    : await supabase.from("expense_categories").insert({ ...row, organization_id: auth.org.id });
+  return saved(error, "Категория с таким названием уже есть");
 }

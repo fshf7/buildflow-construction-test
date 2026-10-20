@@ -13,12 +13,12 @@ export const metadata: Metadata = { title: "Печать заявки" };
 // TODO(TZ-open): утверждённая форма документа не определена — макет предварительный.
 export default async function PrintRequestPage({
   params,
-}: PageProps<"/objects/[projectId]/procurement/requests/[id]/print">) {
+}: PageProps<"/objects/[projectId]/warehouse/requests/[id]/print">) {
   const { projectId, id } = await params;
   const { org, project } = await requireObject(projectId, "purchase_requests.view");
   const request = await getRequest(org.id, id);
   if (!request) notFound();
-  ensureDocInObject(project.id, request.projectId, `/procurement/requests/${id}/print`);
+  ensureDocInObject(project.id, request.projectId, `/warehouse/requests/${id}/print`);
 
   return (
     <article className="mx-auto max-w-3xl bg-white p-8 text-black print:max-w-none print:p-0 [&_td]:border [&_td]:border-black [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-black [&_th]:px-2 [&_th]:py-1">

@@ -25,7 +25,7 @@ export function useObject(): ObjectInfo {
   return value;
 }
 
-/** Адрес внутри текущего объекта: href("/procurement/requests") → /objects/<id>/procurement/requests. */
+/** Адрес внутри текущего объекта: href("/warehouse/requests") → /objects/<id>/warehouse/requests. */
 export function useObjectHref(): (path?: string) => string {
   const { id } = useObject();
   return useCallback((path = "") => objectHref(id, path), [id]);

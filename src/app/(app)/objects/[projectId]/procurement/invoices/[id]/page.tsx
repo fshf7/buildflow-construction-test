@@ -47,17 +47,22 @@ export default async function InvoicePage({
   return (
     <>
       <PageHeader
-        title={invoice.number ? `Накладная ${invoice.number}` : "Накладная (введена)"}
-        description={`${invoice.supplierName} · № ${invoice.supplierDocNumber} от ${formatDate(invoice.supplierDocDate)}`}
+        title={invoice.number ? `Затраты ${invoice.number}` : "Накладная (введена)"}
+        description={[
+          invoice.supplierName,
+          invoice.supplierDocNumber
+            ? `№ ${invoice.supplierDocNumber} от ${formatDate(invoice.supplierDocDate)}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         actions={
-          invoice.status === "ENTERED" && canManage ? (
-            <Link
-              href={objectHref(project.id, `/procurement/invoices/${id}/edit`)}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Редактировать
-            </Link>
-          ) : null
+          <Link
+            href={objectHref(project.id, "/procurement/invoices")}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            К журналу затрат
+          </Link>
         }
       />
       <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -66,7 +71,7 @@ export default async function InvoicePage({
         </Badge>
         {invoice.requestNumber && invoice.purchaseRequestId ? (
           <Link
-            href={objectHref(project.id, `/procurement/requests/${invoice.purchaseRequestId}`)}
+            href={objectHref(project.id, `/warehouse/requests/${invoice.purchaseRequestId}`)}
             className="underline underline-offset-4"
           >
             Заявка {invoice.requestNumber}

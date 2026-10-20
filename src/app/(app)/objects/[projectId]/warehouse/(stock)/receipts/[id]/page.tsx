@@ -56,7 +56,7 @@ export default async function ReceiptPage({
             Заявка{" "}
             {hasPermission(org, "purchase_requests.view") ? (
               <Link
-                href={href(`/procurement/requests/${receipt.requestId}`)}
+                href={href(`/warehouse/requests/${receipt.requestId}`)}
                 className="underline underline-offset-4"
               >
                 {receipt.requestNumber}

@@ -54,7 +54,7 @@ export function RequestActions({
         variant: "destructive",
         run: async () => {
           const result = await deleteDraft("PURCHASE_REQUEST", id);
-          if (result.ok) router.push(href("/procurement/requests"));
+          if (result.ok) router.push(href("/warehouse/requests"));
           return result;
         },
         successMessage: "Черновик удалён",

@@ -1313,6 +1313,8 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 
 - Маршруты: `/` — выбор объекта (карточки доступных по RLS объектов) и «Общее по организации»;
   `/objects/[projectId]/…` — объектные разделы: `procurement`, `warehouse`, `finance`, `acts`, `tasks`, `reports`.
+  Склад (Д-98): `warehouse/requests` (заявки склада, широкая колонка) и `warehouse/(stock)/…` (остатки, журнал,
+  операции — узкая колонка); «Закупки» — `procurement/invoices` (затраты) и `procurement/approvals`.
   Общие — по своим адресам: `/finance` (касса без объекта), `/reports` (по всем объектам), `/crews` (бригады,
   тарифы), `/opening`, `/projects`, `/catalog`, `/admin/*`. Старые адреса объектных разделов → `/` (`next.config` redirects).
 - `src/app/(app)/objects/[projectId]/layout.tsx` → `requireObject()` (`features/projects/object.ts`): объект виден
@@ -1335,4 +1337,17 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 - MFA-редирект — в `src/app/(app)/layout.tsx` (`?next=` из `x-pathname`, который ставит proxy).
 - `loading.tsx` (`components/page-skeleton.tsx`) — рядом с каждой `page.tsx` в `(app)`: новые страницы — с ним же.
 - `experimental.staleTimes.dynamic = 30` в `next.config.ts`; после изменений — `revalidateApp()`.
+
+## 20. Журнал затрат (Д-97; миграция `20261023000000_expenses.sql`)
+
+- `expense_categories` (STD; `name`, `color` — ключ палитры `features/catalog/expense-colors.ts`, `via_warehouse`,
+  `sort_order`, `is_active`; RLS: чтение — участники, запись — `catalog.manage`). Стартовые пять — у всех организаций
+  и триггером `seed_expense_categories` на `organizations` (новые).
+- `supplier_invoices.category_id` (FK на категорию той же организации); `supplier_doc_number/date` — NULL допустимы.
+- `public.save_expense_row(...)` — строка затрат = накладная из одной строки: новая → `CONFIRMED` + номер НК +
+  `payables`; существующая без оплат → временный переход `CONFIRMED → ENTERED` (обход `guard_lines`) → правка →
+  `CONFIRMED`, обновление обязательства; с оплатой — `BF_HAS_PAYMENTS`. Идемпотентно (`idempotency_begin`).
+  Новые переходы в `private.allowed_transition`: `ENTERED → CONFIRMED`, `CONFIRMED → ENTERED` (только в проведении).
+- UI: `features/procurement/components/expenses-grid.tsx`; общая логика фильтров/итогов/вставки —
+  `features/procurement/expenses.ts` (и экран, и выгрузка `…/procurement/invoices/export`). Тест — pgTAP `160_expenses`.
 

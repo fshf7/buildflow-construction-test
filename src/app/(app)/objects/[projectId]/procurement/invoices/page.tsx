@@ -1,73 +1,59 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import { FiltersBar } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
-import { buttonVariants } from "@/components/ui/button";
-import { InvoicesTable } from "@/features/procurement/components/invoices-table";
-import { INVOICE_STATUS_LABELS } from "@/features/procurement/labels";
-import { listInvoices } from "@/features/procurement/queries";
-import { listFiltersSchema } from "@/features/procurement/schemas";
+import { listExpenseCategories } from "@/features/catalog/queries";
+import { ExpensesGrid } from "@/features/procurement/components/expenses-grid";
+import { listExpenseRows } from "@/features/procurement/queries";
 import { requireObject } from "@/features/projects/object";
-import { listSupplierOptions } from "@/features/shared/lookups";
+import {
+  listMaterialOptions,
+  listSupplierOptions,
+  listUnitOptions,
+} from "@/features/shared/lookups";
 import { hasPermission } from "@/lib/auth/access-model";
-import { objectHref } from "@/lib/routes";
+import { businessToday } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Накладные" };
+export const metadata: Metadata = { title: "Затраты" };
 
-export default async function InvoicesPage({
+/**
+ * Журнал затрат объекта (Д-97) — таблица как в Excel: строка = запись со своим долгом поставщику.
+ * Склад видит количества без цен (Д-24), долги — у кого есть payables.view.
+ */
+export default async function ExpensesPage({
   params,
-  searchParams,
 }: PageProps<"/objects/[projectId]/procurement/invoices">) {
   const { projectId } = await params;
   const { org, project } = await requireObject(projectId, "supplier_invoices.view");
-  const filters = listFiltersSchema.parse(await searchParams);
-  const withPrices = hasPermission(org, "prices.view");
-  // Д-94: только накладные этого объекта.
-  const [rows, suppliers] = await Promise.all([
-    listInvoices(org.id, { ...filters, project: project.id }, withPrices),
+  const access = {
+    prices: hasPermission(org, "prices.view"),
+    debts: hasPermission(org, "payables.view"),
+  };
+  const canEdit = hasPermission(org, "supplier_invoices.manage") && access.prices;
+  const [rows, categories, suppliers, units, materials] = await Promise.all([
+    listExpenseRows(org.id, project.id, access),
+    listExpenseCategories(org.id),
     listSupplierOptions(org.id),
+    listUnitOptions(org.id),
+    listMaterialOptions(org.id),
   ]);
 
   return (
     <>
       <PageHeader
-        title="Накладные поставщиков"
-        description="Подтверждённая накладная создаёт обязательство перед поставщиком (Д-13)."
-        actions={
-          hasPermission(org, "supplier_invoices.manage") ? (
-            <Link
-              href={objectHref(project.id, "/procurement/invoices/new")}
-              className={buttonVariants()}
-            >
-              Ввести накладную
-            </Link>
-          ) : null
-        }
+        title="Затраты"
+        description="Материалы, продукты, инвентарь, услуги и транспорт — по строке на запись. Внесённая строка сразу становится долгом поставщику у кассира."
       />
-      <FiltersBar
-        fields={[
-          { name: "q", label: "Номер", type: "search", placeholder: "НК-… или № поставщика" },
-          {
-            name: "status",
-            label: "Статус",
-            type: "select",
-            options: Object.entries(INVOICE_STATUS_LABELS).map(([value, label]) => ({
-              value,
-              label,
-            })),
-          },
-          {
-            name: "supplier",
-            label: "Поставщик",
-            type: "select",
-            options: suppliers.map((s) => ({ value: s.id, label: s.label })),
-          },
-          { name: "from", label: "С даты", type: "date" },
-          { name: "to", label: "По дату", type: "date" },
-        ]}
+      <ExpensesGrid
+        rows={rows}
+        categories={categories}
+        suppliers={suppliers}
+        units={units}
+        materials={materials}
+        canEdit={canEdit}
+        withPrices={access.prices}
+        withDebts={access.debts}
+        today={businessToday()}
       />
-      <InvoicesTable rows={rows} withPrices={withPrices} />
     </>
   );
 }

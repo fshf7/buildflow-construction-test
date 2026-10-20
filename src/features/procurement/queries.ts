@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
+import type { DebtStatus, ExpenseRow } from "./expenses";
 import type { InvoiceStatus, RequestStatus } from "./labels";
 import type { ListFilters } from "./schemas";
 
@@ -79,7 +80,7 @@ export type RequestDetail = {
     id: string;
     number: string | null;
     supplierName: string;
-    supplierDocNumber: string;
+    supplierDocNumber: string | null;
     status: InvoiceStatus;
   }[];
   receipts: {
@@ -180,72 +181,83 @@ export async function getRequest(orgId: string, id: string): Promise<RequestDeta
 // ---------------------------------------------------------------------------------------
 // Накладные
 // ---------------------------------------------------------------------------------------
-export type InvoiceListRow = {
-  id: string;
-  number: string | null;
-  docDate: string;
-  status: InvoiceStatus;
-  supplierName: string;
-  supplierDocNumber: string;
-  supplierDocDate: string;
-  projectLabel: string;
-  requestNumber: string | null;
-  total: number | null;
-  currency: string;
-};
 
-export async function listInvoices(
+/**
+ * Журнал затрат объекта (Д-97): строка таблицы = строка накладной. Цены — только с prices.view
+ * (через *_priced, Д-24), долги — с payables.view. Три запроса параллельно.
+ */
+export async function listExpenseRows(
   orgId: string,
-  f: ListFilters,
-  withPrices: boolean,
-): Promise<InvoiceListRow[]> {
+  projectId: string,
+  access: { prices: boolean; debts: boolean },
+): Promise<ExpenseRow[]> {
   const supabase = await createClient();
-  let query = supabase
-    .from("supplier_invoices")
-    .select(
-      "id, number, doc_date, status, supplier_doc_number, supplier_doc_date, currency, suppliers(name), projects(code, name), purchase_requests(number)",
-    )
-    .eq("organization_id", orgId)
-    .order("doc_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (f.status) query = query.eq("status", f.status as InvoiceStatus);
-  if (f.project) query = query.eq("project_id", f.project);
-  if (f.supplier) query = query.eq("supplier_id", f.supplier);
-  if (f.from) query = query.gte("doc_date", f.from);
-  if (f.to) query = query.lte("doc_date", f.to);
-  if (f.q) query = query.or(`number.ilike.%${f.q}%,supplier_doc_number.ilike.%${f.q}%`);
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  const [docs, priced, debts] = await Promise.all([
+    supabase
+      .from("supplier_invoices")
+      .select(
+        "id, number, status, doc_date, created_at, category_id, supplier_id, supplier_doc_number, currency, suppliers(name), supplier_invoice_items(id, line_no, description, material_id, unit_id, quantity, materials(name), units_of_measure(code))",
+      )
+      .eq("organization_id", orgId)
+      .eq("project_id", projectId)
+      .order("doc_date")
+      .order("created_at")
+      .limit(3000),
+    access.prices
+      ? supabase
+          .from("supplier_invoice_items_priced")
+          .select("id, price, amount")
+          .eq("project_id", projectId)
+      : Promise.resolve({
+          data: [] as { id: string | null; price: number | null; amount: number | null }[],
+          error: null,
+        }),
+    access.debts
+      ? supabase
+          .from("payables")
+          .select("source_doc_id, paid_amount, status")
+          .eq("project_id", projectId)
+          .eq("source_doc_type", "SUPPLIER_INVOICE")
+      : Promise.resolve({
+          data: [] as { source_doc_id: string; paid_amount: number; status: DebtStatus }[],
+          error: null,
+        }),
+  ]);
+  for (const r of [docs, priced, debts]) if (r.error) throw new Error(r.error.message);
 
-  let totals = new Map<string, number>();
-  if (withPrices && data.length > 0) {
-    const { data: priced, error: pError } = await supabase
-      .from("supplier_invoices_priced")
-      .select("id, total_amount")
-      .in(
-        "id",
-        data.map((v) => v.id),
-      );
-    if (pError) throw new Error(pError.message);
-    totals = new Map(priced.map((p) => [p.id ?? "", Number(p.total_amount ?? 0)]));
-  }
-
-  return data.map((v) => ({
-    id: v.id,
-    number: v.number,
-    docDate: v.doc_date,
-    status: v.status,
-    supplierName: v.suppliers?.name ?? "",
-    supplierDocNumber: v.supplier_doc_number,
-    supplierDocDate: v.supplier_doc_date,
-    projectLabel: v.projects ? `${v.projects.code} — ${v.projects.name}` : "—",
-    requestNumber: v.purchase_requests?.number ?? null,
-    total: withPrices ? (totals.get(v.id) ?? 0) : null,
-    currency: v.currency,
-  }));
+  const prices = new Map((priced.data ?? []).map((p) => [p.id ?? "", p]));
+  const payables = new Map((debts.data ?? []).map((p) => [p.source_doc_id, p]));
+  return (docs.data ?? []).flatMap((v) => {
+    const items = [...v.supplier_invoice_items].sort((a, b) => a.line_no - b.line_no);
+    const debt = payables.get(v.id);
+    return items.map((i) => {
+      const p = prices.get(i.id);
+      return {
+        key: i.id,
+        invoiceId: v.id,
+        number: v.number,
+        status: v.status,
+        docDate: v.doc_date,
+        description: i.description ?? i.materials?.name ?? "",
+        materialId: i.material_id,
+        categoryId: v.category_id,
+        quantity: Number(i.quantity),
+        unitId: i.unit_id,
+        unitCode: i.units_of_measure?.code ?? "",
+        price: access.prices ? Number(p?.price ?? 0) : null,
+        amount: access.prices ? Number(p?.amount ?? 0) : null,
+        currency: v.currency,
+        supplierId: v.supplier_id,
+        supplierName: v.suppliers?.name ?? "",
+        docNumber: v.supplier_doc_number,
+        paid: debt ? Number(debt.paid_amount) : null,
+        debtStatus: debt?.status ?? null,
+        editable:
+          v.status === "CONFIRMED" && items.length === 1 && Number(debt?.paid_amount ?? 0) === 0,
+      } satisfies ExpenseRow;
+    });
+  });
 }
-
 export type InvoiceLine = {
   id: string;
   materialId: string | null;
@@ -270,8 +282,8 @@ export type InvoiceDetail = {
   supplierName: string;
   purchaseRequestId: string | null;
   requestNumber: string | null;
-  supplierDocNumber: string;
-  supplierDocDate: string;
+  supplierDocNumber: string | null;
+  supplierDocDate: string | null;
   currency: string;
   note: string | null;
   cancelReason: string | null;
@@ -399,41 +411,6 @@ export async function getInvoice(
   };
 }
 
-/**
- * Заготовка накладной по заявке: что склад принял от этого поставщика по заявке (проведённые
- * приёмки). Поставщика и цен в заявке нет (Д-92) — цену бухгалтер вносит из накладной.
- */
-export async function requestLinesForInvoice(requestId: string, supplierId: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("goods_receipt_items")
-    .select(
-      "purchase_request_item_id, material_id, unit_id, received_quantity, line_no, goods_receipts!inner(purchase_request_id, supplier_id, status)",
-    )
-    .eq("goods_receipts.purchase_request_id", requestId)
-    .eq("goods_receipts.supplier_id", supplierId)
-    .eq("goods_receipts.status", "POSTED")
-    .order("line_no");
-  if (error) throw new Error(error.message);
-  // Несколько приёмок по одной строке заявки — одной строкой накладной.
-  const lines = new Map<
-    string,
-    { purchaseRequestItemId: string | null; materialId: string; unitId: string; quantity: number }
-  >();
-  for (const i of data) {
-    const key = i.purchase_request_item_id ?? `material:${i.material_id}`;
-    const line = lines.get(key) ?? {
-      purchaseRequestItemId: i.purchase_request_item_id,
-      materialId: i.material_id,
-      unitId: i.unit_id,
-      quantity: 0,
-    };
-    line.quantity += Number(i.received_quantity);
-    lines.set(key, line);
-  }
-  return [...lines.values()];
-}
-
 /** Корректировки приёмок, ожидающие решения бухгалтера. */
 export async function listPendingCorrections(orgId: string, projectId: string) {
   const supabase = await createClient();
@@ -456,22 +433,4 @@ export async function listPendingCorrections(orgId: string, projectId: string) {
     projectCode: g.projects?.code ?? "",
     requestNumber: g.purchase_requests?.number ?? null,
   }));
-}
-
-/** Заявки, по которым можно вводить накладные (в работе и далее). */
-export async function listRequestOptions(
-  orgId: string,
-  projectId: string,
-): Promise<{ id: string; projectId: string; label: string }[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("purchase_requests")
-    .select("id, project_id, number, doc_date")
-    .eq("organization_id", orgId)
-    .eq("project_id", projectId)
-    .not("status", "in", "(DRAFT,CANCELLED)")
-    .order("doc_date", { ascending: false })
-    .limit(300);
-  if (error) throw new Error(error.message);
-  return data.map((r) => ({ id: r.id, projectId: r.project_id, label: r.number ?? "—" }));
 }

@@ -24,35 +24,26 @@ export const requestDraftSchema = z.object({
 });
 export type RequestDraftInput = z.infer<typeof requestDraftSchema>;
 
-export const invoiceLineSchema = z
-  .object({
-    materialId: z.union([z.uuid(), z.literal("")]),
-    description: z.string().trim().max(300),
-    unitId: z.union([z.uuid(), z.literal("")]),
-    quantity: decimalString({ message: "Количество" }),
-    price: decimalString({ allowZero: true, message: "Цена" }),
-    purchaseRequestItemId: z.union([z.uuid(), z.literal("")]),
-  })
-  .refine((l) => l.materialId !== "" || (l.description !== "" && l.unitId !== ""), {
-    error: "Материал или услуга с единицей",
-    path: ["description"],
-  });
-
-export const invoiceDraftSchema = z.object({
-  id: z.uuid(),
-  projectId: z.uuid({ error: "Выберите объект" }),
-  supplierId: z.uuid({ error: "Выберите поставщика" }),
-  purchaseRequestId: z.union([z.uuid(), z.literal("")]),
-  supplierDocNumber: z.string().trim().min(1, { error: "Номер накладной поставщика" }).max(50),
-  supplierDocDate: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Дата накладной" }),
-  currency: z.string().trim().length(3),
-  note: z.string().trim().max(1000),
-  lines: z.array(invoiceLineSchema).min(1, { error: "Добавьте хотя бы одну строку" }),
+/** Строка затрат (Д-97): одна строка = одна запись со своим долгом поставщику. */
+export const expenseRowFields = z.object({
+  docDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Дата" }),
+  description: z.string().trim().min(1, { error: "Наименование" }).max(300),
+  materialId: z.union([z.uuid(), z.literal("")]),
+  categoryId: z.uuid({ error: "Категория" }),
+  quantity: decimalString({ message: "Кол-во" }),
+  unitId: z.uuid({ error: "Ед. изм." }),
+  price: decimalString({ message: "Цена" }),
+  currency: z.string().trim().length(3, { error: "Валюта" }),
+  supplierId: z.uuid({ error: "Поставщик" }),
+  docNumber: z.string().trim().max(50),
 });
-export type InvoiceDraftInput = z.infer<typeof invoiceDraftSchema>;
+export type ExpenseRowFields = z.infer<typeof expenseRowFields>;
+
+export const expenseRowSchema = expenseRowFields.extend({
+  id: z.uuid(),
+  key: z.uuid(),
+  projectId: z.uuid(),
+});
 
 export const REQUEST_OPERATIONS = [
   "issue_purchase_request",

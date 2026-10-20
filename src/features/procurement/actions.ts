@@ -7,8 +7,8 @@ import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
+  expenseRowSchema,
   INVOICE_OPERATIONS,
-  invoiceDraftSchema,
   REQUEST_OPERATIONS,
   requestDraftSchema,
   requestOperationPermission,
@@ -78,42 +78,46 @@ export async function runRequestOperation(
 // ---------------------------------------------------------------------------------------
 // Накладные
 // ---------------------------------------------------------------------------------------
-export async function saveInvoiceDraft(input: unknown): Promise<ActionResult<{ id: string }>> {
+/**
+ * Строка затрат (Д-97): ввод — сразу долг поставщику; правка — пока по строке нет оплаты.
+ * Одной транзакцией в БД (save_expense_row), повтор с тем же ключом не создаёт дубль.
+ */
+export async function saveExpenseRow(
+  input: unknown,
+): Promise<ActionResult<{ id: string; number: string | null; amount: number }>> {
   const auth = await authorize("supplier_invoices.manage");
   if (!auth.ok) return fail(auth.error);
-  const parsed = invoiceDraftSchema.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Проверьте поля формы");
+  const parsed = expenseRowSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Проверьте строку");
   const v = parsed.data;
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("save_supplier_invoice_draft", {
+  const { data, error } = await supabase.rpc("save_expense_row", {
     p_id: v.id,
+    p_key: v.key,
     p_project_id: v.projectId,
+    p_doc_date: v.docDate,
+    p_category_id: v.categoryId,
     p_supplier_id: v.supplierId,
-    p_purchase_request_id: (v.purchaseRequestId || null) as string,
-    p_supplier_doc_number: v.supplierDocNumber,
-    p_supplier_doc_date: v.supplierDocDate,
+    p_description: v.description,
+    p_material_id: (v.materialId || null) as string,
+    p_unit_id: v.unitId,
+    p_quantity: toNumber(v.quantity),
+    p_price: toNumber(v.price),
     p_currency: v.currency,
-    p_note: v.note,
-    p_lines: v.lines.map((l) => ({
-      material_id: l.materialId || null,
-      description: l.description,
-      unit_id: l.unitId || null,
-      quantity: toNumber(l.quantity),
-      price: toNumber(l.price),
-      purchase_request_item_id: l.purchaseRequestItemId || null,
-    })),
+    p_doc_number: v.docNumber,
+    p_note: "",
   });
   if (error) {
     return fail(
-      error.code === "23505"
-        ? "Накладная с таким номером и датой у этого поставщика уже введена"
+      error.message === "BF_HAS_PAYMENTS"
+        ? "По строке уже есть оплата — править нельзя"
         : dbErrorMessage(error),
     );
   }
-
   revalidateApp();
-  return ok({ id: v.id });
+  const r = data as { id: string; number: string | null; amount: number };
+  return ok({ id: r.id, number: r.number, amount: Number(r.amount) });
 }
 
 export async function runInvoiceOperation(

@@ -5,7 +5,7 @@ import { Brand } from "@/components/layout/brand";
 import { cn } from "@/lib/utils";
 
 const FEATURES = [
-  { icon: ClipboardList, label: "Заявки и накладные" },
+  { icon: ClipboardList, label: "Заявки и затраты" },
   { icon: Warehouse, label: "Склады объектов" },
   { icon: Wallet, label: "Кассы и долги" },
   { icon: HardHat, label: "Бригады и акты" },

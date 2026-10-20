@@ -11,15 +11,13 @@ export default async function ProcurementLayout({
 }: LayoutProps<"/objects/[projectId]/procurement">) {
   const { projectId } = await params;
   const org = await requireOrg();
-  if (!hasAnyPermission(org, ["purchase_requests.view", "supplier_invoices.view"])) {
+  // Д-98: заявки склада — в разделе «Склад»; здесь — журнал затрат и согласования.
+  if (!hasAnyPermission(org, ["supplier_invoices.view", "goods_receipts.approve_correction"])) {
     redirect("/no-access?reason=forbidden");
   }
   const tabs = [
-    ...(hasPermission(org, "purchase_requests.view")
-      ? [{ href: objectHref(projectId, "/procurement/requests"), label: "Заявки" }]
-      : []),
     ...(hasPermission(org, "supplier_invoices.view")
-      ? [{ href: objectHref(projectId, "/procurement/invoices"), label: "Накладные" }]
+      ? [{ href: objectHref(projectId, "/procurement/invoices"), label: "Затраты" }]
       : []),
     ...(hasPermission(org, "goods_receipts.approve_correction")
       ? [{ href: objectHref(projectId, "/procurement/approvals"), label: "Согласования" }]

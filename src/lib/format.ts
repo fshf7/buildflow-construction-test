@@ -62,6 +62,11 @@ export function formatQuantity(
   return unit ? `${text} ${unit}` : text;
 }
 
+/** 1 234,50 — сумма без валюты (колонки таблиц, где валюта в соседней колонке). */
+export function formatAmount(value: number): string {
+  return moneyFmt.format(value);
+}
+
 /** 1 234,50 TJS */
 export function formatMoney(value: number | string | null | undefined, currency = "TJS"): string {
   if (value === null || value === undefined || value === "") return "—";

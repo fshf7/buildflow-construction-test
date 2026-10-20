@@ -12,9 +12,9 @@ export default async function ProcurementPage({
   redirect(
     objectHref(
       projectId,
-      hasPermission(org, "purchase_requests.view")
-        ? "/procurement/requests"
-        : "/procurement/invoices",
+      hasPermission(org, "supplier_invoices.view")
+        ? "/procurement/invoices"
+        : "/procurement/approvals",
     ),
   );
 }

@@ -119,13 +119,21 @@ export async function listPayables(
   const invoiceIds = data
     .filter((p) => p.source_doc_type === "SUPPLIER_INVOICE")
     .map((p) => p.source_doc_id);
-  const invoices = new Map<string, { number: string | null; supplier_doc_number: string }>();
+  const invoices = new Map<string, { number: string | null; description: string | null }>();
   if (invoiceIds.length > 0) {
     const { data: inv } = await supabase
       .from("supplier_invoices")
-      .select("id, number, supplier_doc_number")
+      .select("id, number, supplier_invoice_items(line_no, description, materials(name))")
       .in("id", invoiceIds);
-    for (const i of inv ?? []) invoices.set(i.id, i);
+    // Д-97: основание — номер и наименование строки затрат (у старых накладных — «и ещё N»).
+    for (const i of inv ?? []) {
+      const items = [...i.supplier_invoice_items].sort((a, b) => a.line_no - b.line_no);
+      const first = items[0]?.description ?? items[0]?.materials?.name ?? null;
+      invoices.set(i.id, {
+        number: i.number,
+        description: first && items.length > 1 ? `${first} и ещё ${items.length - 1}` : first,
+      });
+    }
   }
 
   return data.map((p) => {
@@ -140,7 +148,7 @@ export async function listPayables(
       projectLabel: p.projects ? `${p.projects.code} — ${p.projects.name}` : null,
       source:
         p.source_doc_type === "SUPPLIER_INVOICE"
-          ? `Накладная ${inv?.number ?? ""} (№ ${inv?.supplier_doc_number ?? "—"})`
+          ? [inv?.number, inv?.description].filter(Boolean).join(": ") || "Затраты"
           : p.source_doc_type === "WORK_ACT"
             ? (p.basis ?? "Акт работ")
             : `Ввод остатков: ${p.basis ?? ""}`,

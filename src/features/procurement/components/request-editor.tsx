@@ -71,7 +71,7 @@ export function RequestEditor({
       }
       draft.clear();
       toast.success("Черновик заявки сохранён");
-      router.push(href(`/procurement/requests/${values.id}`));
+      router.push(href(`/warehouse/requests/${values.id}`));
     });
   });
 

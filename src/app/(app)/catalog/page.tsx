@@ -4,11 +4,17 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import {
+  ExpenseCategoriesSection,
   MaterialsSection,
   SuppliersSection,
   UnitsSection,
 } from "@/features/catalog/components/catalog-tables";
-import { listMaterials, listSuppliers, listUnits } from "@/features/catalog/queries";
+import {
+  listExpenseCategories,
+  listMaterials,
+  listSuppliers,
+  listUnits,
+} from "@/features/catalog/queries";
 import { requirePermission } from "@/lib/auth/access";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +24,7 @@ const TABS = [
   { key: "materials", label: "Материалы" },
   { key: "suppliers", label: "Поставщики" },
   { key: "units", label: "Единицы измерения" },
+  { key: "categories", label: "Категории затрат" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -59,6 +66,8 @@ export default async function CatalogPage({ searchParams }: PageProps<"/catalog"
         <MaterialsSection materials={await listMaterials(org.id)} units={await listUnits(org.id)} />
       ) : tab === "suppliers" ? (
         <SuppliersSection suppliers={await listSuppliers(org.id)} />
+      ) : tab === "categories" ? (
+        <ExpenseCategoriesSection categories={await listExpenseCategories(org.id)} />
       ) : (
         <UnitsSection units={await listUnits(org.id)} />
       )}
