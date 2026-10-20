@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { ACCOUNTANT_STATE, LOCAL_STOREKEEPER, login, logout } from "./helpers/accounts";
+import { LOCAL_STOREKEEPER, login, logout } from "./helpers/accounts";
 import { createWarehouseFixture } from "./helpers/fixture";
 
 // Несохранённый ввод не теряется при уходе в другой раздел (интервью с бухгалтером, правка 2).
@@ -50,35 +50,5 @@ test("заявка: ушёл в «Склад» и вернулся — стро�
     Object.keys(localStorage).filter((k) => k.startsWith("bf.draft.")),
   );
   expect(left).toEqual([]);
-  await ctx.close();
-});
-
-test("накладная: ушла в другой раздел и вернулась — поля и цены на месте, «Очистить форму» стирает", async ({
-  browser,
-  isMobile,
-}) => {
-  test.skip(isMobile, "проверка поведения формы, не вёрстки");
-  const fx = await createWarehouseFixture();
-  const ctx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
-  const acc = await ctx.newPage();
-
-  await acc.goto(`/objects/${fx.projectId}/procurement/invoices/new`);
-  await acc.getByLabel("Поставщик").selectOption({ label: fx.s1 });
-  await acc.getByLabel("№ накладной поставщика").fill("Н-555");
-  await acc.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
-  await acc.getByLabel("Количество, строка 1").fill("21");
-  await acc.getByLabel("Цена, строка 1").fill("1,5");
-
-  await acc.getByRole("link", { name: "Склад", exact: true }).first().click();
-  await acc.waitForURL(/\/warehouse/);
-  await acc.goBack();
-  await expect(acc.getByText("Восстановлен несохранённый ввод")).toBeVisible();
-  await expect(acc.getByLabel("№ накладной поставщика")).toHaveValue("Н-555");
-  await expect(acc.getByLabel("Цена, строка 1")).toHaveValue("1,5");
-
-  await acc.getByRole("button", { name: "Очистить форму" }).click();
-  await expect(acc.getByLabel("№ накладной поставщика")).toHaveValue("");
-  await acc.reload();
-  await expect(acc.getByLabel("Цена, строка 1")).toHaveValue("");
   await ctx.close();
 });

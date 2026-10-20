@@ -34,17 +34,10 @@ export default async function RequestPage({
   // Д-92: заявку оформляет склад (manage), сверяет и закрывает бухгалтер (review).
   const canManage = hasPermission(org, "purchase_requests.manage");
   const canReview = hasPermission(org, "purchase_requests.review");
+  // Д-97: затраты вносятся в журнал «Затраты» (свободный ввод, связь с заявкой не обязательна).
   const canInvoice =
     hasPermission(org, "supplier_invoices.manage") &&
     !["DRAFT", "CANCELLED"].includes(request.status);
-  // Поставщики заявки — те, от кого склад уже принял по ней материал.
-  const suppliers = [
-    ...new Map(
-      request.receipts
-        .filter((g) => g.status === "POSTED")
-        .map((g) => [g.supplierId, g.supplierName]),
-    ),
-  ];
 
   return (
     <>
@@ -104,7 +97,7 @@ export default async function RequestPage({
 
       <div className="grid gap-6 md:grid-cols-2">
         <section className="flex flex-col gap-2">
-          <h2 className="font-semibold">Накладные</h2>
+          <h2 className="font-semibold">Накладные по заявке</h2>
           {request.invoices.length === 0 ? (
             <p className="text-sm text-muted-foreground">Пока нет</p>
           ) : (
@@ -115,7 +108,8 @@ export default async function RequestPage({
                     href={href(`/procurement/invoices/${v.id}`)}
                     className="underline underline-offset-4"
                   >
-                    {v.number ?? "Введена"} · {v.supplierName} · № {v.supplierDocNumber}
+                    {v.number ?? "Введена"} · {v.supplierName}
+                    {v.supplierDocNumber ? ` · № ${v.supplierDocNumber}` : ""}
                   </Link>{" "}
                   — {INVOICE_STATUS_LABELS[v.status]}
                 </li>
@@ -123,21 +117,12 @@ export default async function RequestPage({
             </ul>
           )}
           {canInvoice ? (
-            <div className="flex flex-wrap gap-2">
-              {suppliers.map(([supplierId, name]) => (
-                <Link
-                  key={supplierId}
-                  href={href(`/procurement/invoices/new?request=${id}&supplier=${supplierId}`)}
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  Ввести накладную: {name}
-                </Link>
-              ))}
+            <div>
               <Link
-                href={href(`/procurement/invoices/new?request=${id}`)}
-                className={buttonVariants({ variant: "ghost", size: "sm" })}
+                href={href("/procurement/invoices")}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                Другой поставщик
+                Внести в затраты
               </Link>
             </div>
           ) : null}

@@ -93,6 +93,8 @@ const BF_MESSAGES: Record<string, string> = {
   BF_OVERPAYMENT: "Сумма больше остатка долга",
   BF_ALLOCATION_MISMATCH:
     "Оплата не соответствует основанию: проверьте поставщика, обязательства и суммы",
+  BF_NO_DESCRIPTION: "Укажите наименование",
+  BF_REQUIRED_FIELDS: "Заполните дату и категорию",
   BF_ALLOCATION_PROJECT: "Долг или счёт другого объекта — оплатите его внутри своего объекта",
   BF_CURRENCY_MISMATCH: "Валюта кассы и долга различаются — конвертации нет",
   BF_REQUEST_NOT_APPROVED: "Счёт на оплату не согласован или назначение не совпадает",

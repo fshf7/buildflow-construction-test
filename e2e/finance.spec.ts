@@ -1,9 +1,10 @@
 import { devices, expect, test } from "@playwright/test";
 
 import { ACCOUNTANT_STATE, CASHIER_STATE, selectByText } from "./helpers/accounts";
+import { addExpense } from "./helpers/expenses";
 import { createCashAccount, createWarehouseFixture } from "./helpers/fixture";
 
-// Фаза 3 (US-05, US-06): ввод остатка кассы → накладная 150 000 → кассир с телефона платит 60 000 →
+// Фаза 3 (US-05, US-06): ввод остатка кассы → строка затрат 150 000 → кассир с телефона платит 60 000 →
 // долг 90 000 → переплата запрещена → сторно оплаты восстанавливает долг.
 test("частичная оплата долга поставщику и сторно", async ({ browser, isMobile }) => {
   test.skip(isMobile, "один сквозной сценарий; кассир внутри теста — на смартфоне");
@@ -23,18 +24,16 @@ test("частичная оплата долга поставщику и сто�
   await acc.getByRole("button", { name: "Провести" }).click();
   await expect(acc.getByRole("heading", { name: /^Ввод остатков ВО-/ })).toBeVisible();
 
-  // ---- Бухгалтер: накладная на 150 000 → подтверждение → обязательство ----
-  await acc.goto(`/objects/${fx.projectId}/procurement/invoices/new`);
-  await acc.getByLabel("Поставщик", { exact: true }).selectOption({ label: fx.s1 });
-  await acc.getByLabel("№ накладной поставщика").fill(`Ф-${Date.now()}`);
-  await acc.getByLabel("Дата накладной").fill("2026-10-15");
-  await acc.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
-  await acc.getByLabel("Количество, строка 1").fill("100000");
-  await acc.getByLabel("Цена, строка 1").fill("1,5");
-  await acc.getByRole("button", { name: "Сохранить" }).click();
-  await acc.getByRole("button", { name: "На проверку" }).click();
-  await acc.getByRole("button", { name: "Подтвердить" }).click();
-  await expect(acc.getByText(/К оплате: 150\s000,00 TJS/)).toBeVisible();
+  // ---- Бухгалтер: строка затрат на 150 000 — долг поставщику сразу (Д-97) ----
+  await acc.goto(`/objects/${fx.projectId}/procurement/invoices`);
+  await addExpense(acc, {
+    description: fx.cement,
+    category: "Конструктив",
+    quantity: "100000",
+    price: "1,5",
+    supplier: fx.s1,
+  });
+  await expect(acc.getByText(/Строк: 1/)).toContainText(/150\s000,00 смн/);
 
   // ---- US-06: кассир с телефона платит 60 000 и видит остаток долга ----
   const cashCtx = await browser.newContext({
@@ -49,7 +48,7 @@ test("частичная оплата долга поставщику и сто�
   );
   await cash.getByRole("link", { name: "Оплатить долг" }).click();
   await cash.getByRole("link", { name: new RegExp(fx.s1) }).click();
-  await cash.getByLabel(/^Оплатить: Накладная/).fill("60000");
+  await cash.getByLabel(/^Оплатить: НК-/).fill("60000");
   await expect(cash.getByTestId("pay-total")).toHaveText(/60\s000,00 TJS/);
   await expect(cash.getByTestId("debt-after")).toHaveText(/90\s000,00 TJS/);
   await selectByText(cash, "Из кассы / со счёта", account);
@@ -61,7 +60,7 @@ test("частичная оплата долга поставщику и сто�
   // Переплата запрещена (ошибка с остатком долга).
   await cash.goto(`/objects/${fx.projectId}/finance/pay`);
   await cash.getByRole("link", { name: new RegExp(fx.s1) }).click();
-  await cash.getByLabel(/^Оплатить: Накладная/).fill("90000,01");
+  await cash.getByLabel(/^Оплатить: НК-/).fill("90000,01");
   await selectByText(cash, "Из кассы / со счёта", account);
   await cash.getByRole("button", { name: "Провести оплату" }).click();
   await expect(

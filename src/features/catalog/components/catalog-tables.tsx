@@ -7,8 +7,10 @@ import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import type { MaterialRow, SupplierRow, UnitRow } from "../queries";
+import { colorPill } from "../expense-colors";
+import type { ExpenseCategoryRow, MaterialRow, SupplierRow, UnitRow } from "../queries";
 
+import { ExpenseCategoryForm } from "./expense-category-form";
 import { FormDialog } from "./form-dialog";
 import { MaterialForm } from "./material-form";
 import { SupplierForm } from "./supplier-form";
@@ -145,6 +147,52 @@ export function SuppliersSection({ suppliers }: { suppliers: SupplierRow[] }) {
         </FormDialog>
       </div>
       <DataTable columns={supplierColumns} data={suppliers} empty="Поставщиков пока нет" />
+    </div>
+  );
+}
+
+// ---- Категории затрат (Д-97) ----
+const categoryHelper = createColumnHelper<DataTableFeatures, ExpenseCategoryRow>();
+
+const categoryColumns = categoryHelper.columns([
+  categoryHelper.accessor("name", {
+    header: "Категория",
+    cell: (info) => (
+      <span className="flex items-center gap-2">
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-sm ${colorPill(info.row.original.color)}`}
+        >
+          {info.getValue()}
+        </span>
+        {archived(info.row.original.isActive)}
+      </span>
+    ),
+  }),
+  categoryHelper.accessor("viaWarehouse", {
+    header: "Через склад",
+    cell: (info) => (info.getValue() ? "Да" : "Нет"),
+  }),
+  categoryHelper.accessor("sortOrder", { header: "Порядок" }),
+  categoryHelper.display({
+    id: "edit",
+    header: "",
+    cell: (info) => (
+      <FormDialog trigger={editButton(info.row.original.name)} title="Категория затрат">
+        {(close) => <ExpenseCategoryForm category={info.row.original} onSaved={close} />}
+      </FormDialog>
+    ),
+  }),
+]);
+
+export function ExpenseCategoriesSection({ categories }: { categories: ExpenseCategoryRow[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <FormDialog trigger={addButton("Добавить категорию")} title="Новая категория затрат">
+          {(close) => <ExpenseCategoryForm onSaved={close} />}
+        </FormDialog>
+      </div>
+      <DataTable columns={categoryColumns} data={categories} />
     </div>
   );
 }

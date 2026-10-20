@@ -2,6 +2,40 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
+export type ExpenseCategoryRow = {
+  id: string;
+  name: string;
+  color: string;
+  viaWarehouse: boolean;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+/** Категории затрат (Д-97); activeOnly — для выбора в строке затрат. */
+export async function listExpenseCategories(
+  orgId: string,
+  activeOnly = false,
+): Promise<ExpenseCategoryRow[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("expense_categories")
+    .select("id, name, color, via_warehouse, sort_order, is_active")
+    .eq("organization_id", orgId)
+    .order("sort_order")
+    .order("name");
+  if (activeOnly) q = q.eq("is_active", true);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data.map((c) => ({
+    id: c.id,
+    name: c.name,
+    color: c.color,
+    viaWarehouse: c.via_warehouse,
+    sortOrder: c.sort_order,
+    isActive: c.is_active,
+  }));
+}
+
 export type UnitRow = { id: string; code: string; name: string; decimals: number };
 export type MaterialRow = {
   id: string;

@@ -1,10 +1,11 @@
 import { devices, expect, test } from "@playwright/test";
 
 import { ACCOUNTANT_STATE, LOCAL_STOREKEEPER, login } from "./helpers/accounts";
+import { addExpense } from "./helpers/expenses";
 import { createWarehouseFixture } from "./helpers/fixture";
 
 // Сквозной сценарий фазы 2 (US-01…US-04): склад — смартфон (заявка, приёмка, выдача, возврат),
-// бухгалтер — десктоп (накладная с ценами, Д-92).
+// бухгалтер — десктоп (затраты с ценами, Д-92, Д-97).
 test("заявка → приёмка 21 из 20 → выдача → минус запрещён → возврат → накладная", async ({
   browser,
   isMobile,
@@ -100,21 +101,17 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   await expect(wh.getByText("TJS")).toHaveCount(0);
   await whCtx.close();
 
-  // ---- BP-03: накладная из заявки → проверка → подтверждение → обязательство ----
+  // ---- Д-97: бухгалтер вносит затрату по принятому в журнал «Затраты» → долг поставщику сразу ----
   await acc.goto(requestUrl);
   await expect(acc.getByText("Частично получена", { exact: true })).toBeVisible();
-  await acc.getByRole("link", { name: `Ввести накладную: ${fx.s1}` }).click();
-  await expect(acc.getByLabel("Количество, строка 1")).toHaveValue("21"); // принятое, а не заказанное
-  await expect(acc.getByLabel("Цена, строка 1")).toHaveValue(""); // цены в заявке нет — из бумажной накладной
-  await acc.getByLabel("Цена, строка 1").fill("1,5");
-  await acc.getByLabel("№ накладной поставщика").fill(`Н-${Date.now()}`);
-  await acc.getByLabel("Дата накладной").fill("2026-10-14");
-  await acc.getByRole("button", { name: "Сохранить" }).click();
-  await expect(acc.getByRole("heading", { name: "Накладная (введена)" })).toBeVisible();
-  await acc.getByRole("button", { name: "На проверку" }).click();
-  await expect(acc.getByRole("heading", { name: /^Накладная НК-/ })).toBeVisible();
-  await acc.getByRole("button", { name: "Подтвердить" }).click();
-  await expect(acc.getByText("Подтверждена", { exact: true })).toBeVisible();
-  await expect(acc.getByText(/К оплате: 31,50 TJS/)).toBeVisible();
+  await acc.getByRole("link", { name: "Внести в затраты" }).click();
+  await addExpense(acc, {
+    description: fx.cement,
+    category: "Конструктив",
+    quantity: "21",
+    price: "1,5",
+    supplier: fx.s1,
+  });
+  await expect(acc.getByText(/Строк: 1/)).toContainText("31,50 смн");
   await accCtx.close();
 });

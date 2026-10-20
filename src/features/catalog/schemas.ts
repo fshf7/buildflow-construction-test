@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { EXPENSE_COLOR_KEYS } from "./expense-colors";
+
 const id = z.uuid().optional();
 
 export const unitSchema = z.object({
@@ -34,3 +36,14 @@ export const supplierSchema = z.object({
   isActive: z.boolean(),
 });
 export type SupplierInput = z.infer<typeof supplierSchema>;
+
+/** Категория затрат (Д-97): «через склад» — конструктив, продукты, инвентарь. */
+export const expenseCategorySchema = z.object({
+  id,
+  name: z.string().trim().min(2, { error: "Название категории" }).max(100),
+  color: z.enum(EXPENSE_COLOR_KEYS, { error: "Выберите цвет" }),
+  viaWarehouse: z.boolean(),
+  sortOrder: z.coerce.number<string | number>().int().min(0).max(9999),
+  isActive: z.boolean(),
+});
+export type ExpenseCategoryInput = z.infer<typeof expenseCategorySchema>;

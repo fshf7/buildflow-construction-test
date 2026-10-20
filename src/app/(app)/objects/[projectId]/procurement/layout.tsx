@@ -19,7 +19,7 @@ export default async function ProcurementLayout({
       ? [{ href: objectHref(projectId, "/procurement/requests"), label: "Заявки" }]
       : []),
     ...(hasPermission(org, "supplier_invoices.view")
-      ? [{ href: objectHref(projectId, "/procurement/invoices"), label: "Накладные" }]
+      ? [{ href: objectHref(projectId, "/procurement/invoices"), label: "Затраты" }]
       : []),
     ...(hasPermission(org, "goods_receipts.approve_correction")
       ? [{ href: objectHref(projectId, "/procurement/approvals"), label: "Согласования" }]

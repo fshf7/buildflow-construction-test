@@ -675,6 +675,53 @@ export type Database = {
           },
         ];
       };
+      expense_categories: {
+        Row: {
+          color: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+          organization_id: string;
+          sort_order: number;
+          updated_at: string;
+          via_warehouse: boolean;
+        };
+        Insert: {
+          color?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          organization_id: string;
+          sort_order?: number;
+          updated_at?: string;
+          via_warehouse?: boolean;
+        };
+        Update: {
+          color?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          organization_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+          via_warehouse?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       floors: {
         Row: {
           block_id: string;
@@ -2561,6 +2608,7 @@ export type Database = {
           cancel_reason: string | null;
           cancelled_at: string | null;
           cancelled_by: string | null;
+          category_id: string | null;
           confirmed_at: string | null;
           confirmed_by: string | null;
           created_at: string;
@@ -2576,8 +2624,8 @@ export type Database = {
           project_id: string;
           purchase_request_id: string | null;
           status: Database["public"]["Enums"]["supplier_invoice_status"];
-          supplier_doc_date: string;
-          supplier_doc_number: string;
+          supplier_doc_date: string | null;
+          supplier_doc_number: string | null;
           supplier_id: string;
           total_amount: number;
           updated_at: string;
@@ -2586,6 +2634,7 @@ export type Database = {
           cancel_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
+          category_id?: string | null;
           confirmed_at?: string | null;
           confirmed_by?: string | null;
           created_at?: string;
@@ -2601,8 +2650,8 @@ export type Database = {
           project_id: string;
           purchase_request_id?: string | null;
           status?: Database["public"]["Enums"]["supplier_invoice_status"];
-          supplier_doc_date: string;
-          supplier_doc_number: string;
+          supplier_doc_date?: string | null;
+          supplier_doc_number?: string | null;
           supplier_id: string;
           total_amount?: number;
           updated_at?: string;
@@ -2611,6 +2660,7 @@ export type Database = {
           cancel_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
+          category_id?: string | null;
           confirmed_at?: string | null;
           confirmed_by?: string | null;
           created_at?: string;
@@ -2626,13 +2676,20 @@ export type Database = {
           project_id?: string;
           purchase_request_id?: string | null;
           status?: Database["public"]["Enums"]["supplier_invoice_status"];
-          supplier_doc_date?: string;
-          supplier_doc_number?: string;
+          supplier_doc_date?: string | null;
+          supplier_doc_number?: string | null;
           supplier_id?: string;
           total_amount?: number;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "supplier_invoices_category_id_organization_id_fkey";
+            columns: ["category_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "expense_categories";
+            referencedColumns: ["id", "organization_id"];
+          },
           {
             foreignKeyName: "supplier_invoices_organization_id_fkey";
             columns: ["organization_id"];
@@ -4028,6 +4085,25 @@ export type Database = {
           p_purpose: Database["public"]["Enums"]["payment_purpose"];
         };
         Returns: string;
+      };
+      save_expense_row: {
+        Args: {
+          p_category_id: string;
+          p_currency: string;
+          p_description: string;
+          p_doc_date: string;
+          p_doc_number: string;
+          p_id: string;
+          p_key: string;
+          p_material_id: string;
+          p_note: string;
+          p_price: number;
+          p_project_id: string;
+          p_quantity: number;
+          p_supplier_id: string;
+          p_unit_id: string;
+        };
+        Returns: Json;
       };
       save_purchase_request_draft: {
         Args: {

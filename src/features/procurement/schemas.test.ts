@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  invoiceDraftSchema,
+  expenseRowFields,
   listFiltersSchema,
   REQUEST_OPERATIONS,
   requestDraftSchema,
@@ -62,30 +62,31 @@ describe("права на операции заявки (Д-92)", () => {
   });
 });
 
-describe("накладная", () => {
-  it("строка услуги — описание и единица", () => {
-    const base = {
-      id,
-      projectId: id,
-      supplierId: id,
-      purchaseRequestId: "",
-      supplierDocNumber: "Н-1",
-      supplierDocDate: "2026-10-10",
-      currency: "TJS",
-      note: "",
-    };
-    const service = {
-      materialId: "",
-      description: "Доставка",
-      unitId: id,
-      quantity: "1",
-      price: "50",
-      purchaseRequestItemId: "",
-    };
-    expect(invoiceDraftSchema.safeParse({ ...base, lines: [service] }).success).toBe(true);
-    expect(
-      invoiceDraftSchema.safeParse({ ...base, lines: [{ ...service, description: "" }] }).success,
-    ).toBe(false);
+describe("строка затрат (Д-97)", () => {
+  const row = {
+    docDate: "2026-06-01",
+    description: "Профиль 8*4",
+    materialId: "",
+    categoryId: id,
+    quantity: "120",
+    unitId: id,
+    price: "32,00",
+    currency: "TJS",
+    supplierId: id,
+    docNumber: "",
+  };
+  it("полная строка без № накладной — годится", () => {
+    expect(expenseRowFields.safeParse(row).success).toBe(true);
+  });
+  it("без наименования, поставщика или с нулевой ценой — нет", () => {
+    for (const bad of [
+      { description: " " },
+      { supplierId: "" },
+      { price: "0" },
+      { quantity: "-1" },
+    ]) {
+      expect(expenseRowFields.safeParse({ ...row, ...bad }).success).toBe(false);
+    }
   });
 });
 
