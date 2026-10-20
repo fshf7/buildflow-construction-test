@@ -10,7 +10,8 @@ export function SectionTabs({
   tabs,
   label,
 }: {
-  tabs: { href: string; label: string }[];
+  /** except — вложенные адреса, на которых вкладка не активна (свои вкладки у них). */
+  tabs: { href: string; label: string; except?: string[] }[];
   label: string;
 }) {
   const pathname = usePathname();
@@ -20,7 +21,9 @@ export function SectionTabs({
       className="flex w-fit max-w-full [scrollbar-width:none] gap-1 overflow-x-auto rounded-full bg-muted p-1 print:hidden"
     >
       {tabs.map((t) => {
-        const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
+        const active =
+          (pathname === t.href || pathname.startsWith(`${t.href}/`)) &&
+          !(t.except ?? []).some((e) => pathname === e || pathname.startsWith(`${e}/`));
         return (
           <Link
             key={t.href}

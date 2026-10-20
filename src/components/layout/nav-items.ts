@@ -37,15 +37,16 @@ export const OBJECT_NAV: readonly NavItem[] = [
     path: "/procurement",
     label: "Закупки",
     icon: ClipboardList,
-    hint: "Заявки склада, журнал затрат, согласования",
-    permissions: ["purchase_requests.view", "supplier_invoices.view"],
+    hint: "Журнал затрат, согласования корректировок",
+    permissions: ["supplier_invoices.view", "goods_receipts.approve_correction"],
   },
   {
     path: "/warehouse",
     label: "Склад",
     icon: Warehouse,
-    hint: "Приёмка, выдача, возвраты, остатки",
-    permissions: ["stock.view", "stock.view_own_crews"],
+    // Д-98: заявки склада — вкладка склада.
+    hint: "Заявки склада, остатки, приёмка, выдача, журнал",
+    permissions: ["purchase_requests.view", "stock.view", "stock.view_own_crews"],
   },
   {
     path: "/finance",

@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Новая заявка" };
 
 export default async function NewRequestPage({
   params,
-}: PageProps<"/objects/[projectId]/procurement/requests/new">) {
+}: PageProps<"/objects/[projectId]/warehouse/requests/new">) {
   const { projectId } = await params;
   const { org, project } = await requireObject(projectId, "purchase_requests.manage");
   const materials = await listMaterialOptions(org.id);

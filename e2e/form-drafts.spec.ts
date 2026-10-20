@@ -17,7 +17,7 @@ test("заявка: ушёл в «Склад» и вернулся — стро�
   const wh = await ctx.newPage();
   await login(wh, LOCAL_STOREKEEPER.email, LOCAL_STOREKEEPER.password);
 
-  await wh.goto(`/objects/${fx.projectId}/procurement/requests/new`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse/requests/new`);
   await wh.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
   await wh.getByLabel("Количество, строка 1").fill("20");
   await wh.getByRole("button", { name: "Добавить строку" }).click();
@@ -26,7 +26,7 @@ test("заявка: ушёл в «Склад» и вернулся — стро�
 
   // Переход по меню (без перезагрузки) и назад.
   await wh.getByRole("link", { name: "Склад", exact: true }).first().click();
-  await wh.waitForURL(/\/warehouse/);
+  await wh.waitForURL(new RegExp(`/objects/${fx.projectId}/warehouse$`));
   await wh.goBack();
   await expect(wh.getByText("Восстановлен несохранённый ввод")).toBeVisible();
   await expect(wh.getByLabel("Количество, строка 1")).toHaveValue("20");
@@ -38,7 +38,7 @@ test("заявка: ушёл в «Склад» и вернулся — стро�
 
   await wh.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(wh.getByRole("heading", { name: "Черновик заявки" })).toBeVisible();
-  await wh.goto(`/objects/${fx.projectId}/procurement/requests/new`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse/requests/new`);
   await expect(wh.getByLabel("Количество, строка 1")).toHaveValue("");
   await expect(wh.getByText("Восстановлен несохранённый ввод")).toHaveCount(0);
 

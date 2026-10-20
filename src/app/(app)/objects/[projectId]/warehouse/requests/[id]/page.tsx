@@ -24,12 +24,12 @@ export const metadata: Metadata = { title: "Заявка" };
 
 export default async function RequestPage({
   params,
-}: PageProps<"/objects/[projectId]/procurement/requests/[id]">) {
+}: PageProps<"/objects/[projectId]/warehouse/requests/[id]">) {
   const { projectId, id } = await params;
   const { org, project } = await requireObject(projectId, "purchase_requests.view");
   const request = await getRequest(org.id, id);
   if (!request) notFound();
-  ensureDocInObject(project.id, request.projectId, `/procurement/requests/${id}`);
+  ensureDocInObject(project.id, request.projectId, `/warehouse/requests/${id}`);
   const href = (path: string) => objectHref(project.id, path);
   // Д-92: заявку оформляет склад (manage), сверяет и закрывает бухгалтер (review).
   const canManage = hasPermission(org, "purchase_requests.manage");
@@ -48,7 +48,7 @@ export default async function RequestPage({
           <>
             {request.status === "DRAFT" && canManage ? (
               <Link
-                href={href(`/procurement/requests/${id}/edit`)}
+                href={href(`/warehouse/requests/${id}/edit`)}
                 className={buttonVariants({ variant: "outline" })}
               >
                 Редактировать
@@ -56,7 +56,7 @@ export default async function RequestPage({
             ) : null}
             {request.number ? (
               <Link
-                href={href(`/procurement/requests/${id}/print`)}
+                href={href(`/warehouse/requests/${id}/print`)}
                 className={buttonVariants({ variant: "outline" })}
               >
                 <Printer />

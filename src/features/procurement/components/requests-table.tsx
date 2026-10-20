@@ -18,7 +18,7 @@ const columns = helper.columns([
     header: "Номер",
     cell: (info) => (
       <ObjectLink
-        path={`/procurement/requests/${info.row.original.id}`}
+        path={`/warehouse/requests/${info.row.original.id}`}
         className="font-medium hover:underline"
       >
         {info.getValue() ?? "Черновик"}

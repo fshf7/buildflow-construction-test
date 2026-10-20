@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Заявки" };
 export default async function RequestsPage({
   params,
   searchParams,
-}: PageProps<"/objects/[projectId]/procurement/requests">) {
+}: PageProps<"/objects/[projectId]/warehouse/requests">) {
   const { projectId } = await params;
   const { org, project } = await requireObject(projectId, "purchase_requests.view");
   const filters = listFiltersSchema.parse(await searchParams);
@@ -32,7 +32,7 @@ export default async function RequestsPage({
         actions={
           hasPermission(org, "purchase_requests.manage") ? (
             <Link
-              href={objectHref(project.id, "/procurement/requests/new")}
+              href={objectHref(project.id, "/warehouse/requests/new")}
               className={buttonVariants()}
             >
               Новая заявка

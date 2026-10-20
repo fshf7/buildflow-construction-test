@@ -22,7 +22,7 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   });
   const wh = await whCtx.newPage();
   await login(wh, LOCAL_STOREKEEPER.email, LOCAL_STOREKEEPER.password);
-  await wh.goto(`/objects/${fx.projectId}/procurement/requests/new`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse/requests/new`);
   await wh.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
   await wh.getByLabel("Количество, строка 1").fill("20");
   await expect(wh.getByLabel("Поставщик, строка 1")).toHaveCount(0);
@@ -47,7 +47,7 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   // Бухгалтер заявки не оформляет (Д-92).
   const accCtx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
   const acc = await accCtx.newPage();
-  await acc.goto(`/objects/${fx.projectId}/procurement/requests`);
+  await acc.goto(`/objects/${fx.projectId}/warehouse/requests`);
   await expect(acc.getByRole("link", { name: "Новая заявка" })).toHaveCount(0);
 
   // ---- US-02: склад принимает 21 кг при заказе 20; поставщика выбирает при приёмке ----

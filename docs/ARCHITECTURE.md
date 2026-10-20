@@ -1313,6 +1313,8 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 
 - Маршруты: `/` — выбор объекта (карточки доступных по RLS объектов) и «Общее по организации»;
   `/objects/[projectId]/…` — объектные разделы: `procurement`, `warehouse`, `finance`, `acts`, `tasks`, `reports`.
+  Склад (Д-98): `warehouse/requests` (заявки склада, широкая колонка) и `warehouse/(stock)/…` (остатки, журнал,
+  операции — узкая колонка); «Закупки» — `procurement/invoices` (затраты) и `procurement/approvals`.
   Общие — по своим адресам: `/finance` (касса без объекта), `/reports` (по всем объектам), `/crews` (бригады,
   тарифы), `/opening`, `/projects`, `/catalog`, `/admin/*`. Старые адреса объектных разделов → `/` (`next.config` redirects).
 - `src/app/(app)/objects/[projectId]/layout.tsx` → `requireObject()` (`features/projects/object.ts`): объект виден

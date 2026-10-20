@@ -26,7 +26,11 @@ test("выбор объекта → главная объекта → меню �
   await expect(nav.getByRole("link", { name: "Закупки" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Участники" })).toHaveCount(0);
   await nav.getByRole("link", { name: "Закупки" }).click();
-  await expect(page).toHaveURL(new RegExp(`/objects/${fx.projectId}/procurement/requests`));
+  await expect(page).toHaveURL(new RegExp(`/objects/${fx.projectId}/procurement/invoices`));
+  // Д-98: заявки склада — во вкладке раздела «Склад».
+  await nav.getByRole("link", { name: "Склад", exact: true }).click();
+  await page.getByRole("link", { name: "Заявки склада" }).click();
+  await expect(page).toHaveURL(new RegExp(`/objects/${fx.projectId}/warehouse/requests`));
 
   // Объект задан адресом — в журнале затрат его не выбирают.
   await page.goto(`/objects/${fx.projectId}/procurement/invoices`);

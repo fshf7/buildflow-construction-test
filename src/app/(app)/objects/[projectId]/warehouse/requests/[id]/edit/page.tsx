@@ -13,13 +13,13 @@ export const metadata: Metadata = { title: "Черновик заявки" };
 
 export default async function EditRequestPage({
   params,
-}: PageProps<"/objects/[projectId]/procurement/requests/[id]/edit">) {
+}: PageProps<"/objects/[projectId]/warehouse/requests/[id]/edit">) {
   const { projectId, id } = await params;
   const { org, project } = await requireObject(projectId, "purchase_requests.manage");
   const request = await getRequest(org.id, id);
   if (!request) notFound();
-  ensureDocInObject(project.id, request.projectId, `/procurement/requests/${id}/edit`);
-  if (request.status !== "DRAFT") redirect(objectHref(project.id, `/procurement/requests/${id}`));
+  ensureDocInObject(project.id, request.projectId, `/warehouse/requests/${id}/edit`);
+  if (request.status !== "DRAFT") redirect(objectHref(project.id, `/warehouse/requests/${id}`));
 
   const materials = await listMaterialOptions(org.id);
   const num = (v: number) => String(v).replace(".", ",");

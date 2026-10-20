@@ -71,7 +71,7 @@ export default async function InvoicePage({
         </Badge>
         {invoice.requestNumber && invoice.purchaseRequestId ? (
           <Link
-            href={objectHref(project.id, `/procurement/requests/${invoice.purchaseRequestId}`)}
+            href={objectHref(project.id, `/warehouse/requests/${invoice.purchaseRequestId}`)}
             className="underline underline-offset-4"
           >
             Заявка {invoice.requestNumber}
