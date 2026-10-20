@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 
 import { DocumentActions, type DocumentAction } from "@/components/document-actions";
+import { useObjectHref } from "@/components/object-context";
 
 import { deleteDraft, runInvoiceOperation } from "../actions";
 import type { InvoiceStatus } from "../labels";
@@ -18,6 +19,7 @@ export function InvoiceActions({
   hasNumber: boolean;
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const op =
     (operation: Parameters<typeof runInvoiceOperation>[0]) =>
     ({ key, comment }: { key: string; comment: string }) =>
@@ -49,7 +51,7 @@ export function InvoiceActions({
               variant: "destructive" as const,
               run: async () => {
                 const result = await deleteDraft("SUPPLIER_INVOICE", id);
-                if (result.ok) router.push("/procurement/invoices");
+                if (result.ok) router.push(href("/procurement/invoices"));
                 return result;
               },
               successMessage: "Накладная удалена",

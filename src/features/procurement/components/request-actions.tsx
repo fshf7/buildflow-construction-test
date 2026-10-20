@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 
 import { DocumentActions, type DocumentAction } from "@/components/document-actions";
+import { useObjectHref } from "@/components/object-context";
 
 import { deleteDraft, runRequestOperation } from "../actions";
 import type { RequestStatus } from "../labels";
@@ -23,6 +24,7 @@ export function RequestActions({
   canReview: boolean;
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const op =
     (operation: Parameters<typeof runRequestOperation>[0]) =>
     ({ key, comment }: { key: string; comment: string }) =>
@@ -52,7 +54,7 @@ export function RequestActions({
         variant: "destructive",
         run: async () => {
           const result = await deleteDraft("PURCHASE_REQUEST", id);
-          if (result.ok) router.push("/procurement/requests");
+          if (result.ok) router.push(href("/procurement/requests"));
           return result;
         },
         successMessage: "Черновик удалён",

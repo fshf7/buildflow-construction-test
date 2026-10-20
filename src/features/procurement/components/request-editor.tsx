@@ -9,12 +9,13 @@ import { toast } from "sonner";
 
 import { DraftRestoredNotice } from "@/components/draft-restored-notice";
 import { NativeSelect } from "@/components/native-select";
+import { useObject, useObjectHref } from "@/components/object-context";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import type { MaterialOption } from "@/features/shared/lookups";
 import { useFormDraft } from "@/lib/form-draft";
 import { useDocumentId } from "@/lib/idempotency";
-import type { MaterialOption, Option } from "@/features/shared/lookups";
 
 import { saveRequestDraft } from "../actions";
 import { requestDraftSchema, type RequestDraftInput } from "../schemas";
@@ -22,22 +23,23 @@ import { requestDraftSchema, type RequestDraftInput } from "../schemas";
 const emptyLine = { materialId: "", quantity: "", note: "" };
 
 /**
- * Черновик заявки склада для снабженца (US-01, Д-92): объект, строки «материал + количество».
+ * Черновик заявки склада для снабженца (US-01, Д-92): строки «материал + количество» по текущему
+ * объекту (Д-94 — объект не выбирается, работа идёт внутри него).
  * Поставщика и цены в заявке нет — поставщика выбирает склад при приёмке, цены вносит бухгалтер из накладной.
  * Несохранённый ввод держится на устройстве (draftKey) — уход в «Склад» за остатком его не стирает.
  */
 export function RequestEditor({
   initial,
-  projects,
   materials,
   draftKey,
 }: {
   initial?: RequestDraftInput;
-  projects: Option[];
   materials: MaterialOption[];
   draftKey: string;
 }) {
   const router = useRouter();
+  const object = useObject();
+  const href = useObjectHref();
   const id = useDocumentId(initial?.id);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -45,7 +47,7 @@ export function RequestEditor({
     resolver: zodResolver(requestDraftSchema),
     defaultValues: initial ?? {
       id,
-      projectId: projects.length === 1 ? projects[0]!.id : "",
+      projectId: object.id,
       neededBy: "",
       currency: "TJS",
       note: "",
@@ -62,14 +64,14 @@ export function RequestEditor({
   const onSubmit = form.handleSubmit((values) => {
     setServerError(null);
     startTransition(async () => {
-      const result = await saveRequestDraft(values);
+      const result = await saveRequestDraft({ ...values, projectId: object.id });
       if (!result.ok) {
         setServerError(result.error);
         return;
       }
       draft.clear();
       toast.success("Черновик заявки сохранён");
-      router.push(`/procurement/requests/${values.id}`);
+      router.push(href(`/procurement/requests/${values.id}`));
     });
   });
 
@@ -86,17 +88,6 @@ export function RequestEditor({
           />
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field data-invalid={Boolean(errors.projectId)}>
-            <FieldLabel htmlFor="projectId">Объект</FieldLabel>
-            <NativeSelect
-              id="projectId"
-              placeholder="Выберите объект"
-              options={projects.map((p) => ({ value: p.id, label: p.label }))}
-              disabled={Boolean(initial)}
-              {...form.register("projectId")}
-            />
-            <FieldError errors={[errors.projectId]} />
-          </Field>
           <Field>
             <FieldLabel htmlFor="neededBy">Нужно к</FieldLabel>
             <Input id="neededBy" type="date" {...form.register("neededBy")} />

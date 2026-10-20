@@ -34,7 +34,7 @@ test("задачи: управляющий → склад и кассир (см�
 
   const pm = await onPhone(browser, LOCAL_PM);
   async function createTask(title: string, assignee: string, due: string) {
-    await pm.page.goto(`/tasks/new?project=${fx.projectId}`);
+    await pm.page.goto(`/objects/${fx.projectId}/tasks/new`);
     await pm.page.getByLabel("Что сделать").fill(title);
     await selectByText(pm.page, "Исполнитель", assignee);
     await pm.page.getByLabel("Срок").fill(due);
@@ -49,7 +49,7 @@ test("задачи: управляющий → склад и кассир (см�
 
   // ---- Склад: видит свою просроченную задачу, блокирует с причиной, затем сдаёт ----
   const wh = await onPhone(browser, LOCAL_STOREKEEPER);
-  await wh.page.goto("/tasks");
+  await wh.page.goto(`/objects/${fx.projectId}/tasks`);
   const card = wh.page.getByRole("link", { name: new RegExp(whTask) });
   await expect(card).toContainText("Просрочена");
   await expect(wh.page.getByRole("link", { name: new RegExp(cashTask) })).toHaveCount(0);

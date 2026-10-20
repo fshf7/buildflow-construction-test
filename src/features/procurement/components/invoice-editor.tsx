@@ -9,14 +9,15 @@ import { toast } from "sonner";
 
 import { DraftRestoredNotice } from "@/components/draft-restored-notice";
 import { NativeSelect } from "@/components/native-select";
+import { useObject, useObjectHref } from "@/components/object-context";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import type { MaterialOption, Option } from "@/features/shared/lookups";
 import { toNumber } from "@/lib/decimal";
 import { useFormDraft } from "@/lib/form-draft";
 import { formatMoney } from "@/lib/format";
 import { useDocumentId } from "@/lib/idempotency";
-import type { MaterialOption, Option } from "@/features/shared/lookups";
 
 import { saveInvoiceDraft } from "../actions";
 import { invoiceDraftSchema, type InvoiceDraftInput } from "../schemas";
@@ -32,11 +33,11 @@ const emptyLine = {
 
 /**
  * Накладная поставщика: материалы и услуги (Д-13), связь со строками заявки для сверки.
+ * Объект — текущий (Д-94), заявки в списке — только этого объекта.
  * Несохранённый ввод держится на устройстве (draftKey) — переход в другой раздел его не стирает.
  */
 export function InvoiceEditor({
   initial,
-  projects,
   suppliers,
   materials,
   units,
@@ -44,14 +45,15 @@ export function InvoiceEditor({
   draftKey,
 }: {
   initial: Partial<InvoiceDraftInput>;
-  projects: Option[];
   suppliers: Option[];
   materials: MaterialOption[];
   units: Option[];
-  requests: { id: string; projectId: string; label: string }[];
+  requests: { id: string; label: string }[];
   draftKey: string;
 }) {
   const router = useRouter();
+  const object = useObject();
+  const href = useObjectHref();
   const id = useDocumentId(initial.id);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -59,7 +61,7 @@ export function InvoiceEditor({
     resolver: zodResolver(invoiceDraftSchema),
     defaultValues: {
       id,
-      projectId: initial.projectId ?? (projects.length === 1 ? projects[0]!.id : ""),
+      projectId: object.id,
       supplierId: initial.supplierId ?? "",
       purchaseRequestId: initial.purchaseRequestId ?? "",
       supplierDocNumber: initial.supplierDocNumber ?? "",
@@ -70,10 +72,7 @@ export function InvoiceEditor({
     },
   });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "lines" });
-  const [projectId, lines] = [
-    useWatch({ control: form.control, name: "projectId" }),
-    useWatch({ control: form.control, name: "lines" }),
-  ];
+  const lines = useWatch({ control: form.control, name: "lines" });
   const { errors } = form.formState;
 
   const total = lines.reduce((sum, l) => {
@@ -87,14 +86,14 @@ export function InvoiceEditor({
   const onSubmit = form.handleSubmit((values) => {
     setServerError(null);
     startTransition(async () => {
-      const result = await saveInvoiceDraft(values);
+      const result = await saveInvoiceDraft({ ...values, projectId: object.id });
       if (!result.ok) {
         setServerError(result.error);
         return;
       }
       draft.clear();
       toast.success("Накладная сохранена");
-      router.push(`/procurement/invoices/${values.id}`);
+      router.push(href(`/procurement/invoices/${values.id}`));
     });
   });
 
@@ -111,16 +110,6 @@ export function InvoiceEditor({
           />
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field data-invalid={Boolean(errors.projectId)}>
-            <FieldLabel htmlFor="projectId">Объект</FieldLabel>
-            <NativeSelect
-              id="projectId"
-              placeholder="Выберите объект"
-              options={projects.map((p) => ({ value: p.id, label: p.label }))}
-              {...form.register("projectId")}
-            />
-            <FieldError errors={[errors.projectId]} />
-          </Field>
           <Field data-invalid={Boolean(errors.supplierId)}>
             <FieldLabel htmlFor="supplierId">Поставщик</FieldLabel>
             <NativeSelect
@@ -136,9 +125,7 @@ export function InvoiceEditor({
             <NativeSelect
               id="purchaseRequestId"
               placeholder="Без заявки"
-              options={requests
-                .filter((r) => r.projectId === projectId)
-                .map((r) => ({ value: r.id, label: r.label }))}
+              options={requests.map((r) => ({ value: r.id, label: r.label }))}
               {...form.register("purchaseRequestId")}
             />
           </Field>

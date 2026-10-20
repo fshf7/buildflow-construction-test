@@ -1,9 +1,9 @@
 "use client";
 
 import { createColumnHelper } from "@tanstack/react-table";
-import Link from "next/link";
 
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
+import { ObjectLink } from "@/components/object-link";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
 
@@ -26,9 +26,9 @@ const columns = helper.columns([
   helper.accessor("number", {
     header: "Номер",
     cell: (info) => (
-      <Link href={info.row.original.href} className="font-medium hover:underline">
+      <ObjectLink path={info.row.original.path} className="font-medium hover:underline">
         {info.getValue() ?? "Черновик"}
-      </Link>
+      </ObjectLink>
     ),
   }),
   helper.accessor("docDate", { header: "Дата", cell: (info) => formatDate(info.getValue()) }),

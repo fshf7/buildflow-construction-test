@@ -52,7 +52,7 @@ export async function enrollMfa(
     await page.getByLabel("Код из приложения").fill(totp(secret));
     await page.getByRole("button", { name: "Подтвердить" }).click();
     const done = await page
-      .getByRole("heading", { name: "Главная" })
+      .getByRole("heading", { name: "Выберите объект" })
       .waitFor({ timeout: 5_000 })
       .then(() => true)
       .catch(() => false);

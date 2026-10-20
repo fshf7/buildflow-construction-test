@@ -24,8 +24,7 @@ test("частичная оплата долга поставщику и сто�
   await expect(acc.getByRole("heading", { name: /^Ввод остатков ВО-/ })).toBeVisible();
 
   // ---- Бухгалтер: накладная на 150 000 → подтверждение → обязательство ----
-  await acc.goto("/procurement/invoices/new");
-  await acc.getByLabel("Объект", { exact: true }).selectOption({ label: fx.projectLabel });
+  await acc.goto(`/objects/${fx.projectId}/procurement/invoices/new`);
   await acc.getByLabel("Поставщик", { exact: true }).selectOption({ label: fx.s1 });
   await acc.getByLabel("№ накладной поставщика").fill(`Ф-${Date.now()}`);
   await acc.getByLabel("Дата накладной").fill("2026-10-15");
@@ -44,7 +43,7 @@ test("частичная оплата долга поставщику и сто�
     storageState: CASHIER_STATE,
   });
   const cash = await cashCtx.newPage();
-  await cash.goto("/finance/cash");
+  await cash.goto(`/objects/${fx.projectId}/finance/cash`);
   await expect(cash.getByRole("link", { name: new RegExp(account) })).toContainText(
     /200\s000,00 TJS/,
   );
@@ -60,7 +59,7 @@ test("частичная оплата долга поставщику и сто�
   const paymentUrl = cash.url();
 
   // Переплата запрещена (ошибка с остатком долга).
-  await cash.goto("/finance/pay");
+  await cash.goto(`/objects/${fx.projectId}/finance/pay`);
   await cash.getByRole("link", { name: new RegExp(fx.s1) }).click();
   await cash.getByLabel(/^Оплатить: Накладная/).fill("90000,01");
   await selectByText(cash, "Из кассы / со счёта", account);
@@ -72,7 +71,7 @@ test("частичная оплата долга поставщику и сто�
   ).toBeVisible();
 
   // ---- US-05: бухгалтер видит долг 90 000 с учётом частичной оплаты ----
-  await acc.goto("/finance/payables");
+  await acc.goto(`/objects/${fx.projectId}/finance/payables`);
   await expect(acc.getByRole("row", { name: new RegExp(fx.s1) })).toContainText(/90\s000,00 TJS/);
 
   // ---- Д-67: кассир запрашивает сторно, бухгалтер согласует → долг и баланс восстановлены ----
@@ -85,9 +84,9 @@ test("частичная оплата долга поставщику и сто�
   await acc.goto(paymentUrl);
   await acc.getByRole("button", { name: "Согласовать сторно" }).click();
   await expect(acc.getByText("Сторнирована", { exact: true })).toBeVisible();
-  await acc.goto("/finance/payables");
+  await acc.goto(`/objects/${fx.projectId}/finance/payables`);
   await expect(acc.getByRole("row", { name: new RegExp(fx.s1) })).toContainText(/150\s000,00 TJS/);
-  await cash.goto("/finance/cash");
+  await cash.goto(`/objects/${fx.projectId}/finance/cash`);
   await expect(cash.getByRole("link", { name: new RegExp(account) })).toContainText(
     /200\s000,00 TJS/,
   );

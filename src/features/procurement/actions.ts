@@ -1,10 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { authorize } from "@/lib/auth/guard";
 import { toNumber } from "@/lib/decimal";
+import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -46,8 +45,7 @@ export async function saveRequestDraft(input: unknown): Promise<ActionResult<{ i
   });
   if (error) return fail(dbErrorMessage(error));
 
-  revalidatePath("/procurement/requests");
-  revalidatePath(`/procurement/requests/${v.id}`);
+  revalidateApp();
   return ok({ id: v.id });
 }
 
@@ -73,8 +71,7 @@ export async function runRequestOperation(
   const { data, error } = await call;
   if (error) return fail(dbErrorMessage(error));
 
-  revalidatePath("/procurement/requests");
-  revalidatePath(`/procurement/requests/${id}`);
+  revalidateApp();
   return ok(data as Result);
 }
 
@@ -115,8 +112,7 @@ export async function saveInvoiceDraft(input: unknown): Promise<ActionResult<{ i
     );
   }
 
-  revalidatePath("/procurement/invoices");
-  revalidatePath(`/procurement/invoices/${v.id}`);
+  revalidateApp();
   return ok({ id: v.id });
 }
 
@@ -138,8 +134,7 @@ export async function runInvoiceOperation(
       : await supabase.rpc(operation, { p_id: id, p_key: key });
   if (error) return fail(dbErrorMessage(error));
 
-  revalidatePath("/procurement/invoices");
-  revalidatePath(`/procurement/invoices/${id}`);
+  revalidateApp();
   return ok(data as Result);
 }
 
@@ -163,8 +158,7 @@ export async function decideReceiptCorrection(
   );
   if (error) return fail(dbErrorMessage(error));
 
-  revalidatePath("/procurement/approvals");
-  revalidatePath(`/warehouse/receipts/${id}`);
+  revalidateApp();
   return ok(data as Result);
 }
 
@@ -181,7 +175,6 @@ export async function deleteDraft(
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_document_draft", { p_doc_type: docType, p_id: id });
   if (error) return fail(dbErrorMessage(error));
-  revalidatePath("/procurement");
-  revalidatePath("/warehouse");
+  revalidateApp();
   return ok();
 }

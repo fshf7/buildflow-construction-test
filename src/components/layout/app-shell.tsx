@@ -17,13 +17,17 @@ export function AppShell({
   displayName,
   currentOrg,
   organizations,
-  allowedHrefs,
+  permissions,
+  projects,
   children,
 }: {
   displayName: string;
   currentOrg: Org;
   organizations: Org[];
-  allowedHrefs: string[];
+  /** Права в текущей организации — меню фильтруется на клиенте (иконки с сервера не передать). */
+  permissions: string[];
+  /** Доступные объекты: название объекта в меню «внутри объекта» (Д-94). */
+  projects: { id: string; label: string }[];
   children: ReactNode;
 }) {
   const envLabel = ENV_LABEL[env.NEXT_PUBLIC_APP_ENV];
@@ -36,13 +40,13 @@ export function AppShell({
         <aside className="sticky top-5 hidden max-h-[calc(100dvh-2.5rem)] w-64 shrink-0 flex-col gap-6 self-start rounded-[1.5rem] bg-panel p-4 text-panel-foreground md:flex print:hidden">
           <Brand tone="dark" className="px-2 pt-1" />
           <div className="-mx-1 flex-1 [scrollbar-width:thin] overflow-y-auto px-1">
-            <NavLinks allowedHrefs={allowedHrefs} />
+            <NavLinks permissions={permissions} projects={projects} />
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur md:static md:h-[4.5rem] md:border-none md:bg-transparent md:px-6 md:backdrop-blur-none print:hidden">
-            <MobileNav allowedHrefs={allowedHrefs} />
+            <MobileNav permissions={permissions} projects={projects} />
             <div className="flex min-w-0 items-center gap-2">
               <OrgSwitcher current={currentOrg} organizations={organizations} />
               {envLabel ? (

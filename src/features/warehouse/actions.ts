@@ -1,11 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { authorize } from "@/lib/auth/guard";
 import { toNumber } from "@/lib/decimal";
 import { emptyToNull } from "@/lib/format";
+import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -20,11 +19,6 @@ import {
 type Posted = { id: string; number: string | null; status: string };
 
 const positive = (q: string) => q !== "" && toNumber(q) > 0;
-
-function revalidateWarehouse() {
-  revalidatePath("/warehouse", "layout");
-  revalidatePath("/procurement", "layout");
-}
 
 /**
  * «Принять» в одно действие (Д-55): черновик (id от клиента — повтор не создаёт дубль) и
@@ -62,7 +56,7 @@ export async function quickReceive(input: unknown): Promise<ActionResult<Posted>
     p_key: v.key,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateWarehouse();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -95,7 +89,7 @@ export async function quickIssue(input: unknown): Promise<ActionResult<Posted>> 
     p_key: v.key,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateWarehouse();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -127,7 +121,7 @@ export async function quickReturn(input: unknown): Promise<ActionResult<Posted>>
     p_key: v.key,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateWarehouse();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -149,7 +143,7 @@ export async function startReceiptCorrection(
     p_copy_lines: v.mode === "edit",
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateWarehouse();
+  revalidateApp();
   return ok({ id: v.newId });
 }
 
@@ -199,7 +193,7 @@ export async function finishReceiptCorrection(input: unknown): Promise<ActionRes
     },
   );
   if (error) return fail(dbErrorMessage(error));
-  revalidateWarehouse();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -220,7 +214,7 @@ export async function reverseDocument(
     },
   );
   if (error) return fail(dbErrorMessage(error));
-  revalidateWarehouse();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -249,6 +243,6 @@ export async function saveCrew(input: unknown): Promise<ActionResult> {
     return fail(
       error.code === "23505" ? "Бригада с таким названием уже есть" : dbErrorMessage(error),
     );
-  revalidatePath("/crews", "layout");
+  revalidateApp();
   return ok();
 }

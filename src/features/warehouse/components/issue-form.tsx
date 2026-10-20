@@ -5,12 +5,13 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { NativeSelect } from "@/components/native-select";
+import { useObjectHref } from "@/components/object-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { BlockOption, Option } from "@/features/shared/lookups";
 import { toNumber } from "@/lib/decimal";
 import { formatQuantity } from "@/lib/format";
 import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
-import type { BlockOption, Option } from "@/features/shared/lookups";
 
 import { quickIssue } from "../actions";
 import type { Balance } from "../queries";
@@ -36,6 +37,7 @@ export function IssueForm({
   balances: Balance[];
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const issueId = useDocumentId();
   const { key } = useIdempotencyKey();
   const storageKey = `bf.issue.${projectId}`;
@@ -87,7 +89,7 @@ export function IssueForm({
         /* не критично */
       }
       toast.success(`Выдача ${result.data.number} проведена`);
-      router.push(`/warehouse/issues/${result.data.id}`);
+      router.push(href(`/warehouse/issues/${result.data.id}`));
     });
   }
 

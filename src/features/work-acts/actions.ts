@@ -1,22 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { authorize } from "@/lib/auth/guard";
 import type { Permission } from "@/lib/auth/permissions";
 import { toNumber } from "@/lib/decimal";
+import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import { WORK_ACT_OPS, workActSchema, type WorkActOp } from "./schemas";
 
 type Posted = { id: string; number: string | null; status: string };
-
-function revalidateActs() {
-  revalidatePath("/crews", "layout");
-  revalidatePath("/finance", "layout");
-  revalidatePath("/reports", "layout");
-}
 
 /** Черновик акта: тарифы подставляет БД на дату акта (Д-70). id от клиента — повтор не создаёт дубль. */
 export async function saveWorkActDraft(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -47,7 +40,7 @@ export async function saveWorkActDraft(input: unknown): Promise<ActionResult<{ i
       return fail(`Нет действующего тарифа: «${error.details}». Тариф устанавливает управляющий.`);
     return fail(dbErrorMessage(error));
   }
-  revalidateActs();
+  revalidateApp();
   return ok({ id: v.id });
 }
 
@@ -74,7 +67,7 @@ export async function runWorkActOp(
         ? await supabase.rpc(op, { p_id: input.id, p_key: input.key, p_comment: input.comment })
         : await supabase.rpc(op, { p_id: input.id, p_key: input.key, p_reason: input.comment });
   if (error) return fail(dbErrorMessage(error));
-  revalidateActs();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -95,7 +88,7 @@ export async function copyWorkAct(input: {
       return fail(`Нет действующего тарифа: «${error.details}». Тариф устанавливает управляющий.`);
     return fail(dbErrorMessage(error));
   }
-  revalidateActs();
+  revalidateApp();
   return ok({ id: input.newId });
 }
 
@@ -105,6 +98,6 @@ export async function deleteWorkActDraft(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_work_act_draft", { p_id: id });
   if (error) return fail(dbErrorMessage(error));
-  revalidateActs();
+  revalidateApp();
   return ok();
 }

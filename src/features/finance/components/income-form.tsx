@@ -10,21 +10,20 @@ import { Label } from "@/components/ui/label";
 import { SubmitBar } from "@/features/warehouse/components/submit-bar";
 import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
 
+import { useFinanceScope } from "./finance-scope";
 import { quickCash } from "../actions";
 import { CATEGORY_LABELS, INCOME_CATEGORIES } from "../labels";
 import type { AccountRow } from "../queries";
 
 import { MoneyInput } from "./money-input";
 
-/** Приход (BP-04): продажа квартир вручную, средства владельца, прочее — с основанием. */
-export function IncomeForm({
-  accounts,
-  projects,
-}: {
-  accounts: AccountRow[];
-  projects: { id: string; label: string }[];
-}) {
+/**
+ * Приход (BP-04): продажа квартир вручную, средства владельца, прочее — с основанием.
+ * Объект — из раздела (Д-94): в объекте — его, в «Общем» — без объекта.
+ */
+export function IncomeForm({ accounts }: { accounts: AccountRow[] }) {
   const router = useRouter();
+  const scope = useFinanceScope();
   const id = useDocumentId();
   const { key } = useIdempotencyKey();
   const [accountId, setAccountId] = useState(accounts.length === 1 ? accounts[0]!.id : "");
@@ -32,7 +31,6 @@ export function IncomeForm({
   const [amount, setAmount] = useState("");
   const [from, setFrom] = useState("");
   const [basis, setBasis] = useState("");
-  const [projectId, setProjectId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const currency = accounts.find((a) => a.id === accountId)?.currency ?? "TJS";
@@ -48,7 +46,7 @@ export function IncomeForm({
         direction: "IN",
         category,
         amount,
-        projectId,
+        projectId: scope.projectId ?? "",
         supplierId: "",
         counterpartyName: from,
         basis,
@@ -59,7 +57,7 @@ export function IncomeForm({
         return;
       }
       toast.success(`Приход ${result.data.number} проведён`);
-      router.push(`/finance/operations/${result.data.id}`);
+      router.push(`${scope.base}/operations/${result.data.id}`);
     });
   }
 
@@ -113,17 +111,6 @@ export function IncomeForm({
           value={basis}
           onChange={(e) => setBasis(e.target.value)}
           placeholder={category === "APARTMENT_SALE" ? "Договор, квартира" : ""}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="project">Объект (необязательно)</Label>
-        <NativeSelect
-          id="project"
-          className="h-11 text-base"
-          placeholder="—"
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          options={projects.map((p) => ({ value: p.id, label: p.label }))}
         />
       </div>
       <SubmitBar pending={isPending} label="Провести приход" error={error} />

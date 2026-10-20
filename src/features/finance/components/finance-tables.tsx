@@ -1,7 +1,6 @@
 "use client";
 
 import { createColumnHelper } from "@tanstack/react-table";
-import Link from "next/link";
 
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,7 @@ import {
   PAYMENT_REQUEST_STATUS_LABELS,
   PURPOSE_LABELS,
 } from "../labels";
+import { FinanceLink } from "./finance-scope";
 import type { OperationRow, PaymentRequestRow, SupplierDebt } from "../queries";
 
 // ---- Долги по поставщикам (US-05) ----
@@ -22,12 +22,12 @@ const debtColumns = debtHelper.columns([
   debtHelper.accessor("supplierName", {
     header: "Поставщик",
     cell: (info) => (
-      <Link
-        href={`/finance/payables/${info.row.original.supplierId}`}
+      <FinanceLink
+        path={`/payables/${info.row.original.supplierId}`}
         className="font-medium hover:underline"
       >
         {info.getValue()}
-      </Link>
+      </FinanceLink>
     ),
   }),
   debtHelper.accessor("count", { header: "Обязательств" }),
@@ -56,12 +56,12 @@ const opColumns = opHelper.columns([
   opHelper.accessor("number", {
     header: "Номер",
     cell: (info) => (
-      <Link
-        href={`/finance/operations/${info.row.original.id}`}
+      <FinanceLink
+        path={`/operations/${info.row.original.id}`}
         className="font-medium hover:underline"
       >
         {info.getValue() ?? (info.row.original.kind === "OPENING" ? "Ввод остатков" : "Черновик")}
-      </Link>
+      </FinanceLink>
     ),
   }),
   opHelper.accessor("docDate", { header: "Дата", cell: (i) => formatDate(i.getValue()) }),
@@ -107,12 +107,12 @@ const prColumns = prHelper.columns([
   prHelper.accessor("number", {
     header: "Номер",
     cell: (info) => (
-      <Link
-        href={`/finance/requests/${info.row.original.id}`}
+      <FinanceLink
+        path={`/requests/${info.row.original.id}`}
         className="font-medium hover:underline"
       >
         {info.getValue() ?? "Черновик"}
-      </Link>
+      </FinanceLink>
     ),
   }),
   prHelper.accessor("docDate", { header: "Дата", cell: (i) => formatDate(i.getValue()) }),

@@ -21,8 +21,7 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   });
   const wh = await whCtx.newPage();
   await login(wh, LOCAL_STOREKEEPER.email, LOCAL_STOREKEEPER.password);
-  await wh.goto("/procurement/requests/new");
-  await wh.getByLabel("Объект").selectOption({ label: fx.projectLabel });
+  await wh.goto(`/objects/${fx.projectId}/procurement/requests/new`);
   await wh.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
   await wh.getByLabel("Количество, строка 1").fill("20");
   await expect(wh.getByLabel("Поставщик, строка 1")).toHaveCount(0);
@@ -47,11 +46,11 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   // Бухгалтер заявки не оформляет (Д-92).
   const accCtx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
   const acc = await accCtx.newPage();
-  await acc.goto("/procurement/requests");
+  await acc.goto(`/objects/${fx.projectId}/procurement/requests`);
   await expect(acc.getByRole("link", { name: "Новая заявка" })).toHaveCount(0);
 
   // ---- US-02: склад принимает 21 кг при заказе 20; поставщика выбирает при приёмке ----
-  await wh.goto(`/warehouse?project=${fx.projectId}`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse`);
   await wh.getByRole("link", { name: "Принять" }).click(); // касание 1
   await wh.getByRole("link", { name: new RegExp(`Заявка ${requestNumber}`) }).click(); // касание 2
   await wh.getByLabel("Поставщик").selectOption({ label: fx.s1 });
@@ -60,7 +59,7 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   await wh.getByRole("button", { name: "Провести приёмку" }).click(); // касание 3
   await expect(wh.getByRole("heading", { name: /^Приёмка ПРМ-/ })).toBeVisible();
   await expect(wh.getByText("Принято 21 кг · заказано 20 кг")).toBeVisible();
-  await wh.goto(`/warehouse?project=${fx.projectId}`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse`);
   await expect(wh.getByRole("link", { name: new RegExp(`${fx.cement}\\s*21 кг`) })).toBeVisible();
 
   // ---- US-03: выдача бригаде — объект, блок, этаж, бригада ----
@@ -74,7 +73,7 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   await expect(wh.getByText(`${fx.crew} · ${fx.block}, этаж ${fx.floor}`)).toBeVisible();
 
   // Минус запрещён (Д-19): ошибка с текущим остатком; бригада/блок/этаж запомнились на устройстве.
-  await wh.goto(`/warehouse/issue?project=${fx.projectId}`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse/issue`);
   await expect(wh.getByLabel("Бригада")).toHaveValue(/.+/);
   await wh.getByLabel(`Выдать: ${fx.cement}`).fill("10");
   await wh.getByRole("button", { name: "Провести выдачу" }).click();
@@ -85,13 +84,13 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   ).toBeVisible();
 
   // ---- US-04: возврат связан с выдачей ----
-  await wh.goto(`/warehouse/return?project=${fx.projectId}`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse/return`);
   await wh.getByRole("link", { name: new RegExp(fx.crew) }).click();
   await wh.getByLabel(`Вернуть: ${fx.cement}`).fill("5");
   await wh.getByRole("button", { name: "Провести возврат" }).click();
   await expect(wh.getByRole("heading", { name: /^Возврат ВЗВ-/ })).toBeVisible();
   await expect(wh.getByRole("link", { name: /По выдаче ВДЧ-/ })).toBeVisible();
-  await wh.goto(`/warehouse?project=${fx.projectId}`);
+  await wh.goto(`/objects/${fx.projectId}/warehouse`);
   await expect(wh.getByRole("link", { name: new RegExp(`${fx.cement}\\s*11 кг`) })).toBeVisible();
 
   // Склад видит заявку, но без цен (§5.4).

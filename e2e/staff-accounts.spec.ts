@@ -54,7 +54,7 @@ test("сотрудник по телефону: временный пароль 
   const emp = await onPhone(browser);
   await submitLogin(emp.page, phone, temp);
   await expect(emp.page).toHaveURL(/\/set-password/);
-  await emp.page.goto("/warehouse");
+  await emp.page.goto("/");
   await expect(emp.page).toHaveURL(/\/set-password/);
   await emp.page.getByLabel("Новый пароль").fill(temp);
   await emp.page.getByLabel("Повторите пароль").fill(temp);
@@ -66,9 +66,8 @@ test("сотрудник по телефону: временный пароль 
   await emp.page.getByLabel("Новый пароль").fill(own);
   await emp.page.getByLabel("Повторите пароль").fill(own);
   await emp.page.getByRole("button", { name: "Сохранить пароль" }).click();
-  await expect(emp.page.getByRole("heading", { name: "Главная" })).toBeVisible();
-  await emp.page.goto("/warehouse");
-  await expect(emp.page).toHaveURL(/\/warehouse/);
+  // Д-94: после смены пароля — выбор объекта.
+  await expect(emp.page.getByRole("heading", { name: "Выберите объект" })).toBeVisible();
 
   // Временный пароль больше не действует.
   const again = await onPhone(browser);
@@ -88,7 +87,7 @@ test("сотрудник по телефону: временный пароль 
   const temp2 = (await admin.getByTestId("issued-password").textContent())!.trim();
   expect(temp2).not.toBe(temp);
 
-  await emp.page.goto("/warehouse");
+  await emp.page.goto("/");
   await expect(emp.page).toHaveURL(/\/login/);
   await submitLogin(emp.page, phone, own);
   await expect(
@@ -129,7 +128,9 @@ test("сотрудник по имени латиницей входит и ме
   await emp.page.getByLabel("Новый пароль").fill(own);
   await emp.page.getByLabel("Повторите пароль").fill(own);
   await emp.page.getByRole("button", { name: "Сохранить пароль" }).click();
-  await expect(emp.page.getByRole("heading", { name: "Главная" })).toBeVisible();
+  // В приложении: выбор объекта или (единственный объект без «Общего») сразу объект — Д-94.
+  await expect(emp.page).not.toHaveURL(/\/set-password/);
+  await expect(emp.page.getByRole("heading", { level: 1 })).toBeVisible();
   await emp.ctx.close();
 });
 

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { objectHref } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
 
 import type {
@@ -23,7 +24,21 @@ export type AccountRow = {
   isActive: boolean;
 };
 
-export async function listAccounts(orgId: string, activeOnly = false): Promise<AccountRow[]> {
+/**
+ * Область финансов (Д-94): id объекта — операции, долги и счета этого объекта; null — «без объекта»
+ * (средства владельца, общие расходы, долги из ввода остатков без объекта).
+ */
+export type FinanceProject = string | null;
+
+/**
+ * Кассы и счета. forProject: undefined — все (настройка); объект — кассы объекта и общие
+ * (ими можно платить за объект); null — только общие (касса без объекта).
+ */
+export async function listAccounts(
+  orgId: string,
+  activeOnly = false,
+  forProject?: FinanceProject,
+): Promise<AccountRow[]> {
   const supabase = await createClient();
   let q = supabase
     .from("cash_accounts")
@@ -32,6 +47,8 @@ export async function listAccounts(orgId: string, activeOnly = false): Promise<A
     .order("is_active", { ascending: false })
     .order("name");
   if (activeOnly) q = q.eq("is_active", true);
+  if (forProject === null) q = q.is("project_id", null);
+  else if (forProject) q = q.or(`project_id.eq.${forProject},project_id.is.null`);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return data.map((a) => ({
@@ -57,6 +74,7 @@ export type PayableRow = {
   crewId: string | null;
   /** Поставщик или бригада. */
   counterpartyName: string;
+  projectId: string | null;
   projectLabel: string | null;
   source: string; // «Накладная НК-… (№ поставщика)» или основание введённого долга
   sourceHref: string | null;
@@ -76,7 +94,8 @@ export async function listPayables(
     supplier?: string;
     crew?: string;
     kind?: "SUPPLIER" | "CREW";
-    project?: string;
+    /** undefined — все; объект — его долги; null — долги без объекта. */
+    project?: FinanceProject;
     openOnly?: boolean;
   },
 ): Promise<PayableRow[]> {
@@ -84,14 +103,15 @@ export async function listPayables(
   let q = supabase
     .from("payables")
     .select(
-      "id, supplier_id, crew_id, amount, paid_amount, currency, status, due_date, created_at, source_doc_type, source_doc_id, basis, suppliers(name), crews(name), projects(code, name)",
+      "id, supplier_id, crew_id, project_id, amount, paid_amount, currency, status, due_date, created_at, source_doc_type, source_doc_id, basis, suppliers(name), crews(name), projects(code, name)",
     )
     .eq("organization_id", orgId)
     .eq("counterparty_kind", f.kind ?? "SUPPLIER")
     .order("created_at");
   if (f.supplier) q = q.eq("supplier_id", f.supplier);
   if (f.crew) q = q.eq("crew_id", f.crew);
-  if (f.project) q = q.eq("project_id", f.project);
+  if (f.project === null) q = q.is("project_id", null);
+  else if (f.project) q = q.eq("project_id", f.project);
   if (f.openOnly) q = q.in("status", ["OPEN", "PARTIALLY_PAID"]);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
@@ -116,6 +136,7 @@ export async function listPayables(
       supplierName: p.suppliers?.name ?? "",
       crewId: p.crew_id,
       counterpartyName: p.suppliers?.name ?? p.crews?.name ?? "",
+      projectId: p.project_id,
       projectLabel: p.projects ? `${p.projects.code} — ${p.projects.name}` : null,
       source:
         p.source_doc_type === "SUPPLIER_INVOICE"
@@ -123,11 +144,13 @@ export async function listPayables(
           : p.source_doc_type === "WORK_ACT"
             ? (p.basis ?? "Акт работ")
             : `Ввод остатков: ${p.basis ?? ""}`,
-      sourceHref:
-        p.source_doc_type === "SUPPLIER_INVOICE"
-          ? `/procurement/invoices/${p.source_doc_id}`
+      // Документ-основание — внутри своего объекта (Д-94).
+      sourceHref: !p.project_id
+        ? null
+        : p.source_doc_type === "SUPPLIER_INVOICE"
+          ? objectHref(p.project_id, `/procurement/invoices/${p.source_doc_id}`)
           : p.source_doc_type === "WORK_ACT"
-            ? `/crews/acts/${p.source_doc_id}`
+            ? objectHref(p.project_id, `/acts/${p.source_doc_id}`)
             : null,
       amount: Number(p.amount),
       paid: Number(p.paid_amount),
@@ -232,7 +255,11 @@ export type OperationRow = {
   status: CashStatus;
 };
 
-export async function listOperations(orgId: string, f: OperationsFilter): Promise<OperationRow[]> {
+export async function listOperations(
+  orgId: string,
+  project: FinanceProject,
+  f: OperationsFilter,
+): Promise<OperationRow[]> {
   const supabase = await createClient();
   let q = supabase
     .from("cash_transactions")
@@ -243,6 +270,7 @@ export async function listOperations(orgId: string, f: OperationsFilter): Promis
     .order("doc_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(300);
+  q = project === null ? q.is("project_id", null) : q.eq("project_id", project);
   if (f.account) q = q.eq("cash_account_id", f.account);
   if (f.direction) q = q.eq("direction", f.direction);
   if (f.category) q = q.eq("category", f.category as CashCategory);
@@ -275,7 +303,7 @@ export async function getOperation(id: string) {
   const { data: t, error } = await supabase
     .from("cash_transactions")
     .select(
-      "id, organization_id, number, doc_date, direction, kind, category, amount, currency, counterparty_name, basis, note, status, cancel_reason, reversal_of_id, opening_balance_id, reversal_requested_by, reversal_requested_at, reversal_reason, cash_accounts(name), suppliers(name), crews(name), projects(code, name), cash_transaction_allocations(id, amount, payable_id, payment_request_id)",
+      "id, organization_id, project_id, number, doc_date, direction, kind, category, amount, currency, counterparty_name, basis, note, status, cancel_reason, reversal_of_id, opening_balance_id, reversal_requested_by, reversal_requested_at, reversal_reason, cash_accounts(name), suppliers(name), crews(name), projects(code, name), cash_transaction_allocations(id, amount, payable_id, payment_request_id)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -321,6 +349,7 @@ export async function getOperation(id: string) {
       : null,
     openingBalanceId: t.opening_balance_id,
     accountName: t.cash_accounts?.name ?? "",
+    projectId: t.project_id,
     projectLabel: t.projects ? `${t.projects.code} — ${t.projects.name}` : null,
     allocations: t.cash_transaction_allocations.map((a) => ({
       id: a.id,
@@ -351,6 +380,7 @@ export type PaymentRequestRow = {
 
 export async function listPaymentRequests(
   orgId: string,
+  project: FinanceProject,
   statuses?: PaymentRequestStatus[],
 ): Promise<PaymentRequestRow[]> {
   const supabase = await createClient();
@@ -362,6 +392,7 @@ export async function listPaymentRequests(
     .eq("organization_id", orgId)
     .order("created_at", { ascending: false })
     .limit(200);
+  q = project === null ? q.is("project_id", null) : q.eq("project_id", project);
   if (statuses) q = q.in("status", statuses);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
@@ -426,8 +457,8 @@ export async function getPaymentRequest(id: string) {
 }
 
 /** Поставщики с открытыми долгами — первый шаг «Оплатить долг» у кассира. */
-export async function listSuppliersWithDebt(orgId: string) {
-  return groupBySupplier(await listPayables(orgId, { openOnly: true }));
+export async function listSuppliersWithDebt(orgId: string, project: FinanceProject) {
+  return groupBySupplier(await listPayables(orgId, { project, openOnly: true }));
 }
 
 export type CrewDebt = {
@@ -439,8 +470,11 @@ export type CrewDebt = {
 };
 
 /** Бригады с открытыми долгами по утверждённым актам (BP-05). */
-export async function listCrewsWithDebt(orgId: string): Promise<CrewDebt[]> {
-  const rows = await listPayables(orgId, { kind: "CREW", openOnly: true });
+export async function listCrewsWithDebt(
+  orgId: string,
+  project: FinanceProject,
+): Promise<CrewDebt[]> {
+  const rows = await listPayables(orgId, { kind: "CREW", project, openOnly: true });
   const map = new Map<string, CrewDebt>();
   for (const r of rows) {
     if (!r.crewId) continue;

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 
 import { DocumentActions, type DocumentAction } from "@/components/document-actions";
 
+import { useFinanceScope } from "./finance-scope";
 import { deleteFinanceDraft, runPaymentRequestOp } from "../actions";
 import type { PaymentRequestStatus } from "../labels";
 
@@ -26,6 +27,7 @@ export function PaymentRequestActions({
   paid: number;
 }) {
   const router = useRouter();
+  const scope = useFinanceScope();
   const op =
     (name: Parameters<typeof runPaymentRequestOp>[0]) =>
     ({ key, comment }: { key: string; comment: string }) =>
@@ -56,7 +58,7 @@ export function PaymentRequestActions({
             variant: "destructive",
             run: async () => {
               const r = await deleteFinanceDraft("PAYMENT_REQUEST", id);
-              if (r.ok) router.push("/finance/requests");
+              if (r.ok) router.push(`${scope.base}/requests`);
               return r;
             },
             successMessage: "Черновик удалён",

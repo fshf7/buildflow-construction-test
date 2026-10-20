@@ -1308,3 +1308,21 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 - `private.require_admin_aal2`, `reset_member_mfa` — aal2 только при `requires_mfa`.
 - Тесты: pgTAP `150_mfa_optional` (оба режима); `010`, `020`, `080`, `140`, интеграционные и E2E — режим «включён»
   (`seed-local --enforce-mfa`, `seedLocal({ enforceMfa: true })`).
+
+## 18. Работа внутри объекта (Д-94, Д-95; миграция `20261022000000_allocation_same_project.sql`)
+
+- Маршруты: `/` — выбор объекта (карточки доступных по RLS объектов) и «Общее по организации»;
+  `/objects/[projectId]/…` — объектные разделы: `procurement`, `warehouse`, `finance`, `acts`, `tasks`, `reports`.
+  Общие — по своим адресам: `/finance` (касса без объекта), `/reports` (по всем объектам), `/crews` (бригады,
+  тарифы), `/opening`, `/projects`, `/catalog`, `/admin/*`. Старые адреса объектных разделов → `/` (`next.config` redirects).
+- `src/app/(app)/objects/[projectId]/layout.tsx` → `requireObject()` (`features/projects/object.ts`): объект виден
+  пользователю и из текущей организации, иначе 404; `ObjectProvider` даёт client-компонентам объект
+  (`useObject`, `useObjectHref`, `ObjectLink`). Документ другого объекта по адресу этого — redirect на его адрес
+  (`ensureDocInObject`). Ссылки — `objectHref()` (`lib/routes.ts`); после изменений — `revalidateApp()`.
+- Меню: `OBJECT_NAV` / `COMMON_NAV` (`components/layout/nav-items.ts`), контекст — по адресу (`objectIdFromPath`).
+- Финансы — одна реализация страниц (`features/finance/pages`), route-файлы в обоих деревьях — реэкспорт;
+  область (`features/finance/scope.ts`): объект — его операции, долги, счета; кассы — объекта и общие;
+  `/finance` — `project_id IS NULL`, только общие кассы. Отчёты — `features/reports/components/report-views.tsx`:
+  внутри объекта — только отчёты с разрезом по объекту (`byProject`), параметр `project` — из адреса.
+- Д-95 (БД): `private.validate_and_lock_allocations` — `payable/payment_request.project_id IS NOT DISTINCT FROM
+  cash_transactions.project_id`, иначе `BF_ALLOCATION_PROJECT`. Тест — pgTAP `060_finance`.

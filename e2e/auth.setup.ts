@@ -26,7 +26,7 @@ setup("администратор: вход с подключением MFA", as
 // Бухгалтер: второй фактор не обязателен (Д-90) — вход по паролю сразу в приложение.
 setup("бухгалтер: вход без MFA (Д-90)", async ({ page }) => {
   await login(page, LOCAL_ACCOUNTANT.email, LOCAL_ACCOUNTANT.password);
-  await expect(page.getByRole("heading", { name: "Главная" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Выберите объект" })).toBeVisible();
   await page.context().storageState({ path: ACCOUNTANT_STATE });
 });
 

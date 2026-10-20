@@ -1,9 +1,9 @@
 "use client";
 
 import { createColumnHelper } from "@tanstack/react-table";
-import Link from "next/link";
 
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
+import { ObjectLink } from "@/components/object-link";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatMoney } from "@/lib/format";
 
@@ -16,12 +16,12 @@ const base = [
   helper.accessor("number", {
     header: "Номер",
     cell: (info) => (
-      <Link
-        href={`/procurement/invoices/${info.row.original.id}`}
+      <ObjectLink
+        path={`/procurement/invoices/${info.row.original.id}`}
         className="font-medium hover:underline"
       >
         {info.getValue() ?? "Введена"}
-      </Link>
+      </ObjectLink>
     ),
   }),
   helper.accessor("supplierName", {
@@ -35,7 +35,6 @@ const base = [
       </span>
     ),
   }),
-  helper.accessor("projectLabel", { header: "Объект" }),
   helper.accessor("requestNumber", { header: "Заявка", cell: (info) => info.getValue() ?? "—" }),
   helper.accessor("status", {
     header: "Статус",

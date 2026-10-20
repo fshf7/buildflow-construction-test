@@ -12,6 +12,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { useDocumentId } from "@/lib/idempotency";
 
+import { useFinanceScope } from "./finance-scope";
 import { savePaymentRequest } from "../actions";
 import { PURPOSE_LABELS } from "../labels";
 import { paymentRequestSchema, type PaymentRequestInput } from "../schemas";
@@ -20,13 +21,12 @@ import { paymentRequestSchema, type PaymentRequestInput } from "../schemas";
 export function PaymentRequestForm({
   initial,
   crews,
-  projects,
 }: {
   initial?: PaymentRequestInput;
   crews: { id: string; label: string }[];
-  projects: { id: string; label: string }[];
 }) {
   const router = useRouter();
+  const scope = useFinanceScope();
   const id = useDocumentId(initial?.id);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -34,7 +34,7 @@ export function PaymentRequestForm({
     resolver: zodResolver(paymentRequestSchema),
     defaultValues: initial ?? {
       id,
-      projectId: "",
+      projectId: scope.projectId ?? "", // Д-94: объект — из раздела
       purpose: "OTHER_EXPENSE",
       payeeCrewId: "",
       payeeName: "",
@@ -49,13 +49,17 @@ export function PaymentRequestForm({
 
   const submit = form.handleSubmit((values) =>
     startTransition(async () => {
-      const result = await savePaymentRequest({ ...values, id });
+      const result = await savePaymentRequest({
+        ...values,
+        id,
+        projectId: scope.projectId ?? "",
+      });
       if (!result.ok) {
         setError(result.error);
         return;
       }
       toast.success("Черновик счёта сохранён");
-      router.push(`/finance/requests/${id}`);
+      router.push(`${scope.base}/requests/${id}`);
     }),
   );
 
@@ -118,16 +122,6 @@ export function PaymentRequestForm({
           <FieldLabel htmlFor="basis">Основание</FieldLabel>
           <Input id="basis" className="h-11 text-base" {...form.register("basis")} />
           <FieldError errors={[errors.basis]} />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="projectId">Объект (необязательно)</FieldLabel>
-          <NativeSelect
-            id="projectId"
-            className="h-11 text-base"
-            placeholder="—"
-            {...form.register("projectId")}
-            options={projects.map((p) => ({ value: p.id, label: p.label }))}
-          />
         </Field>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
