@@ -32,9 +32,9 @@ test("выбор объекта → главная объекта → меню �
   await page.getByRole("link", { name: "Заявки склада" }).click();
   await expect(page).toHaveURL(new RegExp(`/objects/${fx.projectId}/warehouse/requests`));
 
-  // Объект задан адресом — в журнале затрат его не выбирают.
-  await page.goto(`/objects/${fx.projectId}/procurement/invoices`);
-  await expect(page.getByRole("heading", { name: "Затраты" })).toBeVisible();
+  // Объект задан адресом — в накладной его не выбирают.
+  await page.goto(`/objects/${fx.projectId}/procurement/invoices/new`);
+  await expect(page.getByRole("heading", { name: "Новая накладная" })).toBeVisible();
   await expect(page.getByLabel("Объект", { exact: true })).toHaveCount(0);
 
   // «Сменить объект» — обратно к выбору.

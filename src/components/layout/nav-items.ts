@@ -37,7 +37,7 @@ export const OBJECT_NAV: readonly NavItem[] = [
     path: "/procurement",
     label: "Закупки",
     icon: ClipboardList,
-    hint: "Журнал затрат, согласования корректировок",
+    hint: "Новая накладная, журнал накладных, затраты",
     permissions: ["supplier_invoices.view", "goods_receipts.approve_correction"],
   },
   {

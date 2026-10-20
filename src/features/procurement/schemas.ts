@@ -24,26 +24,30 @@ export const requestDraftSchema = z.object({
 });
 export type RequestDraftInput = z.infer<typeof requestDraftSchema>;
 
-/** Строка затрат (Д-97): одна строка = одна запись со своим долгом поставщику. */
-export const expenseRowFields = z.object({
-  docDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Дата" }),
+/** Строка накладной (Д-99): категория — у строки; цена может быть нулевой, сумма накладной — нет. */
+export const invoiceLineFields = z.object({
   description: z.string().trim().min(1, { error: "Наименование" }).max(300),
   materialId: z.union([z.uuid(), z.literal("")]),
   categoryId: z.uuid({ error: "Категория" }),
   quantity: decimalString({ message: "Кол-во" }),
   unitId: z.uuid({ error: "Ед. изм." }),
-  price: decimalString({ message: "Цена" }),
-  currency: z.string().trim().length(3, { error: "Валюта" }),
-  supplierId: z.uuid({ error: "Поставщик" }),
-  docNumber: z.string().trim().max(50),
+  price: decimalString({ allowZero: true, message: "Цена" }),
 });
-export type ExpenseRowFields = z.infer<typeof expenseRowFields>;
+export type InvoiceLineInput = z.infer<typeof invoiceLineFields>;
 
-export const expenseRowSchema = expenseRowFields.extend({
+/** Накладная (Д-99): шапка — поставщик, дата, № бумажной накладной (необяз.), валюта; строки. */
+export const invoiceSheetSchema = z.object({
   id: z.uuid(),
   key: z.uuid(),
   projectId: z.uuid(),
+  supplierId: z.uuid({ error: "Поставщик" }),
+  docDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Дата" }),
+  docNumber: z.string().trim().max(50),
+  currency: z.string().trim().length(3, { error: "Валюта" }),
+  note: z.string().trim().max(1000),
+  lines: z.array(invoiceLineFields).min(1, { error: "Добавьте хотя бы одну строку" }),
 });
+export type InvoiceSheetInput = z.infer<typeof invoiceSheetSchema>;
 
 export const REQUEST_OPERATIONS = [
   "issue_purchase_request",

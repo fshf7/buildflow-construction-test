@@ -1,7 +1,7 @@
 import { devices, expect, test } from "@playwright/test";
 
 import { ACCOUNTANT_STATE, LOCAL_STOREKEEPER, login } from "./helpers/accounts";
-import { addExpense } from "./helpers/expenses";
+import { fillInvoice, saveInvoice } from "./helpers/expenses";
 import { createWarehouseFixture } from "./helpers/fixture";
 
 // Сквозной сценарий фазы 2 (US-01…US-04): склад — смартфон (заявка, приёмка, выдача, возврат),
@@ -101,17 +101,14 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   await expect(wh.getByText("TJS")).toHaveCount(0);
   await whCtx.close();
 
-  // ---- Д-97: бухгалтер вносит затрату по принятому в журнал «Затраты» → долг поставщику сразу ----
+  // ---- Д-99: бухгалтер оформляет накладную по принятому → номер и долг поставщику сразу ----
   await acc.goto(requestUrl);
   await expect(acc.getByText("Частично получена", { exact: true })).toBeVisible();
-  await acc.getByRole("link", { name: "Внести в затраты" }).click();
-  await addExpense(acc, {
-    description: fx.cement,
-    category: "Конструктив",
-    quantity: "21",
-    price: "1,5",
-    supplier: fx.s1,
-  });
-  await expect(acc.getByText(/Строк: 1/)).toContainText("31,50 смн");
+  await acc.getByRole("link", { name: "Новая накладная" }).click();
+  await fillInvoice(acc, fx.s1, [
+    { description: fx.cement, category: "Конструктив", quantity: "21", price: "1,5" },
+  ]);
+  const number = await saveInvoice(acc);
+  await expect(acc.getByRole("row", { name: new RegExp(number) })).toContainText("31,50");
   await accCtx.close();
 });

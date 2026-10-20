@@ -1,11 +1,10 @@
 /**
- * Журнал затрат (Д-97): строка = дата, наименование, категория, кол-во, ед., цена, валюта, сумма,
- * поставщик. Чистые функции — общие для таблицы (клиент) и экспорта в Excel (сервер), поэтому
- * фильтр и итоги на экране и в файле совпадают.
+ * Журнал затрат (Д-97, Д-99): строки всех накладных объекта — дата, наименование, категория,
+ * кол-во, ед., цена, валюта, сумма, поставщик, накладная. Чистые функции — общие для таблицы
+ * (клиент) и экспорта в Excel (сервер): фильтр и итоги на экране и в файле совпадают. Здесь же —
+ * разбор строк, вставленных из Excel / Google Таблиц в накладную.
  */
 import type { InvoiceStatus } from "./labels";
-
-export type DebtStatus = "OPEN" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
 
 export type ExpenseRow = {
   /** Ключ строки таблицы: у старых многострочных накладных строк несколько на один документ. */
@@ -27,11 +26,6 @@ export type ExpenseRow = {
   supplierId: string;
   supplierName: string;
   docNumber: string | null;
-  /** null — нет доступа к долгам или долга нет (не подтверждена). */
-  paid: number | null;
-  debtStatus: DebtStatus | null;
-  /** Строку можно править в таблице: одна строка, подтверждена, без оплат. */
-  editable: boolean;
 };
 
 /** Валюты затрат; сомони в таблице — «смн», как в привычном журнале. */
@@ -53,7 +47,6 @@ export type ExpenseFilters = {
   categoryId?: string;
   supplierId?: string;
   currency?: string;
-  pay?: "debt" | "paid";
   showCancelled?: boolean;
 };
 
@@ -68,9 +61,6 @@ export function filterExpenseRows(rows: ExpenseRow[], f: ExpenseFilters): Expens
     if (f.categoryId && r.categoryId !== f.categoryId) return false;
     if (f.supplierId && r.supplierId !== f.supplierId) return false;
     if (f.currency && r.currency !== f.currency) return false;
-    if (f.pay === "paid" && r.debtStatus !== "PAID") return false;
-    if (f.pay === "debt" && r.debtStatus !== "OPEN" && r.debtStatus !== "PARTIALLY_PAID")
-      return false;
     if (
       text &&
       !lower(r.description).includes(text) &&
@@ -197,4 +187,65 @@ export function parsePastedRows(
     rows.push(row);
   }
   return rows;
+}
+
+/** Строка накладной из вставки: наименование, категория, кол-во, ед., цена. */
+export type PastedLine = Pick<
+  PastedRow,
+  "description" | "categoryId" | "quantity" | "unitId" | "price" | "unmatched"
+>;
+
+/**
+ * Вставка строк в накладную (Д-99). Понимает два формата:
+ * — строки накладной: Наименование, Категория, Кол-во, Ед., Цена[, Сумма];
+ * — журнал затрат (как на скриншоте, первая колонка — дата): тогда дата, валюта и поставщик
+ *   первой строки возвращаются для шапки накладной.
+ */
+export function parsePastedLines(
+  text: string,
+  lookups: { categories: Lookup[]; units: Lookup[]; suppliers: Lookup[] },
+): {
+  lines: PastedLine[];
+  header: { docDate: string; currency: string; supplierId: string } | null;
+} {
+  const rawLines = text.replace(/\r/g, "").split("\n");
+  const first = rawLines
+    .map((l) => l.split("\t")[0]?.trim() ?? "")
+    .find((c) => c !== "" && !/^(дата|наименование)/i.test(c));
+  if (first && parseRuDate(first)) {
+    const rows = parsePastedRows(text, lookups);
+    const head = rows[0];
+    return {
+      lines: rows.map(({ description, categoryId, quantity, unitId, price, unmatched }) => ({
+        description,
+        categoryId,
+        quantity,
+        unitId,
+        price,
+        unmatched: unmatched.filter((u) => !u.startsWith("дата") && !u.startsWith("поставщик")),
+      })),
+      header: head
+        ? { docDate: head.docDate, currency: head.currency, supplierId: head.supplierId }
+        : null,
+    };
+  }
+  const lines: PastedLine[] = [];
+  for (const line of rawLines) {
+    if (!line.trim()) continue;
+    const c = line.split("\t").map((s) => s.trim());
+    if (/^наименование/i.test(c[0] ?? "")) continue;
+    const [description = "", category = "", qty = "", unit = "", price = ""] = c;
+    const row: PastedLine = {
+      description,
+      categoryId: match(lookups.categories, category),
+      quantity: parseRuNumber(qty),
+      unitId: match(lookups.units, unit),
+      price: parseRuNumber(price),
+      unmatched: [],
+    };
+    if (category && !row.categoryId) row.unmatched.push(`категория «${category}»`);
+    if (unit && !row.unitId) row.unmatched.push(`ед. «${unit}»`);
+    lines.push(row);
+  }
+  return { lines, header: null };
 }

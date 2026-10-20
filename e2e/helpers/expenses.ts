@@ -1,34 +1,34 @@
 import { expect, type Page } from "@playwright/test";
 
+export type InvoiceLine = {
+  description: string;
+  category: string;
+  quantity: string;
+  price: string;
+  /** Для свободного наименования; у материала справочника единица подставляется сама. */
+  unit?: string;
+};
+
 /**
- * Строка в журнале «Затраты» (Д-97): заполняет пустую строку внизу таблицы и уводит фокус —
- * строка сохраняется и сразу становится долгом поставщику. Наименование, совпавшее с материалом
- * справочника, само подставляет единицу.
+ * Заполняет «Новую накладную» (Д-99): поставщик в шапке, строки в таблице (пустая строка внизу
+ * появляется сама). Сохранение — отдельно (saveInvoice).
  */
-export async function addExpense(
-  page: Page,
-  r: {
-    description: string;
-    category: string;
-    quantity: string;
-    price: string;
-    supplier: string;
-    unit?: string;
-  },
-) {
-  const rows = page.locator("tbody tr");
-  // Пустая строка ввода — последняя; после ввода под ней появится следующая, поэтому — по индексу.
-  const row = rows.nth((await rows.count()) - 1);
-  await row.getByLabel("Наименование").fill(r.description);
-  await row.getByLabel("Категория").selectOption({ label: r.category });
-  await row.getByLabel("Количество").fill(r.quantity);
-  if (r.unit) await row.getByLabel("Единица").selectOption({ label: r.unit });
-  await row.getByLabel("Цена за единицу").fill(r.price);
-  await row.getByLabel("Поставщик").selectOption({ label: r.supplier });
-  const saved = page.waitForResponse(
-    (res) => res.request().method() === "POST" && res.url().includes("/procurement/invoices"),
-  );
-  await page.getByRole("heading", { name: "Затраты" }).click(); // уход со строки → сохранение
-  await saved;
-  await expect(row.getByLabel(/Заполните|Сохраняется/)).toHaveCount(0);
+export async function fillInvoice(page: Page, supplier: string, lines: InvoiceLine[]) {
+  await page.getByLabel("Поставщик", { exact: true }).selectOption({ label: supplier });
+  for (const [i, l] of lines.entries()) {
+    const n = i + 1;
+    await page.getByLabel(`Наименование, строка ${n}`).fill(l.description);
+    await page.getByLabel(`Категория, строка ${n}`).selectOption({ label: l.category });
+    await page.getByLabel(`Количество, строка ${n}`).fill(l.quantity);
+    if (l.unit) await page.getByLabel(`Единица, строка ${n}`).selectOption({ label: l.unit });
+    await page.getByLabel(`Цена, строка ${n}`).fill(l.price);
+  }
+}
+
+/** «Сохранить накладную» → журнал накладных; возвращает присвоенный номер НК. */
+export async function saveInvoice(page: Page): Promise<string> {
+  await page.getByRole("button", { name: /^Сохранить (накладную|НК-)/ }).click();
+  await expect(page.getByRole("heading", { name: "Журнал накладных" })).toBeVisible();
+  const link = page.getByRole("link", { name: /^НК-\d{4}-\d{6}$/ }).first();
+  return (await link.textContent())!.trim();
 }

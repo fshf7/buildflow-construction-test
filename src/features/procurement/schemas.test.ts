@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  expenseRowFields,
+  invoiceLineFields,
+  invoiceSheetSchema,
   listFiltersSchema,
   REQUEST_OPERATIONS,
   requestDraftSchema,
@@ -62,30 +63,35 @@ describe("права на операции заявки (Д-92)", () => {
   });
 });
 
-describe("строка затрат (Д-97)", () => {
-  const row = {
-    docDate: "2026-06-01",
-    description: "Профиль 8*4",
+describe("накладная (Д-99)", () => {
+  const line = {
+    description: "Кирпич М150",
     materialId: "",
     categoryId: id,
-    quantity: "120",
+    quantity: "30000",
     unitId: id,
-    price: "32,00",
-    currency: "TJS",
-    supplierId: id,
-    docNumber: "",
+    price: "0,97",
   };
-  it("полная строка без № накладной — годится", () => {
-    expect(expenseRowFields.safeParse(row).success).toBe(true);
+  const sheet = {
+    id,
+    key: id,
+    projectId: id,
+    supplierId: id,
+    docDate: "2026-10-20",
+    docNumber: "",
+    currency: "TJS",
+    note: "",
+    lines: [line],
+  };
+  it("шапка + строки без № бумажной накладной — годится; цена 0 допустима", () => {
+    expect(invoiceSheetSchema.safeParse(sheet).success).toBe(true);
+    expect(invoiceLineFields.safeParse({ ...line, price: "0" }).success).toBe(true);
   });
-  it("без наименования, поставщика или с нулевой ценой — нет", () => {
-    for (const bad of [
-      { description: " " },
-      { supplierId: "" },
-      { price: "0" },
-      { quantity: "-1" },
-    ]) {
-      expect(expenseRowFields.safeParse({ ...row, ...bad }).success).toBe(false);
+  it("без поставщика, строк, категории или наименования — нет", () => {
+    expect(invoiceSheetSchema.safeParse({ ...sheet, supplierId: "" }).success).toBe(false);
+    expect(invoiceSheetSchema.safeParse({ ...sheet, lines: [] }).success).toBe(false);
+    for (const bad of [{ categoryId: "" }, { description: " " }, { quantity: "0" }]) {
+      expect(invoiceLineFields.safeParse({ ...line, ...bad }).success).toBe(false);
     }
   });
 });
