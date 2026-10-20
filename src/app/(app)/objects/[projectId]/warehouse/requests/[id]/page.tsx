@@ -119,10 +119,10 @@ export default async function RequestPage({
           {canInvoice ? (
             <div>
               <Link
-                href={href("/procurement/invoices")}
+                href={href("/procurement/invoices/new")}
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                Внести в затраты
+                Новая накладная
               </Link>
             </div>
           ) : null}

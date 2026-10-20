@@ -1,74 +1,83 @@
 import { expect, test } from "@playwright/test";
 
 import { ACCOUNTANT_STATE, CASHIER_STATE, LOCAL_STOREKEEPER, login } from "./helpers/accounts";
-import { addExpense } from "./helpers/expenses";
+import { fillInvoice, saveInvoice } from "./helpers/expenses";
 import { createWarehouseFixture } from "./helpers/fixture";
 
-// Д-97: журнал затрат как таблица Excel — ввод в ячейках, вставка строк из Google Таблиц,
-// долг поставщику сразу, склад видит без цен.
-test("затраты: ввод и вставка строк → долги у кассира; склад — без цен", async ({
+// Д-99: накладная из многих строк как в Excel → журнал накладных с номером → «Затраты» только для
+// просмотра → долг поставщику у кассира; исправление до оплаты; склад — без цен.
+test("накладная: ввод и вставка строк → журнал → затраты → долг; склад без цен", async ({
   browser,
   isMobile,
 }) => {
-  test.skip(isMobile, "таблица затрат — рабочее место бухгалтера (десктоп)");
+  test.skip(isMobile, "накладная — рабочее место бухгалтера (десктоп)");
   test.setTimeout(120_000);
   const fx = await createWarehouseFixture();
-  const url = `/objects/${fx.projectId}/procurement/invoices`;
+  const base = `/objects/${fx.projectId}/procurement`;
 
   const accCtx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
   const acc = await accCtx.newPage();
-  await acc.goto(url);
-  await expect(acc.getByRole("heading", { name: "Затраты" })).toBeVisible();
-
-  // Строка вручную: 120 × 32 = 3 840 (свободное наименование — единицу выбирают).
-  await addExpense(acc, {
-    description: "Профиль 8*4",
-    category: "Прочие расходы",
-    quantity: "120",
-    unit: "м",
-    price: "32",
-    supplier: fx.s1,
-  });
-  await expect(acc.getByText(/Строк: 1/)).toContainText("3 840,00 смн");
-
-  // Две строки из Google Таблиц (табами, с заголовком): сопоставляются по названиям.
+  await acc.goto(`${base}/invoices/new`);
+  // Строка вручную: 29 × 30 = 870 (свободное наименование — единицу выбирают).
+  await fillInvoice(acc, fx.s1, [
+    {
+      description: "Гипс штукатурный",
+      category: "Конструктив",
+      quantity: "29",
+      unit: "меш",
+      price: "30",
+    },
+  ]);
+  // Ещё две строки — вставкой из Google Таблиц (формат накладной, табами).
   const tsv = [
-    "Дата\tНаименование товара\tКатегория\tКол-во\tЕд. Из.\tЦена за ед.\tВалюта\tСумма\tПоставщик",
-    `01.06.2026\tГурунч\tПродукты\t100\tкг\t11,00\tсмн\t1 100,00\t${fx.s2}`,
-    `01.06.2026\tБехи\tПродукты\t143\tкг\t3,50\tсмн\t500,50\t${fx.s2}`,
+    "Кирпич М150\tКонструктив\t300\tшт\t0,97",
+    "Доставка\tТранспортировка\t1\tшт\t500",
   ].join("\n");
-  const input = acc.locator("tbody tr").last().getByLabel("Наименование");
-  await input.focus();
-  await input.evaluate((el, text) => {
+  const empty = acc.getByLabel("Наименование, строка 2");
+  await empty.focus();
+  await empty.evaluate((el, text) => {
     const data = new DataTransfer();
     data.setData("text/plain", text);
     el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
   }, tsv);
-  await acc.getByRole("button", { name: "Сохранить строки (2)" }).click();
-  await expect(acc.getByText(/Строк: 3/)).toContainText("5 440,50 смн");
+  await expect(acc.getByLabel("Наименование, строка 3")).toHaveValue("Доставка");
+  await expect(acc.getByRole("row", { name: /Итого/ })).toContainText("1 661,00 смн");
+  const number = await saveInvoice(acc);
+  const row = acc.getByRole("row", { name: new RegExp(number) });
+  await expect(row).toContainText("1 661,00");
+  await expect(row).toContainText("Долг");
 
-  // Фильтр по поставщику — итог только его строк.
-  await acc.getByRole("button", { name: /Фильтры/ }).click();
-  await acc.getByLabel("Фильтр по поставщику").selectOption({ label: fx.s2 });
-  await expect(acc.getByText(/Строк: 2/)).toContainText("1 600,50 смн");
+  // Затраты: строки накладной, только чтение, без «Оплаты».
+  await acc.getByRole("link", { name: "Затраты" }).click();
+  await expect(acc.getByText(/Строк: 3/)).toContainText("1 661,00 смн");
+  await expect(acc.getByRole("columnheader", { name: "Оплата" })).toHaveCount(0);
+  await expect(acc.getByRole("textbox")).toHaveCount(0);
+
+  // Исправление до оплаты: доставка 400 вместо 500 — номер тот же, сумма 1 561.
+  await acc.getByRole("link", { name: number }).first().click();
+  await acc.getByRole("link", { name: "Исправить" }).click();
+  await acc.getByLabel("Цена, строка 3").fill("400");
+  await acc.getByRole("button", { name: `Сохранить ${number}` }).click();
+  await expect(acc.getByRole("row", { name: new RegExp(number) })).toContainText("1 561,00");
   await accCtx.close();
 
-  // Кассир: оба поставщика с долгами по объекту.
+  // Кассир: долг поставщику по объекту.
   const cashCtx = await browser.newContext({ storageState: CASHIER_STATE });
   const cash = await cashCtx.newPage();
   await cash.goto(`/objects/${fx.projectId}/finance/pay`);
-  await expect(cash.getByRole("link", { name: new RegExp(fx.s1) })).toContainText(/3\s840,00 TJS/);
-  await expect(cash.getByRole("link", { name: new RegExp(fx.s2) })).toContainText(/1\s600,50 TJS/);
+  await expect(cash.getByRole("link", { name: new RegExp(fx.s1) })).toContainText(/1\s561,00 TJS/);
   await cashCtx.close();
 
-  // Склад: та же таблица только для чтения, без цены и суммы.
+  // Склад: журнал и затраты без цен и сумм, «Новой накладной» нет.
   const whCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const wh = await whCtx.newPage();
   await login(wh, LOCAL_STOREKEEPER.email, LOCAL_STOREKEEPER.password);
-  await wh.goto(url);
-  await expect(wh.getByText("Гурунч")).toBeVisible();
-  await expect(wh.getByRole("columnheader", { name: "Цена за ед." })).toHaveCount(0);
+  await wh.goto(`${base}/invoices`);
+  await expect(wh.getByRole("link", { name: number })).toBeVisible();
   await expect(wh.getByRole("columnheader", { name: "Сумма" })).toHaveCount(0);
-  await expect(wh.getByLabel("Наименование")).toHaveCount(0);
+  await expect(wh.getByRole("link", { name: "Новая накладная" })).toHaveCount(0);
+  await wh.goto(`${base}/expenses`);
+  await expect(wh.getByText("Кирпич М150")).toBeVisible();
+  await expect(wh.getByRole("columnheader", { name: "Цена за ед." })).toHaveCount(0);
   await whCtx.close();
 });

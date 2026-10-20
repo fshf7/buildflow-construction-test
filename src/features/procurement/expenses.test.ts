@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterExpenseRows,
+  parsePastedLines,
   parsePastedRows,
   parseRuDate,
   parseRuNumber,
@@ -27,9 +28,6 @@ const row = (over: Partial<ExpenseRow>): ExpenseRow => ({
   supplierId: "s-firdavs",
   supplierName: "Фирдавс",
   docNumber: null,
-  paid: 0,
-  debtStatus: "OPEN",
-  editable: true,
   ...over,
 });
 
@@ -73,18 +71,44 @@ describe("журнал затрат (Д-97)", () => {
     expect(rows[0]!.unmatched).toEqual(["категория «Прочее»", "ед. «метр»", "поставщик «Фирдавс»"]);
   });
 
-  it("фильтры: период, текст, поставщик, долг; отменённые скрыты по умолчанию", () => {
+  it("фильтры: период, текст, поставщик, категория; отменённые скрыты по умолчанию", () => {
     const rows = [
       row({ key: "1" }),
       row({ key: "2", docDate: "2026-07-01", supplierId: "s2", supplierName: "Рустам Юсуф" }),
       row({ key: "3", status: "CANCELLED" }),
-      row({ key: "4", debtStatus: "PAID", paid: 3840 }),
+      row({ key: "4", categoryId: "c-food" }),
     ];
     expect(filterExpenseRows(rows, {}).map((r) => r.key)).toEqual(["1", "2", "4"]);
     expect(filterExpenseRows(rows, { from: "2026-06-15" }).map((r) => r.key)).toEqual(["2"]);
     expect(filterExpenseRows(rows, { text: "рустам" }).map((r) => r.key)).toEqual(["2"]);
-    expect(filterExpenseRows(rows, { pay: "debt" }).map((r) => r.key)).toEqual(["1", "2"]);
+    expect(filterExpenseRows(rows, { categoryId: "c-food" }).map((r) => r.key)).toEqual(["4"]);
     expect(filterExpenseRows(rows, { showCancelled: true })).toHaveLength(4);
+  });
+
+  it("вставка в накладную: строки накладной и строки журнала (шапка — из первой строки)", () => {
+    const lookups = {
+      categories: [{ id: "c-k", name: "Конструктив" }],
+      units: [{ id: "u-sht", name: "шт" }],
+      suppliers: [{ id: "s-b", name: "ООО «Бетон»" }],
+    };
+    const own = parsePastedLines("Кирпич М150\tКонструктив\t30000\tшт\t0,97\t29 100,00", lookups);
+    expect(own.header).toBeNull();
+    expect(own.lines).toEqual([
+      {
+        description: "Кирпич М150",
+        categoryId: "c-k",
+        quantity: "30000",
+        unitId: "u-sht",
+        price: "0,97",
+        unmatched: [],
+      },
+    ]);
+    const journal = parsePastedLines(
+      "20.10.2026\tКирпич М150\tКонструктив\t30000\tшт\t0,97\tсмн\t29 100,00\tООО «Бетон»",
+      lookups,
+    );
+    expect(journal.header).toEqual({ docDate: "2026-10-20", currency: "TJS", supplierId: "s-b" });
+    expect(journal.lines[0]).toMatchObject({ description: "Кирпич М150", price: "0,97" });
   });
 
   it("итоги по валютам — без отменённых и без строк без цены", () => {

@@ -1351,3 +1351,15 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
 - UI: `features/procurement/components/expenses-grid.tsx`; общая логика фильтров/итогов/вставки —
   `features/procurement/expenses.ts` (и экран, и выгрузка `…/procurement/invoices/export`). Тест — pgTAP `160_expenses`.
 
+## 21. Накладная как таблица (Д-99; миграция `20261024000000_invoice_sheet.sql`)
+
+- `supplier_invoice_items.category_id` (FK на категорию той же организации; строки Д-97 заполнены из
+  `supplier_invoices.category_id`); `supplier_invoice_items_priced` — с `category_id`.
+- `public.save_supplier_invoice(p_id, p_key, p_project_id, p_supplier_id, p_doc_date, p_doc_number, p_currency,
+  p_note, p_lines)`: новая → строки, `CONFIRMED`, номер НК, `payables`; существующая без оплат → `ENTERED`,
+  замена строк, `CONFIRMED` (номер прежний), обязательство обновляется; с оплатой — `BF_HAS_PAYMENTS`.
+- Маршруты: `procurement/invoices/new`, `procurement/invoices` (журнал), `procurement/invoices/[id]` (+`/edit`),
+  `procurement/expenses` (+`/export`). Редактор — `features/procurement/components/invoice-sheet.tsx`
+  (react-hook-form, `useFormDraft`); затраты — `expenses-table.tsx`; вставка — `parsePastedLines` (`expenses.ts`).
+  Тест — pgTAP `170_invoice_sheet`.
+

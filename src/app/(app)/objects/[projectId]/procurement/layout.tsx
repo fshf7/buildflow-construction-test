@@ -5,22 +5,34 @@ import { requireOrg } from "@/lib/auth/access";
 import { hasAnyPermission, hasPermission } from "@/lib/auth/access-model";
 import { objectHref } from "@/lib/routes";
 
+/** Закупки объекта (Д-99): новая накладная, журнал накладных, затраты, согласования. */
 export default async function ProcurementLayout({
   children,
   params,
 }: LayoutProps<"/objects/[projectId]/procurement">) {
   const { projectId } = await params;
   const org = await requireOrg();
-  // Д-98: заявки склада — в разделе «Склад»; здесь — журнал затрат и согласования.
   if (!hasAnyPermission(org, ["supplier_invoices.view", "goods_receipts.approve_correction"])) {
     redirect("/no-access?reason=forbidden");
   }
+  const href = (path: string) => objectHref(projectId, path);
+  const canView = hasPermission(org, "supplier_invoices.view");
   const tabs = [
-    ...(hasPermission(org, "supplier_invoices.view")
-      ? [{ href: objectHref(projectId, "/procurement/invoices"), label: "Затраты" }]
+    ...(hasPermission(org, "supplier_invoices.manage")
+      ? [{ href: href("/procurement/invoices/new"), label: "Новая накладная" }]
+      : []),
+    ...(canView
+      ? [
+          {
+            href: href("/procurement/invoices"),
+            label: "Журнал накладных",
+            except: [href("/procurement/invoices/new")],
+          },
+          { href: href("/procurement/expenses"), label: "Затраты" },
+        ]
       : []),
     ...(hasPermission(org, "goods_receipts.approve_correction")
-      ? [{ href: objectHref(projectId, "/procurement/approvals"), label: "Согласования" }]
+      ? [{ href: href("/procurement/approvals"), label: "Согласования" }]
       : []),
   ];
   return (

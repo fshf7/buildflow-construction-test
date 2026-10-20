@@ -2502,6 +2502,7 @@ export type Database = {
       supplier_invoice_items: {
         Row: {
           amount: number | null;
+          category_id: string | null;
           created_at: string;
           created_by: string | null;
           description: string | null;
@@ -2519,6 +2520,7 @@ export type Database = {
         };
         Insert: {
           amount?: number | null;
+          category_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
@@ -2536,6 +2538,7 @@ export type Database = {
         };
         Update: {
           amount?: number | null;
+          category_id?: string | null;
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
@@ -2552,6 +2555,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "supplier_invoice_items_category_id_organization_id_fkey";
+            columns: ["category_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "expense_categories";
+            referencedColumns: ["id", "organization_id"];
+          },
           {
             foreignKeyName: "supplier_invoice_items_material_id_organization_id_fkey";
             columns: ["material_id", "organization_id"];
@@ -3437,6 +3447,7 @@ export type Database = {
       supplier_invoice_items_priced: {
         Row: {
           amount: number | null;
+          category_id: string | null;
           description: string | null;
           id: string | null;
           line_no: number | null;
@@ -3451,6 +3462,7 @@ export type Database = {
         };
         Insert: {
           amount?: number | null;
+          category_id?: string | null;
           description?: string | null;
           id?: string | null;
           line_no?: number | null;
@@ -3465,6 +3477,7 @@ export type Database = {
         };
         Update: {
           amount?: number | null;
+          category_id?: string | null;
           description?: string | null;
           id?: string | null;
           line_no?: number | null;
@@ -4102,6 +4115,20 @@ export type Database = {
           p_quantity: number;
           p_supplier_id: string;
           p_unit_id: string;
+        };
+        Returns: Json;
+      };
+      save_supplier_invoice: {
+        Args: {
+          p_currency: string;
+          p_doc_date: string;
+          p_doc_number: string;
+          p_id: string;
+          p_key: string;
+          p_lines: Json;
+          p_note: string;
+          p_project_id: string;
+          p_supplier_id: string;
         };
         Returns: Json;
       };

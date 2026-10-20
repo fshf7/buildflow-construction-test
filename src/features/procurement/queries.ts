@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
-import type { DebtStatus, ExpenseRow } from "./expenses";
+import type { ExpenseRow } from "./expenses";
 import type { InvoiceStatus, RequestStatus } from "./labels";
 import type { ListFilters } from "./schemas";
 
@@ -183,20 +183,20 @@ export async function getRequest(orgId: string, id: string): Promise<RequestDeta
 // ---------------------------------------------------------------------------------------
 
 /**
- * Журнал затрат объекта (Д-97): строка таблицы = строка накладной. Цены — только с prices.view
- * (через *_priced, Д-24), долги — с payables.view. Три запроса параллельно.
+ * Журнал затрат объекта (Д-97, Д-99): строка таблицы = строка накладной. Цены — только с
+ * prices.view (через *_priced, Д-24). Категория — у строки (у строк Д-97 — перенесена миграцией).
  */
 export async function listExpenseRows(
   orgId: string,
   projectId: string,
-  access: { prices: boolean; debts: boolean },
+  access: { prices: boolean },
 ): Promise<ExpenseRow[]> {
   const supabase = await createClient();
-  const [docs, priced, debts] = await Promise.all([
+  const [docs, priced] = await Promise.all([
     supabase
       .from("supplier_invoices")
       .select(
-        "id, number, status, doc_date, created_at, category_id, supplier_id, supplier_doc_number, currency, suppliers(name), supplier_invoice_items(id, line_no, description, material_id, unit_id, quantity, materials(name), units_of_measure(code))",
+        "id, number, status, doc_date, created_at, category_id, supplier_id, supplier_doc_number, currency, suppliers(name), supplier_invoice_items(id, line_no, description, material_id, category_id, unit_id, quantity, materials(name), units_of_measure(code))",
       )
       .eq("organization_id", orgId)
       .eq("project_id", projectId)
@@ -212,50 +212,119 @@ export async function listExpenseRows(
           data: [] as { id: string | null; price: number | null; amount: number | null }[],
           error: null,
         }),
+  ]);
+  for (const r of [docs, priced]) if (r.error) throw new Error(r.error.message);
+
+  const prices = new Map((priced.data ?? []).map((p) => [p.id ?? "", p]));
+  return (docs.data ?? []).flatMap((v) =>
+    [...v.supplier_invoice_items]
+      .sort((a, b) => a.line_no - b.line_no)
+      .map((i) => {
+        const p = prices.get(i.id);
+        return {
+          key: i.id,
+          invoiceId: v.id,
+          number: v.number,
+          status: v.status,
+          docDate: v.doc_date,
+          description: i.description ?? i.materials?.name ?? "",
+          materialId: i.material_id,
+          categoryId: i.category_id ?? v.category_id,
+          quantity: Number(i.quantity),
+          unitId: i.unit_id,
+          unitCode: i.units_of_measure?.code ?? "",
+          price: access.prices ? Number(p?.price ?? 0) : null,
+          amount: access.prices ? Number(p?.amount ?? 0) : null,
+          currency: v.currency,
+          supplierId: v.supplier_id,
+          supplierName: v.suppliers?.name ?? "",
+          docNumber: v.supplier_doc_number,
+        } satisfies ExpenseRow;
+      }),
+  );
+}
+
+export type InvoiceJournalRow = {
+  id: string;
+  number: string | null;
+  docDate: string;
+  status: InvoiceStatus;
+  supplierName: string;
+  docNumber: string | null;
+  linesCount: number;
+  /** null — без prices.view (склад). */
+  total: number | null;
+  currency: string;
+  /** null — без payables.view или долга ещё нет. */
+  debt: { amount: number; paid: number; status: string } | null;
+};
+
+/** Журнал накладных объекта (Д-99): новые сверху. Фильтры — из URL (номер, поставщик, период). */
+export async function listInvoiceJournal(
+  orgId: string,
+  projectId: string,
+  f: ListFilters,
+  access: { prices: boolean; debts: boolean },
+): Promise<InvoiceJournalRow[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("supplier_invoices")
+    .select(
+      "id, number, doc_date, status, supplier_doc_number, currency, suppliers(name), supplier_invoice_items(id)",
+    )
+    .eq("organization_id", orgId)
+    .eq("project_id", projectId)
+    .order("doc_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (f.supplier) query = query.eq("supplier_id", f.supplier);
+  if (f.from) query = query.gte("doc_date", f.from);
+  if (f.to) query = query.lte("doc_date", f.to);
+  if (f.q) query = query.or(`number.ilike.%${f.q}%,supplier_doc_number.ilike.%${f.q}%`);
+  const [docs, totals, debts] = await Promise.all([
+    query,
+    access.prices
+      ? supabase
+          .from("supplier_invoices_priced")
+          .select("id, total_amount")
+          .eq("project_id", projectId)
+      : Promise.resolve({
+          data: [] as { id: string | null; total_amount: number | null }[],
+          error: null,
+        }),
     access.debts
       ? supabase
           .from("payables")
-          .select("source_doc_id, paid_amount, status")
+          .select("source_doc_id, amount, paid_amount, status")
           .eq("project_id", projectId)
           .eq("source_doc_type", "SUPPLIER_INVOICE")
       : Promise.resolve({
-          data: [] as { source_doc_id: string; paid_amount: number; status: DebtStatus }[],
+          data: [] as {
+            source_doc_id: string;
+            amount: number;
+            paid_amount: number;
+            status: string;
+          }[],
           error: null,
         }),
   ]);
-  for (const r of [docs, priced, debts]) if (r.error) throw new Error(r.error.message);
-
-  const prices = new Map((priced.data ?? []).map((p) => [p.id ?? "", p]));
-  const payables = new Map((debts.data ?? []).map((p) => [p.source_doc_id, p]));
-  return (docs.data ?? []).flatMap((v) => {
-    const items = [...v.supplier_invoice_items].sort((a, b) => a.line_no - b.line_no);
-    const debt = payables.get(v.id);
-    return items.map((i) => {
-      const p = prices.get(i.id);
-      return {
-        key: i.id,
-        invoiceId: v.id,
-        number: v.number,
-        status: v.status,
-        docDate: v.doc_date,
-        description: i.description ?? i.materials?.name ?? "",
-        materialId: i.material_id,
-        categoryId: v.category_id,
-        quantity: Number(i.quantity),
-        unitId: i.unit_id,
-        unitCode: i.units_of_measure?.code ?? "",
-        price: access.prices ? Number(p?.price ?? 0) : null,
-        amount: access.prices ? Number(p?.amount ?? 0) : null,
-        currency: v.currency,
-        supplierId: v.supplier_id,
-        supplierName: v.suppliers?.name ?? "",
-        docNumber: v.supplier_doc_number,
-        paid: debt ? Number(debt.paid_amount) : null,
-        debtStatus: debt?.status ?? null,
-        editable:
-          v.status === "CONFIRMED" && items.length === 1 && Number(debt?.paid_amount ?? 0) === 0,
-      } satisfies ExpenseRow;
-    });
+  for (const r of [docs, totals, debts]) if (r.error) throw new Error(r.error.message);
+  const total = new Map((totals.data ?? []).map((t) => [t.id ?? "", Number(t.total_amount ?? 0)]));
+  const debt = new Map((debts.data ?? []).map((d) => [d.source_doc_id, d]));
+  return (docs.data ?? []).map((v) => {
+    const d = debt.get(v.id);
+    return {
+      id: v.id,
+      number: v.number,
+      docDate: v.doc_date,
+      status: v.status,
+      supplierName: v.suppliers?.name ?? "",
+      docNumber: v.supplier_doc_number,
+      linesCount: v.supplier_invoice_items.length,
+      total: access.prices ? (total.get(v.id) ?? 0) : null,
+      currency: v.currency,
+      debt: d ? { amount: Number(d.amount), paid: Number(d.paid_amount), status: d.status } : null,
+    };
   });
 }
 export type InvoiceLine = {
@@ -263,6 +332,7 @@ export type InvoiceLine = {
   materialId: string | null;
   materialName: string | null;
   description: string | null;
+  categoryId: string | null;
   unitId: string;
   unit: string;
   quantity: number;
@@ -276,6 +346,7 @@ export type InvoiceDetail = {
   id: string;
   number: string | null;
   status: InvoiceStatus;
+  docDate: string;
   projectId: string;
   projectLabel: string;
   supplierId: string;
@@ -303,7 +374,7 @@ export async function getInvoice(
   const { data: v, error } = await supabase
     .from("supplier_invoices")
     .select(
-      "id, number, status, project_id, supplier_id, purchase_request_id, supplier_doc_number, supplier_doc_date, currency, note, cancel_reason, confirmed_at, suppliers(name), projects(code, name), purchase_requests(number)",
+      "id, number, status, doc_date, category_id, project_id, supplier_id, purchase_request_id, supplier_doc_number, supplier_doc_date, currency, note, cancel_reason, confirmed_at, suppliers(name), projects(code, name), purchase_requests(number)",
     )
     .eq("organization_id", orgId)
     .eq("id", id)
@@ -315,7 +386,7 @@ export async function getInvoice(
     supabase
       .from("supplier_invoice_items")
       .select(
-        "id, line_no, material_id, description, unit_id, quantity, purchase_request_item_id, materials(name), units_of_measure(code)",
+        "id, line_no, material_id, description, category_id, unit_id, quantity, purchase_request_item_id, materials(name), units_of_measure(code)",
       )
       .eq("supplier_invoice_id", id)
       .order("line_no"),
@@ -374,6 +445,7 @@ export async function getInvoice(
     id: v.id,
     number: v.number,
     status: v.status,
+    docDate: v.doc_date,
     projectId: v.project_id,
     projectLabel: v.projects ? `${v.projects.code} — ${v.projects.name}` : "—",
     supplierId: v.supplier_id,
@@ -399,6 +471,7 @@ export async function getInvoice(
       materialId: i.material_id,
       materialName: i.materials?.name ?? null,
       description: i.description,
+      categoryId: i.category_id ?? v.category_id,
       unitId: i.unit_id,
       unit: i.units_of_measure?.code ?? "",
       quantity: Number(i.quantity),

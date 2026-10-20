@@ -15,6 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { colorPill } from "@/features/catalog/expense-colors";
+import { listExpenseCategories } from "@/features/catalog/queries";
 import { InvoiceActions } from "@/features/procurement/components/invoice-actions";
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_TONE } from "@/features/procurement/labels";
 import { getInvoice } from "@/features/procurement/queries";
@@ -39,15 +41,23 @@ export default async function InvoicePage({
   const { projectId, id } = await params;
   const { org, project } = await requireObject(projectId, "supplier_invoices.view");
   const withPrices = hasPermission(org, "prices.view");
-  const invoice = await getInvoice(org.id, id, withPrices);
+  const [invoice, categories] = await Promise.all([
+    getInvoice(org.id, id, withPrices),
+    listExpenseCategories(org.id),
+  ]);
   if (!invoice) notFound();
   ensureDocInObject(project.id, invoice.projectId, `/procurement/invoices/${id}`);
   const canManage = hasPermission(org, "supplier_invoices.manage");
+  // Д-99: исправить можно, пока по накладной нет оплаты.
+  const canEdit = canManage && invoice.status !== "CANCELLED" && (invoice.payable?.paid ?? 0) === 0;
+  const category = new Map(categories.map((c) => [c.id, c]));
+  // Колонка «Принято складом» — только у накладных, связанных со строками заявки (до Д-97).
+  const withReceived = invoice.lines.some((l) => l.purchaseRequestItemId);
 
   return (
     <>
       <PageHeader
-        title={invoice.number ? `Затраты ${invoice.number}` : "Накладная (введена)"}
+        title={invoice.number ? `Накладная ${invoice.number}` : "Накладная (введена)"}
         description={[
           invoice.supplierName,
           invoice.supplierDocNumber
@@ -57,12 +67,22 @@ export default async function InvoicePage({
           .filter(Boolean)
           .join(" · ")}
         actions={
-          <Link
-            href={objectHref(project.id, "/procurement/invoices")}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            К журналу затрат
-          </Link>
+          <>
+            {canEdit ? (
+              <Link
+                href={objectHref(project.id, `/procurement/invoices/${invoice.id}/edit`)}
+                className={buttonVariants()}
+              >
+                Исправить
+              </Link>
+            ) : null}
+            <Link
+              href={objectHref(project.id, "/procurement/invoices")}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              К журналу накладных
+            </Link>
+          </>
         }
       />
       <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -99,9 +119,10 @@ export default async function InvoicePage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Материал / услуга</TableHead>
-              <TableHead className="text-right">По накладной</TableHead>
-              <TableHead className="text-right">Принято складом</TableHead>
+              <TableHead>Наименование</TableHead>
+              <TableHead>Категория</TableHead>
+              <TableHead className="text-right">Кол-во</TableHead>
+              {withReceived ? <TableHead className="text-right">Принято складом</TableHead> : null}
               {withPrices ? (
                 <>
                   <TableHead className="text-right">Цена</TableHead>
@@ -114,13 +135,29 @@ export default async function InvoicePage({
             {invoice.lines.map((l) => {
               // Сверка (UNDER_REVIEW): количество в накладной и фактически принятое по строке заявки.
               const mismatch = l.received !== null && l.received !== l.quantity;
+              const c = l.categoryId ? category.get(l.categoryId) : undefined;
               return (
                 <TableRow key={l.id}>
-                  <TableCell>{l.materialName ?? l.description}</TableCell>
-                  <TableCell className="text-right">{formatQuantity(l.quantity, l.unit)}</TableCell>
-                  <TableCell className={cn("text-right", mismatch && "font-medium text-amber-700")}>
-                    {l.received === null ? "—" : formatQuantity(l.received, l.unit)}
+                  <TableCell className="whitespace-normal">
+                    {l.description ?? l.materialName}
                   </TableCell>
+                  <TableCell>
+                    {c ? (
+                      <span className={cn("rounded-full px-2 py-0.5 text-xs", colorPill(c.color))}>
+                        {c.name}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">{formatQuantity(l.quantity, l.unit)}</TableCell>
+                  {withReceived ? (
+                    <TableCell
+                      className={cn("text-right", mismatch && "font-medium text-amber-700")}
+                    >
+                      {l.received === null ? "—" : formatQuantity(l.received, l.unit)}
+                    </TableCell>
+                  ) : null}
                   {withPrices ? (
                     <>
                       <TableCell className="text-right">
@@ -138,7 +175,7 @@ export default async function InvoicePage({
           {withPrices ? (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={4} className="text-right">
+                <TableCell colSpan={withReceived ? 5 : 4} className="text-right">
                   Итого
                 </TableCell>
                 <TableCell className="text-right font-semibold">

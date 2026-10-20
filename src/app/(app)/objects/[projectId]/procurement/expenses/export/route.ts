@@ -21,7 +21,7 @@ import { rateLimit, tooManyMessage } from "@/lib/security/rate-limit";
  */
 export async function GET(
   request: Request,
-  ctx: RouteContext<"/objects/[projectId]/procurement/invoices/export">,
+  ctx: RouteContext<"/objects/[projectId]/procurement/expenses/export">,
 ) {
   const { projectId } = await ctx.params;
   const org = await getCurrentOrg();
@@ -40,7 +40,6 @@ export async function GET(
   }
 
   const sp = new URL(request.url).searchParams;
-  const pay = sp.get("pay");
   const filters: ExpenseFilters = {
     from: sp.get("from") ?? undefined,
     to: sp.get("to") ?? undefined,
@@ -48,12 +47,11 @@ export async function GET(
     categoryId: sp.get("categoryId") ?? undefined,
     supplierId: sp.get("supplierId") ?? undefined,
     currency: sp.get("currency") ?? undefined,
-    pay: pay === "debt" || pay === "paid" ? pay : undefined,
     showCancelled: sp.get("showCancelled") === "true",
   };
   const prices = hasPermission(org, "prices.view");
   const [rows, categories] = await Promise.all([
-    listExpenseRows(org.id, project.id, { prices, debts: hasPermission(org, "payables.view") }),
+    listExpenseRows(org.id, project.id, { prices }),
     listExpenseCategories(org.id),
   ]);
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
@@ -73,8 +71,8 @@ export async function GET(
         ] satisfies Column[])
       : []),
     { key: "supplier", label: "Поставщик", kind: "text" },
-    { key: "docNumber", label: "№ накладной", kind: "text" },
-    { key: "number", label: "Номер в системе", kind: "text" },
+    { key: "docNumber", label: "№ поставщика", kind: "text" },
+    { key: "number", label: "Накладная", kind: "text" },
   ];
   const data = visible.map((r) => ({
     date: r.docDate,

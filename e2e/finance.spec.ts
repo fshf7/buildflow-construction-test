@@ -1,10 +1,10 @@
 import { devices, expect, test } from "@playwright/test";
 
 import { ACCOUNTANT_STATE, CASHIER_STATE, selectByText } from "./helpers/accounts";
-import { addExpense } from "./helpers/expenses";
+import { fillInvoice, saveInvoice } from "./helpers/expenses";
 import { createCashAccount, createWarehouseFixture } from "./helpers/fixture";
 
-// Фаза 3 (US-05, US-06): ввод остатка кассы → строка затрат 150 000 → кассир с телефона платит 60 000 →
+// Фаза 3 (US-05, US-06): ввод остатка кассы → накладная 150 000 → кассир с телефона платит 60 000 →
 // долг 90 000 → переплата запрещена → сторно оплаты восстанавливает долг.
 test("частичная оплата долга поставщику и сторно", async ({ browser, isMobile }) => {
   test.skip(isMobile, "один сквозной сценарий; кассир внутри теста — на смартфоне");
@@ -24,16 +24,13 @@ test("частичная оплата долга поставщику и сто�
   await acc.getByRole("button", { name: "Провести" }).click();
   await expect(acc.getByRole("heading", { name: /^Ввод остатков ВО-/ })).toBeVisible();
 
-  // ---- Бухгалтер: строка затрат на 150 000 — долг поставщику сразу (Д-97) ----
-  await acc.goto(`/objects/${fx.projectId}/procurement/invoices`);
-  await addExpense(acc, {
-    description: fx.cement,
-    category: "Конструктив",
-    quantity: "100000",
-    price: "1,5",
-    supplier: fx.s1,
-  });
-  await expect(acc.getByText(/Строк: 1/)).toContainText(/150\s000,00 смн/);
+  // ---- Бухгалтер: накладная на 150 000 — номер и долг поставщику сразу при сохранении (Д-99) ----
+  await acc.goto(`/objects/${fx.projectId}/procurement/invoices/new`);
+  await fillInvoice(acc, fx.s1, [
+    { description: fx.cement, category: "Конструктив", quantity: "100000", price: "1,5" },
+  ]);
+  const number = await saveInvoice(acc);
+  await expect(acc.getByRole("row", { name: new RegExp(number) })).toContainText(/150\s000,00/);
 
   // ---- US-06: кассир с телефона платит 60 000 и видит остаток долга ----
   const cashCtx = await browser.newContext({
