@@ -7,11 +7,13 @@ import { useState, useTransition } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { DraftRestoredNotice } from "@/components/draft-restored-notice";
 import { NativeSelect } from "@/components/native-select";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { toNumber } from "@/lib/decimal";
+import { useFormDraft } from "@/lib/form-draft";
 import { formatMoney } from "@/lib/format";
 import { useDocumentId } from "@/lib/idempotency";
 import type { MaterialOption, Option } from "@/features/shared/lookups";
@@ -28,7 +30,10 @@ const emptyLine = {
   purchaseRequestItemId: "",
 };
 
-/** Накладная поставщика: материалы и услуги (Д-13), связь со строками заявки для сверки. */
+/**
+ * Накладная поставщика: материалы и услуги (Д-13), связь со строками заявки для сверки.
+ * Несохранённый ввод держится на устройстве (draftKey) — переход в другой раздел его не стирает.
+ */
 export function InvoiceEditor({
   initial,
   projects,
@@ -36,6 +41,7 @@ export function InvoiceEditor({
   materials,
   units,
   requests,
+  draftKey,
 }: {
   initial: Partial<InvoiceDraftInput>;
   projects: Option[];
@@ -43,6 +49,7 @@ export function InvoiceEditor({
   materials: MaterialOption[];
   units: Option[];
   requests: { id: string; projectId: string; label: string }[];
+  draftKey: string;
 }) {
   const router = useRouter();
   const id = useDocumentId(initial.id);
@@ -74,22 +81,35 @@ export function InvoiceEditor({
     return Number.isFinite(v) ? sum + Math.round(v * 100) / 100 : sum;
   }, 0);
 
+  const draft = useFormDraft(form, draftKey);
+
+  // id — из значений формы: у восстановленного ввода он прежний, повтор сохранения не создаст дубль.
   const onSubmit = form.handleSubmit((values) => {
     setServerError(null);
     startTransition(async () => {
-      const result = await saveInvoiceDraft({ ...values, id });
+      const result = await saveInvoiceDraft(values);
       if (!result.ok) {
         setServerError(result.error);
         return;
       }
+      draft.clear();
       toast.success("Накладная сохранена");
-      router.push(`/procurement/invoices/${id}`);
+      router.push(`/procurement/invoices/${values.id}`);
     });
   });
 
   return (
     <form onSubmit={onSubmit} noValidate>
       <FieldGroup>
+        {draft.restoredAt ? (
+          <DraftRestoredNotice
+            savedAt={draft.restoredAt}
+            onClear={() => {
+              draft.clear();
+              form.reset();
+            }}
+          />
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field data-invalid={Boolean(errors.projectId)}>
             <FieldLabel htmlFor="projectId">Объект</FieldLabel>

@@ -11,6 +11,7 @@ import {
   listUnitOptions,
 } from "@/features/shared/lookups";
 import { requirePermission } from "@/lib/auth/access";
+import { draftStorageKey } from "@/lib/form-draft-store";
 
 export const metadata: Metadata = { title: "Накладная" };
 
@@ -45,6 +46,7 @@ export default async function EditInvoicePage({
         materials={materials}
         units={units}
         requests={requests}
+        draftKey={draftStorageKey(org.member_id, `invoice.${id}`)}
         initial={{
           id: invoice.id,
           projectId: invoice.projectId,

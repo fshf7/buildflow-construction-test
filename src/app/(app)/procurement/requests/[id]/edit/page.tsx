@@ -6,6 +6,7 @@ import { RequestEditor } from "@/features/procurement/components/request-editor"
 import { getRequest } from "@/features/procurement/queries";
 import { listMaterialOptions, listProjectOptions } from "@/features/shared/lookups";
 import { requirePermission } from "@/lib/auth/access";
+import { draftStorageKey } from "@/lib/form-draft-store";
 
 export const metadata: Metadata = { title: "Черновик заявки" };
 
@@ -30,6 +31,7 @@ export default async function EditRequestPage({
       <RequestEditor
         projects={projects}
         materials={materials}
+        draftKey={draftStorageKey(org.member_id, `request.${id}`)}
         initial={{
           id: request.id,
           projectId: request.projectId,

@@ -10,6 +10,7 @@ import {
   listUnitOptions,
 } from "@/features/shared/lookups";
 import { requirePermission } from "@/lib/auth/access";
+import { draftStorageKey } from "@/lib/form-draft-store";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Новая накладная" };
@@ -62,6 +63,9 @@ export default async function NewInvoicePage({
     };
   }
 
+  // Переход «из заявки» (и от конкретного поставщика) — свой ввод, не подменяется пустой формой.
+  const draftScope = ["invoice.new", requestId, supplierId].filter(Boolean).join(".");
+
   return (
     <>
       <PageHeader
@@ -75,6 +79,7 @@ export default async function NewInvoicePage({
         materials={materials}
         units={units}
         requests={requests}
+        draftKey={draftStorageKey(org.member_id, draftScope)}
       />
     </>
   );

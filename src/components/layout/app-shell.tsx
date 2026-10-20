@@ -1,15 +1,13 @@
-import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
 import { env } from "@/env";
-import { signOut } from "@/features/auth/actions";
 import { initials } from "@/lib/format";
 
 import { Brand } from "./brand";
 import { MobileNav } from "./mobile-nav";
 import { NavLinks } from "./nav-links";
 import { OrgSwitcher } from "./org-switcher";
+import { SignOutButton } from "./sign-out-button";
 
 const ENV_LABEL = { local: "локально", staging: "staging", production: null } as const;
 
@@ -65,17 +63,7 @@ export function AppShell({
                   {displayName}
                 </span>
               </div>
-              <form action={signOut}>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  size="icon-lg"
-                  className="size-10 rounded-full"
-                  aria-label="Выйти"
-                >
-                  <LogOut className="size-5" />
-                </Button>
-              </form>
+              <SignOutButton />
             </div>
           </header>
 
