@@ -1326,3 +1326,13 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
   внутри объекта — только отчёты с разрезом по объекту (`byProject`), параметр `project` — из адреса.
 - Д-95 (БД): `private.validate_and_lock_allocations` — `payable/payment_request.project_id IS NOT DISTINCT FROM
   cash_transactions.project_id`, иначе `BF_ALLOCATION_PROJECT`. Тест — pgTAP `060_finance`.
+
+## 19. Скорость переходов (Д-96)
+
+- Vercel: вход на краю сети (для Таджикистана — `arn1`, Стокгольм), функции — `bom1` (Мумбаи) рядом с БД
+  (Supabase `ap-south-1`). `proxy.ts` выполняется на краю — в нём **нет обращений к БД** (только локальная
+  проверка JWT, ES256 + кэш JWKS); всё, что требует БД, — в Server Components/Actions в `bom1`.
+- MFA-редирект — в `src/app/(app)/layout.tsx` (`?next=` из `x-pathname`, который ставит proxy).
+- `loading.tsx` (`components/page-skeleton.tsx`) — рядом с каждой `page.tsx` в `(app)`: новые страницы — с ним же.
+- `experimental.staleTimes.dynamic = 30` в `next.config.ts`; после изменений — `revalidateApp()`.
+

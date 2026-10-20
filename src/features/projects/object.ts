@@ -14,9 +14,12 @@ import { getProjectHeader } from "./queries";
  * защищены RLS по project_id.
  */
 export async function requireObject(projectId: string, permission?: Permission) {
-  const org = permission ? await requirePermission(permission) : await requireOrg();
-  const project = await getProjectHeader(org.id, projectId);
-  if (!project) notFound();
+  // Права и объект — параллельно (два запроса к БД одновременно, а не друг за другом, Д-96).
+  const [org, project] = await Promise.all([
+    permission ? requirePermission(permission) : requireOrg(),
+    getProjectHeader(projectId),
+  ]);
+  if (!project || project.organizationId !== org.id) notFound();
   return { org, project };
 }
 
