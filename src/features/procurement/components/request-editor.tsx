@@ -7,10 +7,12 @@ import { useState, useTransition } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { DraftRestoredNotice } from "@/components/draft-restored-notice";
 import { NativeSelect } from "@/components/native-select";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useFormDraft } from "@/lib/form-draft";
 import { useDocumentId } from "@/lib/idempotency";
 import type { MaterialOption, Option } from "@/features/shared/lookups";
 
@@ -22,15 +24,18 @@ const emptyLine = { materialId: "", quantity: "", note: "" };
 /**
  * Черновик заявки склада для снабженца (US-01, Д-92): объект, строки «материал + количество».
  * Поставщика и цены в заявке нет — поставщика выбирает склад при приёмке, цены вносит бухгалтер из накладной.
+ * Несохранённый ввод держится на устройстве (draftKey) — уход в «Склад» за остатком его не стирает.
  */
 export function RequestEditor({
   initial,
   projects,
   materials,
+  draftKey,
 }: {
   initial?: RequestDraftInput;
   projects: Option[];
   materials: MaterialOption[];
+  draftKey: string;
 }) {
   const router = useRouter();
   const id = useDocumentId(initial?.id);
@@ -51,23 +56,35 @@ export function RequestEditor({
   const lines = useWatch({ control: form.control, name: "lines" });
   const { errors } = form.formState;
   const unitOf = new Map(materials.map((m) => [m.id, m.unit]));
+  const draft = useFormDraft(form, draftKey);
 
+  // id — из значений формы: у восстановленного ввода он прежний, повтор сохранения не создаст дубль.
   const onSubmit = form.handleSubmit((values) => {
     setServerError(null);
     startTransition(async () => {
-      const result = await saveRequestDraft({ ...values, id });
+      const result = await saveRequestDraft(values);
       if (!result.ok) {
         setServerError(result.error);
         return;
       }
+      draft.clear();
       toast.success("Черновик заявки сохранён");
-      router.push(`/procurement/requests/${id}`);
+      router.push(`/procurement/requests/${values.id}`);
     });
   });
 
   return (
     <form onSubmit={onSubmit} noValidate>
       <FieldGroup>
+        {draft.restoredAt ? (
+          <DraftRestoredNotice
+            savedAt={draft.restoredAt}
+            onClear={() => {
+              draft.clear();
+              form.reset();
+            }}
+          />
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field data-invalid={Boolean(errors.projectId)}>
             <FieldLabel htmlFor="projectId">Объект</FieldLabel>
