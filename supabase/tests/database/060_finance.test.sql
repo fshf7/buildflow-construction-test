@@ -1,7 +1,7 @@
 -- Финансы: оплаты обязательств (US-05, US-06), касса, сторно, счета на оплату, точность (§4.5, §4.7).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(56);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -152,7 +152,11 @@ declare
 begin
   perform pg_temp.login(pg_temp.id('cashier'), 'aal2');
   perform public.save_cash_transaction_draft(p_id, pg_temp.id('org'), p_account, p_dir::public.cash_direction,
-    p_cat::public.cash_category, p_amount, null, p_supplier, null, null, 'основание', null,
+    -- Д-95: операция — в области своих долгов/счетов (объект первого распределения).
+    p_cat::public.cash_category, p_amount,
+    coalesce((select project_id from public.payables where id = (p_allocs -> 0 ->> 0)::uuid),
+             (select project_id from public.payment_requests where id = (p_allocs -> 0 ->> 0)::uuid)),
+    p_supplier, null, null, 'основание', null,
     coalesce((select jsonb_agg(jsonb_build_object(
       case when exists (select 1 from public.payables where id = (e ->> 0)::uuid) then 'payable_id' else 'payment_request_id' end,
       e ->> 0, 'amount', (e ->> 1)::numeric)) from jsonb_array_elements(p_allocs) e), '[]'));
@@ -207,6 +211,17 @@ select is(public.post_cash_transaction(pg_temp.id('pay60'), pg_temp.id('k60')) -
 select pg_temp.logout();
 select is(pg_temp.balance_of(pg_temp.id('kassa')), 140000.00, 'повтор не списал деньги второй раз');
 select is(pg_temp.remaining(pg_temp.id('P1')), 90000.00, 'повтор не уменьшил долг второй раз');
+
+-- Д-95: долг объекта не закрыть операцией без объекта (и наоборот) — касса ведётся по объекту.
+select pg_temp.login(pg_temp.id('cashier'), 'aal2');
+insert into ids values ('tx_noproj', gen_random_uuid());
+select public.save_cash_transaction_draft(pg_temp.id('tx_noproj'), pg_temp.id('org'), pg_temp.id('kassa'), 'OUT',
+  'SUPPLIER', 100, null, pg_temp.id('s1'), null, null, 'основание', null,
+  jsonb_build_array(jsonb_build_object('payable_id', pg_temp.id('P1'), 'amount', 100)));
+select throws_ok($$ select public.post_cash_transaction(pg_temp.id('tx_noproj'), gen_random_uuid()) $$,
+  'P0001', 'BF_ALLOCATION_PROJECT', 'Д-95: долг объекта не оплатить операцией без объекта');
+select is(pg_temp.remaining(pg_temp.id('P1')), 90000.00, 'Д-95: долг не изменился');
+select pg_temp.logout();
 
 -- Переплата запрещена, ошибка с остатком долга.
 select throws_ok($$ select pg_temp.cash(pg_temp.id('kassa'), 'OUT', 'SUPPLIER', 90000.01, pg_temp.id('s1'),

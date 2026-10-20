@@ -1,5 +1,8 @@
 import "server-only";
 
+import { cache } from "react";
+import { z } from "zod";
+
 import { createClient } from "@/lib/supabase/server";
 
 export type ProjectListRow = {
@@ -71,3 +74,27 @@ export async function getProject(orgId: string, id: string): Promise<ProjectDeta
     })),
   };
 }
+
+export type ProjectHeader = {
+  id: string;
+  code: string;
+  name: string;
+  label: string;
+  status: "ACTIVE" | "ARCHIVED";
+};
+
+/** Объект для работы «внутри объекта» (Д-94): виден пользователю (RLS) и из текущей организации. */
+export const getProjectHeader = cache(
+  async (orgId: string, id: string): Promise<ProjectHeader | null> => {
+    if (!z.uuid().safeParse(id).success) return null;
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, code, name, status")
+      .eq("organization_id", orgId)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data ? { ...data, label: `${data.code} — ${data.name}` } : null;
+  },
+);

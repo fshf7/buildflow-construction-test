@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { useObjectHref } from "@/components/object-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,6 +27,7 @@ export function ReceiptCorrectionStart({
   needsApproval: boolean;
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const newId = useDocumentId();
   const [mode, setMode] = useState<"edit" | "reverse" | null>(null);
   const [reason, setReason] = useState("");
@@ -45,7 +47,7 @@ export function ReceiptCorrectionStart({
         setError(result.error);
         return;
       }
-      router.push(`/warehouse/receipts/${result.data.id}`);
+      router.push(href(`/warehouse/receipts/${result.data.id}`));
     });
   }
 

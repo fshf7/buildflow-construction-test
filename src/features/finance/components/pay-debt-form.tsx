@@ -12,6 +12,7 @@ import { toNumber } from "@/lib/decimal";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
 
+import { useFinanceScope } from "./finance-scope";
 import { quickCash } from "../actions";
 import type { AccountRow, PayableRow } from "../queries";
 
@@ -33,6 +34,7 @@ export function PayDebtForm({
   accounts: AccountRow[];
 }) {
   const router = useRouter();
+  const scope = useFinanceScope();
   const id = useDocumentId();
   const { key } = useIdempotencyKey();
   const currency = payables[0]?.currency ?? "TJS";
@@ -61,7 +63,7 @@ export function PayDebtForm({
         direction: "OUT",
         category: counterparty.kind === "CREW" ? "CREW_ACT" : "SUPPLIER",
         amount: (payCents / 100).toFixed(2),
-        projectId: "",
+        projectId: scope.projectId ?? "", // Д-95: долги только своей области
         supplierId: counterparty.kind === "SUPPLIER" ? counterparty.id : "",
         crewId: counterparty.kind === "CREW" ? counterparty.id : "",
         counterpartyName: "",
@@ -77,7 +79,7 @@ export function PayDebtForm({
         return;
       }
       toast.success(`Оплата ${result.data.number} проведена`);
-      router.push(`/finance/operations/${result.data.id}`);
+      router.push(`${scope.base}/operations/${result.data.id}`);
     });
   }
 

@@ -1,20 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { authorize } from "@/lib/auth/guard";
 import { toNumber } from "@/lib/decimal";
+import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import { cashAccountSchema, paymentRequestSchema, quickCashSchema } from "./schemas";
 
 type Posted = { id: string; number: string | null; status: string; reversal_number?: string };
-
-function revalidateFinance() {
-  revalidatePath("/finance", "layout");
-  revalidatePath("/procurement", "layout");
-}
 
 export async function saveCashAccount(input: unknown): Promise<ActionResult> {
   const auth = await authorize("cash_accounts.manage");
@@ -38,7 +32,7 @@ export async function saveCashAccount(input: unknown): Promise<ActionResult> {
     return fail(
       error.code === "23505" ? "Касса с таким названием уже есть" : dbErrorMessage(error),
     );
-  revalidateFinance();
+  revalidateApp();
   return ok();
 }
 
@@ -81,7 +75,7 @@ export async function quickCash(input: unknown): Promise<ActionResult<Posted>> {
 
   const { data, error } = await supabase.rpc("post_cash_transaction", { p_id: v.id, p_key: v.key });
   if (error) return fail(dbErrorMessage(error));
-  revalidateFinance();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -100,7 +94,7 @@ export async function requestReversal(input: {
     p_reason: input.comment,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateFinance();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -121,7 +115,7 @@ export async function decideReversal(
     },
   );
   if (error) return fail(dbErrorMessage(error));
-  revalidateFinance();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -148,7 +142,7 @@ export async function savePaymentRequest(input: unknown): Promise<ActionResult<{
     p_note: v.note,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateFinance();
+  revalidateApp();
   return ok({ id: v.id });
 }
 
@@ -172,7 +166,7 @@ export async function runPaymentRequestOp(
         ? await supabase.rpc(op, { p_id: input.id, p_key: input.key, p_reason: input.comment })
         : await supabase.rpc(op, { p_id: input.id, p_key: input.key });
   if (error) return fail(dbErrorMessage(error));
-  revalidateFinance();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -183,6 +177,6 @@ export async function deleteFinanceDraft(
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_finance_draft", { p_kind: kind, p_id: id });
   if (error) return fail(dbErrorMessage(error));
-  revalidateFinance();
+  revalidateApp();
   return ok();
 }

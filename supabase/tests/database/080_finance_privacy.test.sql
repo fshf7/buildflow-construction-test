@@ -155,7 +155,11 @@ declare
 begin
   perform pg_temp.login(pg_temp.id('cashier'), 'aal2');
   perform public.save_cash_transaction_draft(p_id, pg_temp.id('org'), p_account, p_dir::public.cash_direction,
-    p_cat::public.cash_category, p_amount, null, p_supplier, null, null, 'основание', null,
+    -- Д-95: операция — в области своих долгов/счетов (объект первого распределения).
+    p_cat::public.cash_category, p_amount,
+    coalesce((select project_id from public.payables where id = (p_allocs -> 0 ->> 0)::uuid),
+             (select project_id from public.payment_requests where id = (p_allocs -> 0 ->> 0)::uuid)),
+    p_supplier, null, null, 'основание', null,
     coalesce((select jsonb_agg(jsonb_build_object(
       case when exists (select 1 from public.payables where id = (e ->> 0)::uuid) then 'payable_id' else 'payment_request_id' end,
       e ->> 0, 'amount', (e ->> 1)::numeric)) from jsonb_array_elements(p_allocs) e), '[]'));

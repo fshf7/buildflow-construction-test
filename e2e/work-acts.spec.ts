@@ -55,7 +55,7 @@ test("акт работ: прораб → управляющий → касси�
   // ---- Прораб: акт 5 000 м² × 30 ----
   const fm = await onPhone(browser, LOCAL_FOREMAN);
   async function newAct(workType: string, qty: string) {
-    await fm.page.goto(`/crews/acts/new?project=${fx.projectId}`);
+    await fm.page.goto(`/objects/${fx.projectId}/acts/new`);
     await fm.page.getByLabel("Бригада").selectOption({ label: fx.crew });
     await selectByText(fm.page, "Вид работ 1", workType);
     await fm.page.getByLabel("Объём 1").fill(qty);
@@ -65,7 +65,7 @@ test("акт работ: прораб → управляющий → касси�
     await expect(fm.page.getByRole("heading", { name: /^Акт АКТ-/ })).toBeVisible();
     return fm.page.url();
   }
-  await fm.page.goto(`/crews/acts/new?project=${fx.projectId}`);
+  await fm.page.goto(`/objects/${fx.projectId}/acts/new`);
   await fm.page.getByLabel("Бригада").selectOption({ label: fx.crew });
   await selectByText(fm.page, "Вид работ 1", "Фасад");
   await fm.page.getByLabel("Объём 1").fill("5000");
@@ -98,12 +98,12 @@ test("акт работ: прораб → управляющий → касси�
 
   // ---- Кассир: видит только утверждённый, платит 60 000 → долг 90 000 ----
   const cash = await onPhone(browser, { state: CASHIER_STATE });
-  await cash.page.goto(`/crews/acts?project=${fx.projectId}`);
+  await cash.page.goto(`/objects/${fx.projectId}/acts`);
   await expect(cash.page.getByRole("link", { name: new RegExp(fx.crew) })).toHaveCount(1);
   await expect(cash.page.getByText(badNumber)).toHaveCount(0);
   await cash.page.goto(badUrl);
   await expect(cash.page.getByRole("heading", { name: "Страница не найдена" })).toBeVisible();
-  await cash.page.goto("/finance/pay");
+  await cash.page.goto(`/objects/${fx.projectId}/finance/pay`);
   await cash.page.getByRole("link", { name: new RegExp(fx.crew) }).click();
   await cash.page.getByRole("textbox", { name: /^Оплатить:/ }).fill("60000");
   await selectByText(cash.page, "Из кассы / со счёта", account);

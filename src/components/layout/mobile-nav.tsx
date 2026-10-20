@@ -15,7 +15,13 @@ import {
 
 import { NavLinks } from "./nav-links";
 
-export function MobileNav({ allowedHrefs }: { allowedHrefs: readonly string[] }) {
+export function MobileNav({
+  permissions,
+  projects,
+}: {
+  permissions: readonly string[];
+  projects: readonly { id: string; label: string }[];
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,7 +42,11 @@ export function MobileNav({ allowedHrefs }: { allowedHrefs: readonly string[] })
           <SheetDescription className="sr-only">Разделы системы</SheetDescription>
         </SheetHeader>
         <div className="overflow-y-auto p-3">
-          <NavLinks allowedHrefs={allowedHrefs} onNavigate={() => setOpen(false)} />
+          <NavLinks
+            permissions={permissions}
+            projects={projects}
+            onNavigate={() => setOpen(false)}
+          />
         </div>
       </SheetContent>
     </Sheet>

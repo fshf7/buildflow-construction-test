@@ -2,9 +2,9 @@
 
 import { createColumnHelper } from "@tanstack/react-table";
 import { AlertTriangle } from "lucide-react";
-import Link from "next/link";
 
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
+import { ObjectLink } from "@/components/object-link";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
 
@@ -17,16 +17,15 @@ const columns = helper.columns([
   helper.accessor("number", {
     header: "Номер",
     cell: (info) => (
-      <Link
-        href={`/procurement/requests/${info.row.original.id}`}
+      <ObjectLink
+        path={`/procurement/requests/${info.row.original.id}`}
         className="font-medium hover:underline"
       >
         {info.getValue() ?? "Черновик"}
-      </Link>
+      </ObjectLink>
     ),
   }),
   helper.accessor("docDate", { header: "Дата", cell: (info) => formatDate(info.getValue()) }),
-  helper.accessor("projectLabel", { header: "Объект" }),
   helper.accessor("linesCount", { header: "Позиций" }),
   helper.accessor("status", {
     header: "Статус",

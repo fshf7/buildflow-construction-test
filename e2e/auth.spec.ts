@@ -18,11 +18,13 @@ test("неверный пароль показывает ошибку", async ({
 
 test("прораб входит без MFA и видит только свои разделы", async ({ page, isMobile }) => {
   await login(page, LOCAL_FOREMAN.email, LOCAL_FOREMAN.password);
-  await expect(page.getByRole("heading", { name: "Главная" })).toBeVisible();
+  // Д-94: главный экран — выбор объекта и «Общее по организации».
+  await expect(page.getByRole("heading", { name: "Выберите объект" })).toBeVisible();
 
   if (isMobile) await page.getByRole("button", { name: "Открыть меню" }).click();
   const nav = page.getByRole("navigation", { name: "Основная навигация" }).last();
-  await expect(nav.getByRole("link", { name: "Объекты" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Выбор объекта" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Бригады" })).toBeVisible();
   await expect(nav.getByText("Участники")).toHaveCount(0);
   await expect(nav.getByText("Журнал аудита")).toHaveCount(0);
   if (isMobile) await page.keyboard.press("Escape");

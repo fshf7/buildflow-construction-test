@@ -1,21 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { authorize } from "@/lib/auth/guard";
 import { toNumber } from "@/lib/decimal";
+import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import { openingSchema } from "./schemas";
 
 type Posted = { id: string; number: string | null; status: string };
-
-function revalidateAll() {
-  revalidatePath("/opening", "layout");
-  revalidatePath("/finance", "layout");
-  revalidatePath("/warehouse", "layout");
-}
 
 /** Черновик «Ввода остатков» (Д-61): строки по виду; цены у складских строк отсутствуют. */
 export async function saveOpening(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -49,7 +42,7 @@ export async function saveOpening(input: unknown): Promise<ActionResult<{ id: st
     p_lines: lines,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateAll();
+  revalidateApp();
   return ok({ id: v.id });
 }
 
@@ -65,7 +58,7 @@ export async function postOpening(input: {
     p_key: input.key,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateAll();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -83,7 +76,7 @@ export async function reverseOpening(input: {
     p_reason: input.comment,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidateAll();
+  revalidateApp();
   return ok(data as Posted);
 }
 
@@ -91,6 +84,6 @@ export async function deleteOpening(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_opening_balance_draft", { p_id: id });
   if (error) return fail(dbErrorMessage(error));
-  revalidateAll();
+  revalidateApp();
   return ok();
 }

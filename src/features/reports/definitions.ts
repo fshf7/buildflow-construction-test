@@ -34,6 +34,8 @@ export type ReportDef = {
   /** Д-75: отчёт доступен при любом из прав; данные дополнительно режет RLS. */
   permissions: Permission[];
   filters: (l: Lookups) => FilterField[];
+  /** Есть разрез по объекту (параметр project) — показывается и внутри объекта (Д-94). */
+  byProject: boolean;
   load: (orgId: string, p: Params) => Promise<Omit<ReportData, "totals" | "currency">>;
 };
 
@@ -75,6 +77,7 @@ export const REPORTS: ReportDef[] = [
     title: "Остатки",
     description: "Остатки материалов на складах объектов (количество, без цен).",
     permissions: ["stock.view"],
+    byProject: true,
     filters: (l) => [projectFilter(l)],
     load: async (org, p) => {
       const rows = await rpc<Record<string, unknown>>("report_stock_balances", {
@@ -104,6 +107,7 @@ export const REPORTS: ReportDef[] = [
     title: "Движение материалов",
     description: "Выдачи и возвраты по объекту, блоку, этажу и бригаде (проведённые документы).",
     permissions: ["stock.view", "stock.view_own_crews"],
+    byProject: true,
     filters: (l) => [...period, projectFilter(l), crewFilter(l)],
     load: async (org, p) => {
       const rows = await rpc<Record<string, unknown>>("report_material_issues", {
@@ -146,6 +150,7 @@ export const REPORTS: ReportDef[] = [
     title: "Долги поставщикам и бригадам",
     description: "Обязательства: сумма, оплачено, остаток долга и дата последней оплаты.",
     permissions: ["payables.view"],
+    byProject: true,
     filters: (l) => [
       {
         name: "kind",
@@ -211,6 +216,7 @@ export const REPORTS: ReportDef[] = [
     title: "Балансы и движение касс",
     description: "Начальный баланс, приходы, расходы и конечный баланс каждой кассы за период.",
     permissions: ["cash.view"],
+    byProject: false,
     filters: (l) => [
       ...period,
       {
@@ -252,6 +258,7 @@ export const REPORTS: ReportDef[] = [
     title: "Акты работ",
     description: "Акты выполненных работ: сумма, оплачено и долг по утверждённым.",
     permissions: ["work_acts.view", "work_acts.view_approved"],
+    byProject: true,
     filters: (l) => [
       ...period,
       projectFilter(l),

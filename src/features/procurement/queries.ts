@@ -435,7 +435,7 @@ export async function requestLinesForInvoice(requestId: string, supplierId: stri
 }
 
 /** Корректировки приёмок, ожидающие решения бухгалтера. */
-export async function listPendingCorrections(orgId: string) {
+export async function listPendingCorrections(orgId: string, projectId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("goods_receipts")
@@ -443,6 +443,7 @@ export async function listPendingCorrections(orgId: string) {
       "id, correction_reason, created_at, corrects_receipt_id, suppliers(name), projects(code), purchase_requests(number)",
     )
     .eq("organization_id", orgId)
+    .eq("project_id", projectId)
     .eq("status", "CORRECTION_APPROVAL")
     .order("created_at");
   if (error) throw new Error(error.message);
@@ -460,12 +461,14 @@ export async function listPendingCorrections(orgId: string) {
 /** Заявки, по которым можно вводить накладные (в работе и далее). */
 export async function listRequestOptions(
   orgId: string,
+  projectId: string,
 ): Promise<{ id: string; projectId: string; label: string }[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("purchase_requests")
     .select("id, project_id, number, doc_date")
     .eq("organization_id", orgId)
+    .eq("project_id", projectId)
     .not("status", "in", "(DRAFT,CANCELLED)")
     .order("doc_date", { ascending: false })
     .limit(300);

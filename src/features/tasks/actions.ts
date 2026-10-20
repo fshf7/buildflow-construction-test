@@ -1,11 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { getCurrentOrg } from "@/lib/auth/access";
 import { hasAnyPermission } from "@/lib/auth/access-model";
 import { authorize } from "@/lib/auth/guard";
+import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import { taskCommentSchema, taskSchema, taskStatusSchema } from "./schemas";
@@ -32,7 +31,7 @@ export async function saveTask(input: unknown): Promise<ActionResult<Saved>> {
     p_floor_id: (v.floorId || null) as string,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidatePath("/tasks", "layout");
+  revalidateApp();
   return ok(data as Saved);
 }
 
@@ -56,7 +55,7 @@ export async function changeTaskStatus(input: {
     p_comment: input.comment,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidatePath("/tasks", "layout");
+  revalidateApp();
   return ok(data as Saved);
 }
 
@@ -73,6 +72,6 @@ export async function addTaskComment(input: unknown): Promise<ActionResult> {
     p_body: parsed.data.body,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidatePath(`/tasks/${parsed.data.taskId}`);
+  revalidateApp();
   return ok();
 }

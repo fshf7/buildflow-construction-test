@@ -1,11 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { dbErrorMessage, fail, ok, type ActionResult } from "@/lib/actions/result";
 import { authorize } from "@/lib/auth/guard";
 import { toNumber } from "@/lib/decimal";
 import { emptyToNull } from "@/lib/format";
+import { revalidateApp } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 
 import { crewMemberSchema, workRateSchema } from "./schemas";
@@ -34,7 +33,7 @@ export async function saveCrewMember(input: unknown): Promise<ActionResult> {
         .from("crew_members")
         .insert({ ...row, crew_id: crewId, organization_id: auth.org.id });
   if (error) return fail(dbErrorMessage(error));
-  revalidatePath("/crews", "layout");
+  revalidateApp();
   return ok();
 }
 
@@ -58,6 +57,6 @@ export async function saveWorkRate(input: unknown): Promise<ActionResult> {
     p_note: v.note,
   });
   if (error) return fail(dbErrorMessage(error));
-  revalidatePath("/crews", "layout");
+  revalidateApp();
   return ok();
 }

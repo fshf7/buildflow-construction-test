@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { NativeSelect } from "@/components/native-select";
+import { useObjectHref } from "@/components/object-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BlockOption, Option } from "@/features/shared/lookups";
@@ -37,6 +38,7 @@ export function TaskForm({
   initial?: TaskFormInitial;
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const [v, setV] = useState<TaskFormInitial>(
     initial ?? {
       id: crypto.randomUUID(),
@@ -63,7 +65,7 @@ export function TaskForm({
         return;
       }
       toast.success(initial ? "Задача сохранена" : `Задача ${result.data.number} создана`);
-      router.push(`/tasks/${v.id}`);
+      router.push(href(`/tasks/${v.id}`));
     });
   }
 

@@ -17,8 +17,7 @@ test("заявка: ушёл в «Склад» и вернулся — стро�
   const wh = await ctx.newPage();
   await login(wh, LOCAL_STOREKEEPER.email, LOCAL_STOREKEEPER.password);
 
-  await wh.goto("/procurement/requests/new");
-  await wh.getByLabel("Объект").selectOption({ label: fx.projectLabel });
+  await wh.goto(`/objects/${fx.projectId}/procurement/requests/new`);
   await wh.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });
   await wh.getByLabel("Количество, строка 1").fill("20");
   await wh.getByRole("button", { name: "Добавить строку" }).click();
@@ -39,7 +38,7 @@ test("заявка: ушёл в «Склад» и вернулся — стро�
 
   await wh.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(wh.getByRole("heading", { name: "Черновик заявки" })).toBeVisible();
-  await wh.goto("/procurement/requests/new");
+  await wh.goto(`/objects/${fx.projectId}/procurement/requests/new`);
   await expect(wh.getByLabel("Количество, строка 1")).toHaveValue("");
   await expect(wh.getByText("Восстановлен несохранённый ввод")).toHaveCount(0);
 
@@ -63,8 +62,7 @@ test("накладная: ушла в другой раздел и вернул�
   const ctx = await browser.newContext({ storageState: ACCOUNTANT_STATE });
   const acc = await ctx.newPage();
 
-  await acc.goto("/procurement/invoices/new");
-  await acc.getByLabel("Объект").selectOption({ label: fx.projectLabel });
+  await acc.goto(`/objects/${fx.projectId}/procurement/invoices/new`);
   await acc.getByLabel("Поставщик").selectOption({ label: fx.s1 });
   await acc.getByLabel("№ накладной поставщика").fill("Н-555");
   await acc.getByLabel("Материал, строка 1").selectOption({ label: `${fx.cement} (кг)` });

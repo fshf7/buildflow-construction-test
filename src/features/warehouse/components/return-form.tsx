@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { useObjectHref } from "@/components/object-context";
 import { toNumber } from "@/lib/decimal";
 import { formatQuantity } from "@/lib/format";
 import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
@@ -17,6 +18,7 @@ import { SubmitBar } from "./submit-bar";
 /** Возврат по выдаче (US-04): не больше выданного за вычетом уже возвращённого. */
 export function ReturnForm({ issueId, lines }: { issueId: string; lines: ReturnLine[] }) {
   const router = useRouter();
+  const href = useObjectHref();
   const returnId = useDocumentId();
   const { key } = useIdempotencyKey();
   const [qty, setQty] = useState<Record<string, string>>({});
@@ -41,7 +43,7 @@ export function ReturnForm({ issueId, lines }: { issueId: string; lines: ReturnL
         return;
       }
       toast.success(`Возврат ${result.data.number} проведён`);
-      router.push(`/warehouse/returns/${result.data.id}`);
+      router.push(href(`/warehouse/returns/${result.data.id}`));
     });
   }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { ObjectLink } from "@/components/object-link";
 import { Input } from "@/components/ui/input";
 import { formatQuantity } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { Balance } from "../queries";
 
 /** Остатки склада с поиском. Только количества — цен у склада нет (§5.4). */
-export function StockList({ balances, projectId }: { balances: Balance[]; projectId: string }) {
+export function StockList({ balances }: { balances: Balance[] }) {
   const [q, setQ] = useState("");
   const shown = balances.filter((b) => b.name.toLowerCase().includes(q.trim().toLowerCase()));
   return (
@@ -31,8 +31,8 @@ export function StockList({ balances, projectId }: { balances: Balance[]; projec
         <ul className="divide-y rounded-lg border">
           {shown.map((b) => (
             <li key={b.materialId}>
-              <Link
-                href={`/warehouse/stock/${b.materialId}?project=${projectId}`}
+              <ObjectLink
+                path={`/warehouse/stock/${b.materialId}`}
                 className="flex min-h-12 items-center justify-between gap-3 px-3 py-2 hover:bg-muted/50"
               >
                 <span className={cn(b.quantity === 0 && "text-muted-foreground")}>{b.name}</span>
@@ -44,7 +44,7 @@ export function StockList({ balances, projectId }: { balances: Balance[]; projec
                 >
                   {formatQuantity(b.quantity, b.unit)}
                 </span>
-              </Link>
+              </ObjectLink>
             </li>
           ))}
         </ul>

@@ -6,11 +6,12 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { NativeSelect } from "@/components/native-select";
+import { useObjectHref } from "@/components/object-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
-import { formatQuantity } from "@/lib/format";
 import type { MaterialOption, Option } from "@/features/shared/lookups";
+import { formatQuantity } from "@/lib/format";
+import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
 
 import { quickReceive } from "../actions";
 import type { ReceiveLine } from "../queries";
@@ -38,6 +39,7 @@ export function ReceiveForm({
   materials?: MaterialOption[];
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const receiptId = useDocumentId();
   const { key } = useIdempotencyKey();
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +78,7 @@ export function ReceiveForm({
         return;
       }
       toast.success(`Приёмка ${result.data.number} проведена`);
-      router.push(`/warehouse/receipts/${result.data.id}`);
+      router.push(href(`/warehouse/receipts/${result.data.id}`));
     });
   }
 

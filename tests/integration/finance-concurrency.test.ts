@@ -72,7 +72,8 @@ async function draft(
       p_direction: dir,
       p_category: category,
       p_amount: amount,
-      p_project_id: null as unknown as string,
+      // Д-95: оплата — в объекте своих долгов; приход без распределений — без объекта.
+      p_project_id: (allocations.length > 0 ? fx.projectId : null) as string,
       p_counterparty_supplier_id: (dir === "OUT" ? fx.supplierId : null) as string,
       p_counterparty_crew_id: null as unknown as string,
       p_counterparty_name: "",

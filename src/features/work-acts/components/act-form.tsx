@@ -6,11 +6,12 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { NativeSelect } from "@/components/native-select";
+import { useObjectHref } from "@/components/object-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { currentRates, lineAmount } from "@/features/crews/rates";
 import type { RateRow } from "@/features/crews/queries";
+import { currentRates, lineAmount } from "@/features/crews/rates";
 import type { BlockOption, Option } from "@/features/shared/lookups";
 import { QtyInput } from "@/features/warehouse/components/qty-input";
 import { SubmitBar } from "@/features/warehouse/components/submit-bar";
@@ -67,6 +68,7 @@ export function ActForm({
   initial?: ActFormInitial;
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const [id] = useState(() => initial?.id ?? crypto.randomUUID());
   const [crewId, setCrewId] = useState(initial?.crewId ?? (crews.length === 1 ? crews[0]!.id : ""));
   const [docDate, setDocDate] = useState(initial?.docDate ?? today);
@@ -113,7 +115,7 @@ export function ActForm({
         return;
       }
       toast.success("Черновик акта сохранён");
-      router.push(`/crews/acts/${id}`);
+      router.push(href(`/acts/${id}`));
     });
   }
 

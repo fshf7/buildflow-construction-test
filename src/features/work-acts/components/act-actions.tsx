@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { DocumentActions, type DocumentAction } from "@/components/document-actions";
+import { useObjectHref } from "@/components/object-context";
 
 import { copyWorkAct, deleteWorkActDraft, runWorkActOp } from "../actions";
 import type { WorkActStatus } from "../labels";
@@ -29,6 +30,7 @@ export function WorkActActions({
   paid: number;
 }) {
   const router = useRouter();
+  const href = useObjectHref();
   const [newId] = useState(() => crypto.randomUUID());
   const op =
     (name: WorkActOp) =>
@@ -57,7 +59,7 @@ export function WorkActActions({
       variant: "destructive",
       run: async () => {
         const r = await deleteWorkActDraft(id);
-        if (r.ok) router.push("/crews/acts");
+        if (r.ok) router.push(href("/acts"));
         return r;
       },
       successMessage: "Черновик удалён",
@@ -88,7 +90,7 @@ export function WorkActActions({
       variant: "outline",
       run: async () => {
         const r = await copyWorkAct({ sourceId: id, newId });
-        if (r.ok) router.push(`/crews/acts/${newId}/edit`);
+        if (r.ok) router.push(href(`/acts/${newId}/edit`));
         return r;
       },
       successMessage: "Создан новый черновик",

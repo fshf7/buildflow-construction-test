@@ -10,6 +10,7 @@ import { SubmitBar } from "@/features/warehouse/components/submit-bar";
 import { formatMoney } from "@/lib/format";
 import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
 
+import { useFinanceScope } from "./finance-scope";
 import { quickCash } from "../actions";
 import type { AccountRow, PaymentRequestRow } from "../queries";
 
@@ -24,6 +25,7 @@ export function ExpenseForm({
   accounts: AccountRow[];
 }) {
   const router = useRouter();
+  const scope = useFinanceScope();
   const id = useDocumentId();
   const { key } = useIdempotencyKey();
   const usable = accounts.filter((a) => a.currency === request.currency && a.isActive);
@@ -43,7 +45,7 @@ export function ExpenseForm({
         direction: "OUT",
         category: request.purpose,
         amount,
-        projectId: "",
+        projectId: scope.projectId ?? "",
         supplierId: "",
         counterpartyName: request.payee,
         basis: `${request.number ?? "Счёт"}: ${request.basis ?? ""}`,
@@ -54,7 +56,7 @@ export function ExpenseForm({
         return;
       }
       toast.success(`Расход ${result.data.number} проведён`);
-      router.push(`/finance/operations/${result.data.id}`);
+      router.push(`${scope.base}/operations/${result.data.id}`);
     });
   }
 

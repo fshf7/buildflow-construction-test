@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
   // между пользователями здесь только риск. Включать осознанно, отдельным решением.
   cacheComponents: false,
   poweredByHeader: false,
+  // Д-94: объектные разделы переехали под /objects/<id>/… — старые закладки ведут на выбор объекта.
+  async redirects() {
+    return ["/procurement", "/warehouse", "/tasks", "/crews/acts"].flatMap((source) => [
+      { source, destination: "/", permanent: false },
+      { source: `${source}/:path*`, destination: "/", permanent: false },
+    ]);
+  },
   experimental: {
     // Сканы накладных и фото приёмки (до 10 МБ) загружаются через server action.
     serverActions: { bodySizeLimit: "11mb" },

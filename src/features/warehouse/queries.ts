@@ -346,6 +346,7 @@ export type IssueDetail = {
   number: string | null;
   status: IssueStatus;
   docDate: string;
+  projectId: string;
   projectLabel: string;
   crewName: string;
   blockName: string;
@@ -361,7 +362,7 @@ export async function getIssue(id: string): Promise<IssueDetail | null> {
   const { data: i, error } = await supabase
     .from("material_issues")
     .select(
-      "id, number, status, doc_date, received_by_name, cancel_reason, projects(code, name), crews(name), blocks(name), floors(name), material_issue_items(line_no, quantity, materials(name, units_of_measure(code))), material_returns(id, number, status)",
+      "id, number, status, doc_date, project_id, received_by_name, cancel_reason, projects(code, name), crews(name), blocks(name), floors(name), material_issue_items(line_no, quantity, materials(name, units_of_measure(code))), material_returns(id, number, status)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -372,6 +373,7 @@ export async function getIssue(id: string): Promise<IssueDetail | null> {
     number: i.number,
     status: i.status,
     docDate: i.doc_date,
+    projectId: i.project_id,
     projectLabel: i.projects ? `${i.projects.code} — ${i.projects.name}` : "",
     crewName: i.crews?.name ?? "",
     blockName: i.blocks?.name ?? "",
@@ -394,6 +396,7 @@ export type ReturnDetail = {
   number: string | null;
   status: IssueStatus;
   docDate: string;
+  projectId: string;
   issueId: string;
   issueNumber: string | null;
   crewName: string;
@@ -406,7 +409,7 @@ export async function getReturn(id: string): Promise<ReturnDetail | null> {
   const { data: r, error } = await supabase
     .from("material_returns")
     .select(
-      "id, number, status, doc_date, material_issue_id, cancel_reason, crews(name), material_issues(number), material_return_items(line_no, quantity, materials(name, units_of_measure(code)))",
+      "id, number, status, doc_date, project_id, material_issue_id, cancel_reason, crews(name), material_issues(number), material_return_items(line_no, quantity, materials(name, units_of_measure(code)))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -417,6 +420,7 @@ export async function getReturn(id: string): Promise<ReturnDetail | null> {
     number: r.number,
     status: r.status,
     docDate: r.doc_date,
+    projectId: r.project_id,
     issueId: r.material_issue_id,
     issueNumber: r.material_issues?.number ?? null,
     crewName: r.crews?.name ?? "",
@@ -441,13 +445,14 @@ export type JournalRow = {
   docDate: string;
   status: string;
   counterparty: string;
-  href: string;
+  /** Путь документа внутри объекта (Д-94). */
+  path: string;
 };
 
-export async function listJournal(projectId: string | null, kind?: string): Promise<JournalRow[]> {
+export async function listJournal(projectId: string, kind?: string): Promise<JournalRow[]> {
   const supabase = await createClient();
   const byProject = <T extends { eq: (c: string, v: string) => T }>(q: T) =>
-    projectId ? q.eq("project_id", projectId) : q;
+    q.eq("project_id", projectId);
   const [receipts, issues, returns] = await Promise.all([
     !kind || kind === "receipt"
       ? byProject(
@@ -481,7 +486,7 @@ export async function listJournal(projectId: string | null, kind?: string): Prom
       docDate: g.doc_date,
       status: g.status,
       counterparty: (g as { suppliers?: { name: string } | null }).suppliers?.name ?? "",
-      href: `/warehouse/receipts/${g.id}`,
+      path: `/warehouse/receipts/${g.id}`,
     })),
     ...(issues.data ?? []).map((i) => ({
       id: i.id,
@@ -490,7 +495,7 @@ export async function listJournal(projectId: string | null, kind?: string): Prom
       docDate: i.doc_date,
       status: i.status,
       counterparty: (i as { crews?: { name: string } | null }).crews?.name ?? "",
-      href: `/warehouse/issues/${i.id}`,
+      path: `/warehouse/issues/${i.id}`,
     })),
     ...(returns.data ?? []).map((r) => ({
       id: r.id,
@@ -499,7 +504,7 @@ export async function listJournal(projectId: string | null, kind?: string): Prom
       docDate: r.doc_date,
       status: r.status,
       counterparty: (r as { crews?: { name: string } | null }).crews?.name ?? "",
-      href: `/warehouse/returns/${r.id}`,
+      path: `/warehouse/returns/${r.id}`,
     })),
   ];
   return rows.sort((a, b) => b.docDate.localeCompare(a.docDate));
