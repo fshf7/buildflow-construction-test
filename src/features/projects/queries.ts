@@ -77,24 +77,34 @@ export async function getProject(orgId: string, id: string): Promise<ProjectDeta
 
 export type ProjectHeader = {
   id: string;
+  organizationId: string;
   code: string;
   name: string;
   label: string;
   status: "ACTIVE" | "ARCHIVED";
 };
 
-/** Объект для работы «внутри объекта» (Д-94): виден пользователю (RLS) и из текущей организации. */
-export const getProjectHeader = cache(
-  async (orgId: string, id: string): Promise<ProjectHeader | null> => {
-    if (!z.uuid().safeParse(id).success) return null;
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, code, name, status")
-      .eq("organization_id", orgId)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    return data ? { ...data, label: `${data.code} — ${data.name}` } : null;
-  },
-);
+/**
+ * Объект для работы «внутри объекта» (Д-94), если он виден пользователю (RLS). Организацию
+ * сверяет вызывающий — так запрос идёт параллельно с my_access (Д-96).
+ */
+export const getProjectHeader = cache(async (id: string): Promise<ProjectHeader | null> => {
+  if (!z.uuid().safeParse(id).success) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, organization_id, code, name, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data
+    ? {
+        id: data.id,
+        organizationId: data.organization_id,
+        code: data.code,
+        name: data.name,
+        status: data.status,
+        label: `${data.code} — ${data.name}`,
+      }
+    : null;
+});

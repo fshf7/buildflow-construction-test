@@ -17,6 +17,8 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", csp);
+  // Путь запроса — для ?next= при редиректе из layout (Server Component своего пути не знает).
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
   const response = await updateSession(new NextRequest(request, { headers: requestHeaders }));
   const hsts = env.NEXT_PUBLIC_APP_ENV !== "local";

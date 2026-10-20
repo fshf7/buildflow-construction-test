@@ -8,9 +8,6 @@ import type { Database } from "./database.types";
 /** Пути, доступные без входа. /auth/signout — выход; писем со ссылками нет (Д-87). */
 export const PUBLIC_PATHS = ["/login", "/auth", "/api/health"] as const;
 
-/** Пути, доступные вошедшему пользователю без второго фактора (иначе его негде подключить). */
-export const MFA_EXEMPT_PATHS = ["/mfa", "/set-password", "/no-access", "/auth"] as const;
-
 /** С временным паролем (Д-89) доступны только смена пароля и выход. */
 export const PASSWORD_CHANGE_PATHS = ["/set-password", "/auth/signout", "/api/health"] as const;
 
@@ -20,10 +17,6 @@ function matches(paths: readonly string[], pathname: string): boolean {
 
 export function isPublicPath(pathname: string): boolean {
   return matches(PUBLIC_PATHS, pathname);
-}
-
-export function isMfaExemptPath(pathname: string): boolean {
-  return matches(MFA_EXEMPT_PATHS, pathname) || isPublicPath(pathname);
 }
 
 /**
@@ -75,15 +68,9 @@ export async function updateSession(request: NextRequest) {
     return redirectPreservingCookies(request, response, "/set-password");
   }
 
-  // Д-90: org_admin и cashier без второго фактора — только на экран MFA.
-  // RLS и так не отдаст им данные без aal2; редирект — чтобы человек понял, что делать.
-  if (isSignedIn && data?.claims?.aal !== "aal2" && !isMfaExemptPath(pathname)) {
-    const { data: requiresMfa, error } = await supabase.rpc("current_user_requires_mfa");
-    if (error || requiresMfa) {
-      return redirectPreservingCookies(request, response, "/mfa", pathname);
-    }
-  }
-
+  // Д-90: редирект на экран MFA делает layout приложения (по my_access, который ему всё равно
+  // нужен), а не proxy: proxy выполняется на краю сети, далеко от БД, и запрос к ней на каждый
+  // переход стоил ~0,5 с (Д-96). Данные без aal2 и так закрыты в БД (Д-29).
   return response;
 }
 
