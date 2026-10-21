@@ -36,6 +36,56 @@ export async function listExpenseCategories(
   }));
 }
 
+export type WorkStageRow = { id: string; name: string; sortOrder: number; isActive: boolean };
+
+/** Этапы работ (Д-100); activeOnly — для выбора в строках склада. */
+export async function listWorkStages(orgId: string, activeOnly = false): Promise<WorkStageRow[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("work_stages")
+    .select("id, name, sort_order, is_active")
+    .eq("organization_id", orgId)
+    .order("sort_order")
+    .order("name");
+  if (activeOnly) q = q.eq("is_active", true);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data.map((s) => ({
+    id: s.id,
+    name: s.name,
+    sortOrder: s.sort_order,
+    isActive: s.is_active,
+  }));
+}
+
+export type ServiceRow = {
+  id: string;
+  name: string;
+  unitId: string;
+  unitCode: string;
+  isActive: boolean;
+};
+
+/** Услуги (Д-100): кран, экскаватор, питание … */
+export async function listServices(orgId: string, activeOnly = false): Promise<ServiceRow[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("services")
+    .select("id, name, unit_id, is_active, units_of_measure(code)")
+    .eq("organization_id", orgId)
+    .order("name");
+  if (activeOnly) q = q.eq("is_active", true);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data.map((s) => ({
+    id: s.id,
+    name: s.name,
+    unitId: s.unit_id,
+    unitCode: s.units_of_measure?.code ?? "",
+    isActive: s.is_active,
+  }));
+}
+
 export type UnitRow = { id: string; code: string; name: string; decimals: number };
 export type MaterialRow = {
   id: string;

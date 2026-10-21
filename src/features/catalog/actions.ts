@@ -7,7 +7,14 @@ import { authorize } from "@/lib/auth/guard";
 import { emptyToNull } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-import { expenseCategorySchema, materialSchema, supplierSchema, unitSchema } from "./schemas";
+import {
+  expenseCategorySchema,
+  materialSchema,
+  serviceSchema,
+  supplierSchema,
+  unitSchema,
+  workStageSchema,
+} from "./schemas";
 
 type PgError = { code?: string; message?: string } | null;
 
@@ -104,4 +111,34 @@ export async function saveExpenseCategory(input: unknown): Promise<ActionResult>
         .eq("organization_id", auth.org.id)
     : await supabase.from("expense_categories").insert({ ...row, organization_id: auth.org.id });
   return saved(error, "Категория с таким названием уже есть");
+}
+
+export async function saveWorkStage(input: unknown): Promise<ActionResult> {
+  const auth = await authorize("catalog.manage");
+  if (!auth.ok) return fail(auth.error);
+  const parsed = workStageSchema.safeParse(input);
+  if (!parsed.success) return fail("Проверьте поля формы");
+  const { id, ...v } = parsed.data;
+
+  const supabase = await createClient();
+  const row = { name: v.name, sort_order: v.sortOrder, is_active: v.isActive };
+  const { error } = id
+    ? await supabase.from("work_stages").update(row).eq("id", id).eq("organization_id", auth.org.id)
+    : await supabase.from("work_stages").insert({ ...row, organization_id: auth.org.id });
+  return saved(error, "Этап с таким названием уже есть");
+}
+
+export async function saveService(input: unknown): Promise<ActionResult> {
+  const auth = await authorize("catalog.manage");
+  if (!auth.ok) return fail(auth.error);
+  const parsed = serviceSchema.safeParse(input);
+  if (!parsed.success) return fail("Проверьте поля формы");
+  const { id, ...v } = parsed.data;
+
+  const supabase = await createClient();
+  const row = { name: v.name, unit_id: v.unitId, is_active: v.isActive };
+  const { error } = id
+    ? await supabase.from("services").update(row).eq("id", id).eq("organization_id", auth.org.id)
+    : await supabase.from("services").insert({ ...row, organization_id: auth.org.id });
+  return saved(error, "Услуга с таким названием уже есть");
 }

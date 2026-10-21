@@ -234,7 +234,7 @@ export type ReceiptDetail = {
   docDate: string;
   projectId: string;
   projectLabel: string;
-  supplierId: string;
+  supplierId: string | null;
   supplierName: string;
   requestId: string | null;
   requestNumber: string | null;

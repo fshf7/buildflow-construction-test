@@ -47,3 +47,21 @@ export const expenseCategorySchema = z.object({
   isActive: z.boolean(),
 });
 export type ExpenseCategoryInput = z.infer<typeof expenseCategorySchema>;
+
+/** Этап работ (Д-100): кладка, монолитные, штукатурные … — для расхода, услуг и нормативов. */
+export const workStageSchema = z.object({
+  id,
+  name: z.string().trim().min(2, { error: "Название этапа" }).max(100),
+  sortOrder: z.coerce.number<string | number>().int().min(0).max(9999),
+  isActive: z.boolean(),
+});
+export type WorkStageInput = z.infer<typeof workStageSchema>;
+
+/** Услуга (Д-100): кран, экскаватор, геодезист, питание — с единицей учёта. */
+export const serviceSchema = z.object({
+  id,
+  name: z.string().trim().min(2, { error: "Название услуги" }).max(200),
+  unitId: z.uuid({ error: "Выберите единицу измерения" }),
+  isActive: z.boolean(),
+});
+export type ServiceInput = z.infer<typeof serviceSchema>;

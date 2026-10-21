@@ -9,7 +9,8 @@ export const quickReceiveSchema = z.object({
   receiptId: z.uuid(),
   key: z.uuid(),
   projectId: z.uuid(),
-  supplierId: z.uuid({ error: "Выберите поставщика" }),
+  // Д-100: поставщик необязателен (часто неизвестен складу); для денег его указывает бухгалтер.
+  supplierId: z.union([z.uuid(), z.literal("")]),
   requestId: z.union([z.uuid(), z.literal("")]),
   note: z.string().trim().max(500),
   lines: z

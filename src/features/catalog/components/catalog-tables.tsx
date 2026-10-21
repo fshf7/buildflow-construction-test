@@ -8,11 +8,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { colorPill } from "../expense-colors";
-import type { ExpenseCategoryRow, MaterialRow, SupplierRow, UnitRow } from "../queries";
+import type {
+  ExpenseCategoryRow,
+  MaterialRow,
+  ServiceRow,
+  SupplierRow,
+  UnitRow,
+  WorkStageRow,
+} from "../queries";
 
 import { ExpenseCategoryForm } from "./expense-category-form";
 import { FormDialog } from "./form-dialog";
 import { MaterialForm } from "./material-form";
+import { ServiceForm, WorkStageForm } from "./stage-service-forms";
 import { SupplierForm } from "./supplier-form";
 import { UnitForm } from "./unit-form";
 
@@ -193,6 +201,77 @@ export function ExpenseCategoriesSection({ categories }: { categories: ExpenseCa
         </FormDialog>
       </div>
       <DataTable columns={categoryColumns} data={categories} />
+    </div>
+  );
+}
+
+// ---- Этапы работ и услуги (Д-100) ----
+const stageHelper = createColumnHelper<DataTableFeatures, WorkStageRow>();
+const stageColumns = stageHelper.columns([
+  stageHelper.accessor("name", {
+    header: "Этап",
+    cell: (info) => (
+      <span className="flex items-center gap-2">
+        {info.getValue()} {archived(info.row.original.isActive)}
+      </span>
+    ),
+  }),
+  stageHelper.accessor("sortOrder", { header: "Порядок" }),
+  stageHelper.display({
+    id: "edit",
+    header: "",
+    cell: (info) => (
+      <FormDialog trigger={editButton(info.row.original.name)} title="Этап работ">
+        {(close) => <WorkStageForm stage={info.row.original} onSaved={close} />}
+      </FormDialog>
+    ),
+  }),
+]);
+
+export function WorkStagesSection({ stages }: { stages: WorkStageRow[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <FormDialog trigger={addButton("Добавить этап")} title="Новый этап работ">
+          {(close) => <WorkStageForm onSaved={close} />}
+        </FormDialog>
+      </div>
+      <DataTable columns={stageColumns} data={stages} />
+    </div>
+  );
+}
+
+const serviceHelper = createColumnHelper<DataTableFeatures, ServiceRow>();
+
+export function ServicesSection({ services, units }: { services: ServiceRow[]; units: UnitRow[] }) {
+  const columns = serviceHelper.columns([
+    serviceHelper.accessor("name", {
+      header: "Услуга",
+      cell: (info) => (
+        <span className="flex items-center gap-2">
+          {info.getValue()} {archived(info.row.original.isActive)}
+        </span>
+      ),
+    }),
+    serviceHelper.accessor("unitCode", { header: "Ед." }),
+    serviceHelper.display({
+      id: "edit",
+      header: "",
+      cell: (info) => (
+        <FormDialog trigger={editButton(info.row.original.name)} title="Услуга">
+          {(close) => <ServiceForm service={info.row.original} units={units} onSaved={close} />}
+        </FormDialog>
+      ),
+    }),
+  ]);
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <FormDialog trigger={addButton("Добавить услугу")} title="Новая услуга">
+          {(close) => <ServiceForm units={units} onSaved={close} />}
+        </FormDialog>
+      </div>
+      <DataTable columns={columns} data={services} />
     </div>
   );
 }
