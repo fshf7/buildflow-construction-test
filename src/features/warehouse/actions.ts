@@ -9,6 +9,11 @@ import { createClient } from "@/lib/supabase/server";
 
 import {
   crewSchema,
+  issueRowFields,
+  normFields,
+  receiptRowFields,
+  serviceRowFields,
+  sheetSaveSchema,
   finishCorrectionSchema,
   quickIssueSchema,
   quickReceiveSchema,
@@ -243,6 +248,129 @@ export async function saveCrew(input: unknown): Promise<ActionResult> {
     return fail(
       error.code === "23505" ? "Бригада с таким названием уже есть" : dbErrorMessage(error),
     );
+  revalidateApp();
+  return ok();
+}
+
+// ---------------------------------------------------------------------------------------
+// Склад таблицами (Д-100): строка сохраняется сразу; исправление — корректировка/сторно в БД
+// ---------------------------------------------------------------------------------------
+type RowSaved = { id: string; number: string | null };
+
+function rowError(error: { message?: string; code?: string; details?: string } | null) {
+  return dbErrorMessage(error);
+}
+
+export async function saveReceiptRow(input: unknown): Promise<ActionResult<RowSaved>> {
+  const auth = await authorize("goods_receipts.post");
+  if (!auth.ok) return fail(auth.error);
+  const meta = sheetSaveSchema.safeParse(input);
+  const parsed = receiptRowFields.safeParse(input);
+  if (!meta.success || !parsed.success)
+    return fail(parsed.error?.issues[0]?.message ?? "Проверьте строку");
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("save_receipt_row", {
+    p_id: meta.data.id,
+    p_key: meta.data.key,
+    p_project_id: meta.data.projectId,
+    p_doc_date: v.docDate,
+    p_material_id: (v.materialId || null) as string,
+    p_material_name: v.materialName,
+    p_unit_id: (v.unitId || null) as string,
+    p_quantity: toNumber(v.quantity),
+    p_supplier_id: (v.supplierId || null) as string,
+  });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  const r = data as { id: string; number: string | null };
+  return ok({ id: r.id, number: r.number });
+}
+
+export async function saveIssueRow(input: unknown): Promise<ActionResult<RowSaved>> {
+  const auth = await authorize("material_issues.post");
+  if (!auth.ok) return fail(auth.error);
+  const meta = sheetSaveSchema.safeParse(input);
+  const parsed = issueRowFields.safeParse(input);
+  if (!meta.success || !parsed.success)
+    return fail(parsed.error?.issues[0]?.message ?? "Проверьте строку");
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("save_issue_row", {
+    p_id: meta.data.id,
+    p_key: meta.data.key,
+    p_project_id: meta.data.projectId,
+    p_doc_date: v.docDate,
+    p_material_id: v.materialId,
+    p_quantity: toNumber(v.quantity),
+    p_block_id: (v.blockId || null) as string,
+    p_floor_id: (v.floorId || null) as string,
+    p_stage_id: (v.stageId || null) as string,
+    p_crew_id: v.crewId,
+  });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  const r = data as { id: string; number: string | null };
+  return ok({ id: r.id, number: r.number });
+}
+
+export async function saveServiceRow(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const auth = await authorize("material_issues.post");
+  if (!auth.ok) return fail(auth.error);
+  const meta = sheetSaveSchema.safeParse(input);
+  const parsed = serviceRowFields.safeParse(input);
+  if (!meta.success || !parsed.success)
+    return fail(parsed.error?.issues[0]?.message ?? "Проверьте строку");
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("save_service_row", {
+    p_id: meta.data.id,
+    p_key: meta.data.key,
+    p_project_id: meta.data.projectId,
+    p_doc_date: v.docDate,
+    p_service_id: (v.serviceId || null) as string,
+    p_service_name: v.serviceName,
+    p_unit_id: (v.unitId || null) as string,
+    p_quantity: toNumber(v.quantity),
+    p_block_id: (v.blockId || null) as string,
+    p_floor_id: (v.floorId || null) as string,
+    p_stage_id: (v.stageId || null) as string,
+    p_crew_id: (v.crewId || null) as string,
+  });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  return ok({ id: meta.data.id });
+}
+
+export async function cancelServiceRow(id: string): Promise<ActionResult> {
+  const auth = await authorize("material_issues.post");
+  if (!auth.ok) return fail(auth.error);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cancel_service_row", { p_id: id });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  return ok();
+}
+
+/** Норматив (Д-100): материал + блок + этап; задаёт управляющий (norms.manage, проверка в БД). */
+export async function saveNorm(input: unknown): Promise<ActionResult> {
+  const auth = await authorize("norms.manage");
+  if (!auth.ok) return fail(auth.error);
+  const project = sheetSaveSchema.pick({ projectId: true }).safeParse(input);
+  const parsed = normFields.safeParse(input);
+  if (!project.success || !parsed.success)
+    return fail(parsed.error?.issues[0]?.message ?? "Проверьте строку");
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("save_material_norm", {
+    p_project_id: project.data.projectId,
+    p_material_id: v.materialId,
+    p_block_id: v.blockId,
+    p_stage_id: v.stageId,
+    p_quantity: toNumber(v.quantity),
+    p_note: v.note,
+  });
+  if (error) return fail(rowError(error));
   revalidateApp();
   return ok();
 }

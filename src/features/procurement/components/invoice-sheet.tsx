@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { DraftRestoredNotice } from "@/components/draft-restored-notice";
 import { NativeSelect } from "@/components/native-select";
 import { useObject, useObjectHref } from "@/components/object-context";
+import { isTablePaste, sheetInput, sheetNavigate } from "@/components/sheet/sheet-kit";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -63,8 +64,7 @@ const HEADER_LABELS: Record<string, string> = {
   currency: "валюта",
 };
 
-const cell =
-  "h-9 w-full min-w-0 border-0 bg-transparent px-2 text-sm outline-none focus:bg-background focus:ring-2 focus:ring-primary focus:ring-inset aria-invalid:bg-destructive/10";
+const cell = sheetInput;
 
 /**
  * Накладная как таблица Excel (Д-99): шапка — поставщик, дата, № бумажной накладной, валюта;
@@ -149,7 +149,7 @@ export function InvoiceSheet({
 
   function paste(e: React.ClipboardEvent) {
     const text = e.clipboardData.getData("text/plain");
-    if (!text.includes("\t") && !text.trim().includes("\n")) return;
+    if (!isTablePaste(text)) return;
     e.preventDefault();
     const { lines: pasted, header } = parsePastedLines(text, {
       categories: categories.map((c) => ({ id: c.id, name: c.name })),
@@ -170,26 +170,6 @@ export function InvoiceSheet({
       if (header.currency) form.setValue("currency", header.currency);
     }
     setLineErrors({});
-  }
-
-  /** Enter и стрелки — в ту же колонку соседней строки. */
-  function navigate(e: React.KeyboardEvent<HTMLElement>) {
-    const target = e.target as HTMLElement;
-    const isSelect = target.tagName === "SELECT";
-    const down = e.key === "Enter" || (!isSelect && e.key === "ArrowDown");
-    const up = !isSelect && e.key === "ArrowUp";
-    if (!down && !up) return;
-    const td = target.closest<HTMLElement>("[data-col]");
-    const tr = target.closest("tr");
-    if (!td || !tr) return;
-    const sibling = (
-      down ? tr.nextElementSibling : tr.previousElementSibling
-    ) as HTMLElement | null;
-    const next = sibling?.querySelector<HTMLElement>(
-      `[data-col="${td.dataset.col}"] input, [data-col="${td.dataset.col}"] select`,
-    );
-    e.preventDefault();
-    next?.focus();
   }
 
   function submit() {
@@ -289,7 +269,7 @@ export function InvoiceSheet({
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full border-collapse text-sm" onKeyDown={navigate}>
+        <table className="w-full border-collapse text-sm" onKeyDown={sheetNavigate}>
           <thead className="bg-muted/50">
             <tr className="border-b text-left">
               <th className="w-10 px-2 py-2 text-center font-medium text-muted-foreground">№</th>

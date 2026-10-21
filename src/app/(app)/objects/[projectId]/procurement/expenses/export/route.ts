@@ -11,6 +11,7 @@ import type { Column } from "@/features/reports/definitions";
 import { getCurrentOrg } from "@/lib/auth/access";
 import { hasPermission } from "@/lib/auth/access-model";
 import { getCurrentUser } from "@/lib/auth/session";
+import { attachment } from "@/lib/export/filename";
 import { toXlsx } from "@/lib/export/xlsx";
 import { businessToday } from "@/lib/format";
 import { rateLimit, tooManyMessage } from "@/lib/security/rate-limit";
@@ -100,7 +101,7 @@ export async function GET(
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="zatraty-${project.code}-${businessToday()}.xlsx"`,
+      "Content-Disposition": attachment(`zatraty-${project.code}-${businessToday()}.xlsx`),
     },
   });
 }

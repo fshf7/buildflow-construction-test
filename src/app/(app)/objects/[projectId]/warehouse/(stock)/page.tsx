@@ -21,11 +21,11 @@ export default async function WarehousePage({
   const { projectId } = await params;
   const { org, project } = await requireObject(projectId);
   const href = (path: string) => objectHref(project.id, path);
-  // Без доступа к остаткам: прораб — выдачи своих бригад (Д-26), остальные — заявки склада.
+  // Без доступа к остаткам: прораб — расход своих бригад (Д-26), остальные — заявки склада.
   if (!hasPermission(org, "stock.view"))
     redirect(
       href(
-        hasPermission(org, "stock.view_own_crews") ? "/warehouse/journal" : "/warehouse/requests",
+        hasPermission(org, "stock.view_own_crews") ? "/warehouse/outgoing" : "/warehouse/requests",
       ),
     );
 
