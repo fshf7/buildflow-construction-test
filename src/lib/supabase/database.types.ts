@@ -886,7 +886,7 @@ export type Database = {
           purchase_request_id: string | null;
           received_at: string;
           status: Database["public"]["Enums"]["goods_receipt_status"];
-          supplier_id: string;
+          supplier_id: string | null;
           supplier_invoice_id: string | null;
           updated_at: string;
           warehouse_id: string;
@@ -909,7 +909,7 @@ export type Database = {
           purchase_request_id?: string | null;
           received_at?: string;
           status?: Database["public"]["Enums"]["goods_receipt_status"];
-          supplier_id: string;
+          supplier_id?: string | null;
           supplier_invoice_id?: string | null;
           updated_at?: string;
           warehouse_id: string;
@@ -932,7 +932,7 @@ export type Database = {
           purchase_request_id?: string | null;
           received_at?: string;
           status?: Database["public"]["Enums"]["goods_receipt_status"];
-          supplier_id?: string;
+          supplier_id?: string | null;
           supplier_invoice_id?: string | null;
           updated_at?: string;
           warehouse_id?: string;
@@ -1093,7 +1093,7 @@ export type Database = {
       };
       material_issues: {
         Row: {
-          block_id: string;
+          block_id: string | null;
           cancel_reason: string | null;
           cancelled_at: string | null;
           cancelled_by: string | null;
@@ -1101,7 +1101,7 @@ export type Database = {
           created_by: string | null;
           crew_id: string;
           doc_date: string;
-          floor_id: string;
+          floor_id: string | null;
           id: string;
           note: string | null;
           number: string | null;
@@ -1110,12 +1110,14 @@ export type Database = {
           posted_by: string | null;
           project_id: string;
           received_by_name: string | null;
+          replaces_issue_id: string | null;
+          stage_id: string | null;
           status: Database["public"]["Enums"]["issue_status"];
           updated_at: string;
           warehouse_id: string;
         };
         Insert: {
-          block_id: string;
+          block_id?: string | null;
           cancel_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
@@ -1123,7 +1125,7 @@ export type Database = {
           created_by?: string | null;
           crew_id: string;
           doc_date?: string;
-          floor_id: string;
+          floor_id?: string | null;
           id?: string;
           note?: string | null;
           number?: string | null;
@@ -1132,12 +1134,14 @@ export type Database = {
           posted_by?: string | null;
           project_id: string;
           received_by_name?: string | null;
+          replaces_issue_id?: string | null;
+          stage_id?: string | null;
           status?: Database["public"]["Enums"]["issue_status"];
           updated_at?: string;
           warehouse_id: string;
         };
         Update: {
-          block_id?: string;
+          block_id?: string | null;
           cancel_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
@@ -1145,7 +1149,7 @@ export type Database = {
           created_by?: string | null;
           crew_id?: string;
           doc_date?: string;
-          floor_id?: string;
+          floor_id?: string | null;
           id?: string;
           note?: string | null;
           number?: string | null;
@@ -1154,6 +1158,8 @@ export type Database = {
           posted_by?: string | null;
           project_id?: string;
           received_by_name?: string | null;
+          replaces_issue_id?: string | null;
+          stage_id?: string | null;
           status?: Database["public"]["Enums"]["issue_status"];
           updated_at?: string;
           warehouse_id?: string;
@@ -1195,11 +1201,103 @@ export type Database = {
             referencedColumns: ["id", "organization_id"];
           },
           {
+            foreignKeyName: "material_issues_replaces_issue_id_fkey";
+            columns: ["replaces_issue_id"];
+            isOneToOne: false;
+            referencedRelation: "material_issues";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "material_issues_stage_id_organization_id_fkey";
+            columns: ["stage_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "work_stages";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
             foreignKeyName: "material_issues_warehouse_id_organization_id_project_id_fkey";
             columns: ["warehouse_id", "organization_id", "project_id"];
             isOneToOne: false;
             referencedRelation: "warehouses";
             referencedColumns: ["id", "organization_id", "project_id"];
+          },
+        ];
+      };
+      material_norms: {
+        Row: {
+          block_id: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          material_id: string;
+          note: string | null;
+          organization_id: string;
+          project_id: string;
+          quantity: number;
+          stage_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          block_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          material_id: string;
+          note?: string | null;
+          organization_id: string;
+          project_id: string;
+          quantity: number;
+          stage_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          block_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          material_id?: string;
+          note?: string | null;
+          organization_id?: string;
+          project_id?: string;
+          quantity?: number;
+          stage_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "material_norms_block_id_project_id_fkey";
+            columns: ["block_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id", "project_id"];
+          },
+          {
+            foreignKeyName: "material_norms_material_id_organization_id_fkey";
+            columns: ["material_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "material_norms_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "material_norms_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "material_norms_stage_id_organization_id_fkey";
+            columns: ["stage_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "work_stages";
+            referencedColumns: ["id", "organization_id"];
           },
         ];
       };
@@ -2367,6 +2465,158 @@ export type Database = {
           },
         ];
       };
+      service_usages: {
+        Row: {
+          block_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          crew_id: string | null;
+          doc_date: string;
+          floor_id: string | null;
+          id: string;
+          note: string | null;
+          organization_id: string;
+          project_id: string;
+          quantity: number;
+          service_id: string;
+          stage_id: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          block_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          crew_id?: string | null;
+          doc_date: string;
+          floor_id?: string | null;
+          id?: string;
+          note?: string | null;
+          organization_id: string;
+          project_id: string;
+          quantity: number;
+          service_id: string;
+          stage_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          block_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          crew_id?: string | null;
+          doc_date?: string;
+          floor_id?: string | null;
+          id?: string;
+          note?: string | null;
+          organization_id?: string;
+          project_id?: string;
+          quantity?: number;
+          service_id?: string;
+          stage_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "service_usages_block_id_project_id_fkey";
+            columns: ["block_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id", "project_id"];
+          },
+          {
+            foreignKeyName: "service_usages_crew_id_organization_id_fkey";
+            columns: ["crew_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "service_usages_floor_id_block_id_fkey";
+            columns: ["floor_id", "block_id"];
+            isOneToOne: false;
+            referencedRelation: "floors";
+            referencedColumns: ["id", "block_id"];
+          },
+          {
+            foreignKeyName: "service_usages_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "service_usages_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "service_usages_service_id_organization_id_fkey";
+            columns: ["service_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "service_usages_stage_id_organization_id_fkey";
+            columns: ["stage_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "work_stages";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
+      services: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+          organization_id: string;
+          unit_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          organization_id: string;
+          unit_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          organization_id?: string;
+          unit_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "services_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "services_unit_id_organization_id_fkey";
+            columns: ["unit_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "units_of_measure";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
       stock_balances: {
         Row: {
           material_id: string;
@@ -3304,6 +3554,47 @@ export type Database = {
           },
         ];
       };
+      work_stages: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+          organization_id: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          organization_id: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          organization_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_stages_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       payments: {
@@ -3492,6 +3783,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "supplier_invoice_items_category_id_organization_id_fkey";
+            columns: ["category_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "expense_categories";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
             foreignKeyName: "supplier_invoice_items_material_id_organization_id_fkey";
             columns: ["material_id", "organization_id"];
             isOneToOne: false;
@@ -3678,6 +3976,7 @@ export type Database = {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
       };
+      cancel_service_row: { Args: { p_id: string }; Returns: undefined };
       cancel_supplier_invoice: {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
@@ -3820,6 +4119,16 @@ export type Database = {
         }[];
       };
       my_access: { Args: never; Returns: Json };
+      norm_usage: {
+        Args: { p_project: string };
+        Returns: {
+          block_id: string;
+          issued: number;
+          material_id: string;
+          norm: number;
+          stage_id: string;
+        }[];
+      };
       post_cash_transaction: {
         Args: { p_id: string; p_key: string };
         Returns: Json;
@@ -3940,6 +4249,41 @@ export type Database = {
           warehouse_name: string;
         }[];
       };
+      report_warehouse_balance: {
+        Args: { p_project: string; p_to: string };
+        Returns: {
+          balance: number;
+          incoming: number;
+          material: string;
+          material_id: string;
+          outgoing: number;
+          unit: string;
+        }[];
+      };
+      report_warehouse_incoming: {
+        Args: { p_from: string; p_project: string; p_to: string };
+        Returns: {
+          material: string;
+          material_id: string;
+          quantity: number;
+          suppliers: string;
+          unit: string;
+        }[];
+      };
+      report_warehouse_outgoing: {
+        Args: { p_from: string; p_project: string; p_to: string };
+        Returns: {
+          block: string;
+          floor: string;
+          material: string;
+          material_id: string;
+          norm: number;
+          norm_issued: number;
+          quantity: number;
+          stage: string;
+          unit: string;
+        }[];
+      };
       report_work_acts: {
         Args: {
           p_crew?: string;
@@ -4038,6 +4382,25 @@ export type Database = {
         };
         Returns: string;
       };
+      save_expense_row: {
+        Args: {
+          p_category_id: string;
+          p_currency: string;
+          p_description: string;
+          p_doc_date: string;
+          p_doc_number: string;
+          p_id: string;
+          p_key: string;
+          p_material_id: string;
+          p_note: string;
+          p_price: number;
+          p_project_id: string;
+          p_quantity: number;
+          p_supplier_id: string;
+          p_unit_id: string;
+        };
+        Returns: Json;
+      };
       save_goods_receipt_draft: {
         Args: {
           p_correction_reason: string;
@@ -4049,6 +4412,21 @@ export type Database = {
           p_supplier_id: string;
         };
         Returns: string;
+      };
+      save_issue_row: {
+        Args: {
+          p_block_id: string;
+          p_crew_id: string;
+          p_doc_date: string;
+          p_floor_id: string;
+          p_id: string;
+          p_key: string;
+          p_material_id: string;
+          p_project_id: string;
+          p_quantity: number;
+          p_stage_id: string;
+        };
+        Returns: Json;
       };
       save_material_issue_draft: {
         Args: {
@@ -4062,6 +4440,17 @@ export type Database = {
           p_received_by_name: string;
         };
         Returns: string;
+      };
+      save_material_norm: {
+        Args: {
+          p_block_id: string;
+          p_material_id: string;
+          p_note: string;
+          p_project_id: string;
+          p_quantity: number;
+          p_stage_id: string;
+        };
+        Returns: undefined;
       };
       save_material_return_draft: {
         Args: {
@@ -4099,21 +4488,44 @@ export type Database = {
         };
         Returns: string;
       };
-      save_expense_row: {
+      save_purchase_request_draft: {
         Args: {
-          p_category_id: string;
           p_currency: string;
-          p_description: string;
+          p_id: string;
+          p_lines: Json;
+          p_needed_by: string;
+          p_note: string;
+          p_project_id: string;
+        };
+        Returns: string;
+      };
+      save_receipt_row: {
+        Args: {
           p_doc_date: string;
-          p_doc_number: string;
           p_id: string;
           p_key: string;
           p_material_id: string;
-          p_note: string;
-          p_price: number;
+          p_material_name: string;
           p_project_id: string;
           p_quantity: number;
           p_supplier_id: string;
+          p_unit_id: string;
+        };
+        Returns: Json;
+      };
+      save_service_row: {
+        Args: {
+          p_block_id: string;
+          p_crew_id: string;
+          p_doc_date: string;
+          p_floor_id: string;
+          p_id: string;
+          p_key: string;
+          p_project_id: string;
+          p_quantity: number;
+          p_service_id: string;
+          p_service_name: string;
+          p_stage_id: string;
           p_unit_id: string;
         };
         Returns: Json;
@@ -4131,17 +4543,6 @@ export type Database = {
           p_supplier_id: string;
         };
         Returns: Json;
-      };
-      save_purchase_request_draft: {
-        Args: {
-          p_currency: string;
-          p_id: string;
-          p_lines: Json;
-          p_needed_by: string;
-          p_note: string;
-          p_project_id: string;
-        };
-        Returns: string;
       };
       save_supplier_invoice_draft: {
         Args: {

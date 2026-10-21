@@ -92,3 +92,27 @@ export async function listBlockOptions(projectId: string): Promise<BlockOption[]
       .map((f) => ({ id: f.id, name: f.name })),
   }));
 }
+
+/**
+ * Ответственный в расходе (Д-100) — бригадир: бригада из «Бригад», подпись — бригадир
+ * («Часур кл»), если указан, иначе название бригады.
+ */
+export async function listResponsibleOptions(orgId: string): Promise<Option[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("crews")
+    .select("id, name, leader_name")
+    .eq("organization_id", orgId)
+    .eq("is_active", true)
+    .order("name");
+  if (error) throw new Error(error.message);
+  return data
+    .map((c) => {
+      const leader = c.leader_name?.trim();
+      return {
+        id: c.id,
+        label: leader && leader !== c.name ? `${leader} (${c.name})` : c.name,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, "ru"));
+}

@@ -86,7 +86,7 @@ export type RequestDetail = {
   receipts: {
     id: string;
     number: string | null;
-    supplierId: string;
+    supplierId: string | null;
     supplierName: string;
     status: string;
     docDate: string;

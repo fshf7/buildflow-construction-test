@@ -45,7 +45,7 @@ export const OBJECT_NAV: readonly NavItem[] = [
     label: "Склад",
     icon: Warehouse,
     // Д-98: заявки склада — вкладка склада.
-    hint: "Заявки склада, остатки, приёмка, выдача, журнал",
+    hint: "Заявки, остатки, приход, расход, услуги, нормативы, отчёт",
     permissions: ["purchase_requests.view", "stock.view", "stock.view_own_crews"],
   },
   {

@@ -62,6 +62,21 @@ export async function createWarehouseFixture() {
       .insert({ organization_id: org.id, project_id: project.id, member_id: member.id })
       .select("id"),
   );
+  // Управляющий объекта — задаёт нормативы склада (Д-100).
+  const pm = await one(
+    db
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", org.id)
+      .eq("email", LOCAL_PM.email)
+      .single(),
+  );
+  await one(
+    db
+      .from("project_members")
+      .insert({ organization_id: org.id, project_id: project.id, member_id: pm.id })
+      .select("id"),
+  );
   const crew = await one(
     db
       .from("crews")

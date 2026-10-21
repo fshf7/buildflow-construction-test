@@ -85,11 +85,11 @@ export function ReceiveForm({
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <Label htmlFor="supplier">Поставщик</Label>
+        <Label htmlFor="supplier">Поставщик (необязательно)</Label>
         <NativeSelect
           id="supplier"
           className="h-11 text-base"
-          placeholder="Выберите поставщика"
+          placeholder="Не указан"
           options={suppliers.map((s) => ({ value: s.id, label: s.label }))}
           value={supplierId}
           onChange={(e) => setSupplierId(e.target.value)}

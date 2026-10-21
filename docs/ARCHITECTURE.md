@@ -1363,3 +1363,17 @@ OPENING, Д-65) и `opening_balance_id`; категория `OPENING_BALANCE`. �
   (react-hook-form, `useFormDraft`); затраты — `expenses-table.tsx`; вставка — `parsePastedLines` (`expenses.ts`).
   Тест — pgTAP `170_invoice_sheet`.
 
+## 22. Склад таблицами (Д-100; миграция `20261025000000_warehouse_sheets.sql`)
+
+- Справочники `work_stages` (стартовые — триггер на `organizations`), `services`; `material_norms`
+  (материал + блок + этап, право `norms.manage` — управляющему); `service_usages` (журнал услуг).
+- `material_issues.stage_id`, `replaces_issue_id`; `block_id`/`floor_id` и `goods_receipts.supplier_id` — NULL допустимы.
+- Строки: `save_receipt_row` (новая — приёмка из одной строки, проведена; исправление — корректировка приёмки),
+  `save_issue_row` (новая — выдача, проведена; исправление — `reverse_material_issue` + новая), `save_service_row`,
+  `cancel_service_row`, `save_material_norm`; `private.resolve_material` — новое наименование в справочник;
+  `private.can_fix_stock_row` — окно 7 дней (старше — `goods_receipts.approve_correction`).
+- Чтение под RLS (SECURITY INVOKER): `norm_usage`, `report_warehouse_incoming/outgoing/balance`.
+- UI: `components/sheet` (`useRowSheet`, `sheet-kit`, `filter`, `sheet-toolbar`), таблицы —
+  `features/warehouse/components/{incoming,outgoing,services,norms}-sheet.tsx`, запросы — `features/warehouse/sheets.ts`,
+  выгрузка — `warehouse/export`. Тест — pgTAP `180_warehouse_sheets`, e2e `warehouse-sheets.spec.ts`.
+

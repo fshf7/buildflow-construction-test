@@ -41,6 +41,7 @@ export const PERMISSIONS = [
   "tasks.execute",
   "tasks.manage",
   "reports.view",
+  "norms.manage",
   "audit.view",
   "opening_balances.manage",
 ] as const;

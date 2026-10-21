@@ -11,15 +11,14 @@ const FORMAT: Record<Column["kind"], string | undefined> = {
   qty: "#,##0.####",
 };
 
-/** XLSX: числа — числами (Excel считает суммы сам), даты — датами; итоговая строка жирным (Д-76). */
-export async function toXlsx(
-  title: string,
-  columns: Column[],
-  rows: ReportRow[],
-  totals: Record<string, number> | null,
-): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "BuildFlow";
+export type XlsxSheet = {
+  title: string;
+  columns: Column[];
+  rows: ReportRow[];
+  totals: Record<string, number> | null;
+};
+
+function addSheet(wb: ExcelJS.Workbook, { title, columns, rows, totals }: XlsxSheet) {
   const ws = wb.addWorksheet(title.slice(0, 31));
   ws.columns = columns.map((c) => ({
     header: c.label,
@@ -46,5 +45,22 @@ export async function toXlsx(
     row.font = { bold: true };
   }
   ws.views = [{ state: "frozen", ySplit: 1 }];
+}
+
+/** XLSX: числа — числами (Excel считает суммы сам), даты — датами; итоговая строка жирным (Д-76). */
+export async function toXlsx(
+  title: string,
+  columns: Column[],
+  rows: ReportRow[],
+  totals: Record<string, number> | null,
+): Promise<Buffer> {
+  return toXlsxBook([{ title, columns, rows, totals }]);
+}
+
+/** Книга из нескольких листов (отчёт склада за период: приход, расход, остаток — Д-100). */
+export async function toXlsxBook(sheets: XlsxSheet[]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "BuildFlow";
+  for (const sheet of sheets) addSheet(wb, sheet);
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
