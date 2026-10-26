@@ -410,7 +410,8 @@ export function OutgoingSheet({
         ))}
       </datalist>
       <div className="max-h-[70vh] overflow-auto rounded-lg border">
-        <table className={sheetTable} onKeyDown={sheetNavigate}>
+        {/* Минимальная ширина: на узком экране таблица прокручивается, а не сжимает колонки. */}
+        <table className={cn(sheetTable, "min-w-[80rem]")} onKeyDown={sheetNavigate}>
           <thead className="sticky top-0 z-[2] bg-muted">
             <tr>
               <th className={cn(sheetHead, "sticky left-0 z-[3] bg-muted")}>Дата</th>
