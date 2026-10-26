@@ -34,7 +34,7 @@ export type ReceiptTarget = {
   lines: { name: string; unit: string; remaining: number }[];
 };
 
-/** Что ждём: заявки в работе и строки с остатком к приёмке. Поставщика склад выбирает при приёмке (Д-92). */
+/** Что ждём: заявки в работе и строки с остатком к приёмке. Поставщика склад не указывает (Д-102). */
 export async function listReceiptTargets(projectId: string): Promise<ReceiptTarget[]> {
   const supabase = await createClient();
   const { data: requests, error } = await supabase

@@ -36,8 +36,8 @@ const FIELDS: (keyof IncomingDraft)[] = [
 ];
 
 /**
- * «Приход» склада (Д-100) как их лист в Google Таблице: Дата · Наименование · Кол-во · Ед. изм. ·
- * Поставщик (необязательно). Строка проводится, когда уходишь с неё (остаток растёт сразу);
+ * «Приход» склада (Д-100) как их лист в Google Таблице: Дата · Наименование · Кол-во · Ед. изм.
+ * Поставщика склад не вводит (Д-102) — его вносит бухгалтер в накладной. Строка проводится, когда уходишь с неё (остаток растёт сразу);
  * новое наименование добавляется в справочник после подтверждения. Исправление в ячейке —
  * корректировка приёмки (до 7 дней — склад, старше — бухгалтер).
  */
@@ -45,7 +45,6 @@ export function IncomingSheet({
   rows,
   materials,
   units,
-  suppliers,
   canEdit,
   canFixOld,
   today,
@@ -53,7 +52,6 @@ export function IncomingSheet({
   rows: IncomingRow[];
   materials: MaterialOption[];
   units: Option[];
-  suppliers: Option[];
   canEdit: boolean;
   canFixOld: boolean;
   today: string;
@@ -115,7 +113,7 @@ export function IncomingSheet({
     rows,
     filter,
     (r) => r.draft.docDate,
-    (r) => `${r.draft.materialName} ${r.supplierName} ${r.number ?? ""} ${r.requestNumber ?? ""}`,
+    (r) => `${r.draft.materialName} ${r.number ?? ""} ${r.requestNumber ?? ""}`,
   );
   const savedIds = new Set(rows.map((r) => r.id));
   const fresh = canEdit ? sheet.fresh.filter((d) => !savedIds.has(d.id)) : [];
@@ -132,24 +130,21 @@ export function IncomingSheet({
     const text = e.clipboardData.getData("text/plain");
     if (!isTablePaste(text)) return;
     e.preventDefault();
-    // Колонки их листа «Приход»: Дата, Наименование, Кол-во, Ед.изм, Поставщик.
+    // Колонки их листа «Приход»: Дата, Наименование, Кол-во, Ед.изм (Поставщик — не берём, Д-102).
     const drafts = text
       .replace(/\r/g, "")
       .split("\n")
       .filter((l) => l.trim() && !/^дата\t/i.test(l))
       .map((l) => {
-        const [date = "", name = "", qty = "", unit = "", supplier = ""] = l
-          .split("\t")
-          .map((s) => s.trim());
+        const [date = "", name = "", qty = "", unit = ""] = l.split("\t").map((s) => s.trim());
         const u = units.find((x) => lower(unitCode(x)) === lower(unit));
-        const s = suppliers.find((x) => lower(x.label) === lower(supplier));
         const base: IncomingDraft = {
           docDate: parseRuDate(date) ?? today,
           materialId: "",
           materialName: name,
           unitId: u?.id ?? "",
           quantity: parseRuNumber(qty),
-          supplierId: s?.id ?? "",
+          supplierId: "",
         };
         return {
           ...base,
@@ -262,25 +257,6 @@ export function IncomingSheet({
             </select>
           )}
         </td>
-        <td data-col="supplier" className={cn(sheetCell, "w-56")}>
-          {locked ? (
-            <span className={sheetText}>{row?.supplierName}</span>
-          ) : (
-            <select
-              aria-label="Поставщик"
-              className={sheetInput}
-              value={d.supplierId}
-              onChange={(e) => set({ supplierId: e.target.value })}
-            >
-              <option value="">—</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </td>
         <td className={cn(sheetCell, "w-32 px-2 text-xs text-muted-foreground")}>
           {row?.requestNumber ?? ""}
         </td>
@@ -327,7 +303,6 @@ export function IncomingSheet({
               <th className={sheetHead}>Наименование</th>
               <th className={cn(sheetHead, "text-right")}>Кол-во</th>
               <th className={sheetHead}>Ед. изм.</th>
-              <th className={sheetHead}>Поставщик</th>
               <th className={sheetHead}>Заявка</th>
               <th className={sheetHead} />
             </tr>

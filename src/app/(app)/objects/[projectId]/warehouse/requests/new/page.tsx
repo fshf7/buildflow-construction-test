@@ -18,7 +18,7 @@ export default async function NewRequestPage({
     <>
       <PageHeader
         title="Новая заявка"
-        description="Что и сколько нужно объекту. Поставщика и цену указывать не нужно: поставщика выберете при приёмке, цены внесёт бухгалтер из накладной."
+        description="Что и сколько нужно объекту. Поставщика и цену указывать не нужно — их внесёт бухгалтер из накладной."
       />
       <RequestEditor
         materials={materials}

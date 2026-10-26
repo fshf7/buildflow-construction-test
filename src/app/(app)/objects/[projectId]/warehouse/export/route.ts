@@ -60,7 +60,7 @@ export async function GET(
       await listIncomingRows(project.id),
       f,
       (r) => r.draft.docDate,
-      (r) => `${r.draft.materialName} ${r.supplierName} ${r.number ?? ""} ${r.requestNumber ?? ""}`,
+      (r) => `${r.draft.materialName} ${r.number ?? ""} ${r.requestNumber ?? ""}`,
     );
     name = "prihod";
     sheets = [
@@ -71,7 +71,6 @@ export async function GET(
           { key: "material", label: "Наименование", kind: "text" },
           { key: "quantity", label: "Кол-во", kind: "qty" },
           { key: "unit", label: "Ед. изм.", kind: "text" },
-          { key: "supplier", label: "Поставщик", kind: "text" },
           { key: "request", label: "Заявка", kind: "text" },
         ],
         rows: rows.map((r) => ({
@@ -79,7 +78,6 @@ export async function GET(
           material: r.draft.materialName,
           quantity: qty(r.draft.quantity),
           unit: r.unitCode,
-          supplier: r.supplierName,
           request: r.requestNumber,
         })),
         totals: null,

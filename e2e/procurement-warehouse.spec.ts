@@ -50,11 +50,11 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   await acc.goto(`/objects/${fx.projectId}/warehouse/requests`);
   await expect(acc.getByRole("link", { name: "Новая заявка" })).toHaveCount(0);
 
-  // ---- US-02: склад принимает 21 кг при заказе 20; поставщика выбирает при приёмке ----
+  // ---- US-02: склад принимает 21 кг при заказе 20; поставщика не указывает (Д-102) ----
   await wh.goto(`/objects/${fx.projectId}/warehouse`);
   await wh.getByRole("link", { name: "Принять" }).click(); // касание 1
   await wh.getByRole("link", { name: new RegExp(`Заявка ${requestNumber}`) }).click(); // касание 2
-  await wh.getByLabel("Поставщик").selectOption({ label: fx.s1 });
+  await expect(wh.getByLabel(/Поставщик/)).toHaveCount(0);
   await wh.getByLabel(`Принято: ${fx.cement}`).fill("21");
   await wh.getByLabel(`Принято: ${fx.sand}`).fill(""); // песок этой машиной не привезли
   await wh.getByRole("button", { name: "Провести приёмку" }).click(); // касание 3

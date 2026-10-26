@@ -9,8 +9,6 @@ export const quickReceiveSchema = z.object({
   receiptId: z.uuid(),
   key: z.uuid(),
   projectId: z.uuid(),
-  // Д-100: поставщик необязателен (часто неизвестен складу); для денег его указывает бухгалтер.
-  supplierId: z.union([z.uuid(), z.literal("")]),
   requestId: z.union([z.uuid(), z.literal("")]),
   note: z.string().trim().max(500),
   lines: z
@@ -92,6 +90,7 @@ export const receiptRowFields = z
     materialName: z.string().trim().max(300),
     unitId: optionalId,
     quantity: decimalString({ message: "Кол-во" }),
+    // Д-102: склад поставщика не вводит; при исправлении строки сохраняется прежний (если был).
     supplierId: optionalId,
   })
   .superRefine((v, ctx) => {

@@ -42,7 +42,7 @@ export async function quickReceive(input: unknown): Promise<ActionResult<Posted>
   const { error: saveError } = await supabase.rpc("save_goods_receipt_draft", {
     p_id: v.receiptId,
     p_project_id: v.projectId,
-    p_supplier_id: (v.supplierId || null) as string,
+    p_supplier_id: null as unknown as string, // Д-102: поставщика вносит бухгалтер в накладной
     p_purchase_request_id: (v.requestId || null) as string,
     p_note: v.note,
     p_correction_reason: "",
