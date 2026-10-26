@@ -360,7 +360,14 @@ export function OutgoingSheet({
             </select>
           )}
         </td>
-        <td className={cn(sheetCell, "w-16 px-1")}>
+        {/* Закреплена справа, как дата слева: замок и «Вернуть» видны без прокрутки. */}
+        <td
+          className={cn(
+            sheetCell,
+            "sticky right-0 z-[1] w-16 border-l px-1",
+            isReturn ? "bg-emerald-50 dark:bg-emerald-950" : "bg-background",
+          )}
+        >
           <div className="flex items-center justify-center gap-1">
             <RowStatus
               state={st}
@@ -423,7 +430,7 @@ export function OutgoingSheet({
               <th className={cn(sheetHead, "text-right")}>Норматив</th>
               <th className={cn(sheetHead, "text-right")}>Остаток норм.</th>
               <th className={sheetHead}>Ответственный</th>
-              <th className={sheetHead} />
+              <th className={cn(sheetHead, "sticky right-0 z-[3] bg-muted")} />
             </tr>
           </thead>
           <tbody>
