@@ -8,8 +8,7 @@ import { toast } from "sonner";
 import { NativeSelect } from "@/components/native-select";
 import { useObjectHref } from "@/components/object-context";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import type { MaterialOption, Option } from "@/features/shared/lookups";
+import type { MaterialOption } from "@/features/shared/lookups";
 import { formatQuantity } from "@/lib/format";
 import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
 
@@ -22,20 +21,18 @@ import { SubmitBar } from "./submit-bar";
 type Line = { purchaseRequestItemId: string; materialId: string; quantity: string };
 
 /**
- * Приёмка (US-02). Поставщика склад выбирает здесь — по документам машины (в заявке его нет, Д-92).
- * По заявке — строки с остатком к приёмке, подставленным по умолчанию; склад правит фактическое
+ * Приёмка (US-02): только фактические количества. Поставщика склад не указывает (Д-102) —
+ * его вносит бухгалтер в накладной. По заявке — строки с остатком к приёмке, подставленным по умолчанию; склад правит фактическое
  * количество (можно больше заказанного — расхождение помечается; 0 — этого не привезли).
  * Без заявки — материалы вручную.
  */
 export function ReceiveForm({
   projectId,
   request,
-  suppliers,
   materials,
 }: {
   projectId: string;
   request?: { requestId: string; lines: ReceiveLine[] };
-  suppliers: Option[];
   materials?: MaterialOption[];
 }) {
   const router = useRouter();
@@ -44,7 +41,6 @@ export function ReceiveForm({
   const { key } = useIdempotencyKey();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [supplierId, setSupplierId] = useState("");
   const [lines, setLines] = useState<Line[]>(
     request
       ? request.lines.map((l) => ({
@@ -68,7 +64,6 @@ export function ReceiveForm({
         receiptId,
         key,
         projectId,
-        supplierId,
         requestId: request?.requestId ?? "",
         note: "",
         lines,
@@ -84,18 +79,6 @@ export function ReceiveForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="supplier">Поставщик (необязательно)</Label>
-        <NativeSelect
-          id="supplier"
-          className="h-11 text-base"
-          placeholder="Не указан"
-          options={suppliers.map((s) => ({ value: s.id, label: s.label }))}
-          value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-        />
-      </div>
-
       <ul className="flex flex-col divide-y rounded-lg border">
         {lines.map((line, index) => {
           const info = request?.lines[index];

@@ -18,12 +18,12 @@ export type IncomingDraft = {
   materialName: string;
   unitId: string;
   quantity: string;
+  /** Не показывается (Д-102): склад поставщика не вводит; при исправлении строки сохраняется. */
   supplierId: string;
 };
 export type IncomingRow = SheetRow<IncomingDraft> & {
   number: string | null;
   unitCode: string;
-  supplierName: string;
   requestNumber: string | null;
 };
 
@@ -32,7 +32,7 @@ export async function listIncomingRows(projectId: string): Promise<IncomingRow[]
   const { data, error } = await supabase
     .from("goods_receipts")
     .select(
-      "id, number, doc_date, supplier_id, suppliers(name), purchase_requests(number), goods_receipt_items(id, line_no, material_id, received_quantity, materials(name, unit_id, units_of_measure(code)))",
+      "id, number, doc_date, supplier_id, purchase_requests(number), goods_receipt_items(id, line_no, material_id, received_quantity, materials(name, unit_id, units_of_measure(code)))",
     )
     .eq("project_id", projectId)
     .eq("status", "POSTED")
@@ -48,7 +48,6 @@ export async function listIncomingRows(projectId: string): Promise<IncomingRow[]
       editable: items.length === 1,
       number: g.number,
       unitCode: i.materials?.units_of_measure?.code ?? "",
-      supplierName: g.suppliers?.name ?? "",
       requestNumber: g.purchase_requests?.number ?? null,
       draft: {
         docDate: g.doc_date,
