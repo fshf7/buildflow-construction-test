@@ -37,8 +37,16 @@ export default async function IssuePage({
           {ISSUE_STATUS_LABELS[issue.status]}
         </Badge>
         <span>
-          {issue.crewName} · {issue.blockName}, этаж {issue.floorName}
-          {issue.receivedByName ? ` · получил ${issue.receivedByName}` : ""}
+          {[
+            issue.crewName,
+            // Из «Расхода» блок и этаж могут быть не указаны (Д-100) — показываем только заданное.
+            [issue.blockName, issue.floorName && `этаж ${issue.floorName}`, issue.stageName]
+              .filter(Boolean)
+              .join(", "),
+            issue.receivedByName && `получил ${issue.receivedByName}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </div>
       {issue.cancelReason ? <p className="text-sm">Причина сторно: {issue.cancelReason}</p> : null}

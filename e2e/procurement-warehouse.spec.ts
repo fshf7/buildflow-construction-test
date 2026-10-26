@@ -63,11 +63,12 @@ test("заявка → приёмка 21 из 20 → выдача → минус
   await wh.goto(`/objects/${fx.projectId}/warehouse`);
   await expect(wh.getByRole("link", { name: new RegExp(`${fx.cement}\\s*21 кг`) })).toBeVisible();
 
-  // ---- US-03: выдача бригаде — объект, блок, этаж, бригада ----
+  // ---- US-03: выдача бригаде — объект, блок, этаж, этап, бригада ----
   await wh.getByRole("link", { name: "Выдать" }).click();
   await wh.getByLabel("Бригада").selectOption({ label: fx.crew });
   await wh.getByLabel("Блок").selectOption({ label: fx.block });
   await wh.getByLabel("Этаж").selectOption({ label: fx.floor });
+  await wh.getByLabel("Этап работ").selectOption({ label: "Кладка" }); // для нормативов (Д-100)
   await wh.getByLabel(`Выдать: ${fx.cement}`).fill("15");
   await wh.getByRole("button", { name: "Провести выдачу" }).click();
   await expect(wh.getByRole("heading", { name: /^Выдача ВДЧ-/ })).toBeVisible();

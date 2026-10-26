@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { listExpenseCategories } from "@/features/catalog/queries";
 import { InvoiceSheet } from "@/features/procurement/components/invoice-sheet";
-import { getInvoice } from "@/features/procurement/queries";
+import { getInvoice, listInvoiceRequestOptions } from "@/features/procurement/queries";
 import { ensureDocInObject, requireObject } from "@/features/projects/object";
 import {
   listMaterialOptions,
@@ -31,11 +31,12 @@ export default async function EditInvoicePage({
   if (invoice.status === "CANCELLED" || (invoice.payable?.paid ?? 0) > 0) {
     redirect(objectHref(project.id, `/procurement/invoices/${id}`));
   }
-  const [categories, suppliers, units, materials] = await Promise.all([
+  const [categories, suppliers, units, materials, requests] = await Promise.all([
     listExpenseCategories(org.id),
     listSupplierOptions(org.id),
     listUnitOptions(org.id),
     listMaterialOptions(org.id),
+    listInvoiceRequestOptions(project.id, invoice.purchaseRequestId),
   ]);
   return (
     <>
@@ -48,6 +49,7 @@ export default async function EditInvoicePage({
         initial={{
           id: invoice.id,
           supplierId: invoice.supplierId,
+          requestId: invoice.purchaseRequestId ?? "",
           docDate: invoice.docDate,
           docNumber: invoice.supplierDocNumber ?? "",
           currency: invoice.currency,
@@ -62,6 +64,7 @@ export default async function EditInvoicePage({
           })),
         }}
         suppliers={suppliers}
+        requests={requests}
         categories={categories}
         units={units}
         materials={materials}

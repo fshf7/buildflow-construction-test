@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Option } from "@/features/shared/lookups";
+import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 import type { ExpenseRow } from "./expenses";
@@ -48,6 +50,35 @@ export async function listRequests(orgId: string, f: ListFilters): Promise<Reque
     projectLabel: r.projects ? `${r.projects.code} — ${r.projects.name}` : "—",
     linesCount: r.purchase_request_items.length,
   }));
+}
+
+/** Заявки объекта, к которым можно привязать накладную: выданные, принимаемые, на сверке (BP-01). */
+const INVOICEABLE: RequestStatus[] = [
+  "ISSUED",
+  "PARTIALLY_RECEIVED",
+  "RECEIVED",
+  "ACCOUNTING_REVIEW",
+  "DISCREPANCY",
+];
+
+export async function listInvoiceRequestOptions(
+  projectId: string,
+  keepId?: string | null,
+): Promise<Option[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select("id, number, doc_date, status")
+    .eq("project_id", projectId)
+    .not("number", "is", null)
+    .order("doc_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  // Уже привязанная заявка остаётся в списке, даже если её закрыли.
+  return data
+    .filter((r) => INVOICEABLE.includes(r.status) || r.id === keepId)
+    .map((r) => ({ id: r.id, label: `${r.number} от ${formatDate(r.doc_date)}` }));
 }
 
 export type RequestLine = {

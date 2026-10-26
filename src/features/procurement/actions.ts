@@ -101,6 +101,7 @@ export async function saveInvoice(
     p_doc_number: v.docNumber,
     p_currency: v.currency,
     p_note: v.note,
+    p_purchase_request_id: v.requestId || undefined,
     p_lines: v.lines.map((l) => ({
       description: l.description,
       material_id: l.materialId || null,
@@ -114,7 +115,9 @@ export async function saveInvoice(
     return fail(
       error.message === "BF_HAS_PAYMENTS"
         ? "По накладной уже есть оплата — исправить нельзя"
-        : dbErrorMessage(error),
+        : error.message === "BF_INVALID_STATUS" && v.requestId
+          ? "Заявка уже закрыта или отменена — выберите другую или «Без заявки»"
+          : dbErrorMessage(error),
     );
   }
   revalidateApp();

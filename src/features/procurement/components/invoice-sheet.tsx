@@ -41,6 +41,8 @@ type SheetLine = {
 export type SheetValues = {
   id: string;
   supplierId: string;
+  /** Заявка склада, по которой пришёл товар (необязательно, BP-01). */
+  requestId: string;
   docDate: string;
   docNumber: string;
   currency: string;
@@ -67,7 +69,8 @@ const HEADER_LABELS: Record<string, string> = {
 const cell = sheetInput;
 
 /**
- * Накладная как таблица Excel (Д-99): шапка — поставщик, дата, № бумажной накладной, валюта;
+ * Накладная как таблица Excel (Д-99): шапка — поставщик, дата, № бумажной накладной, заявка
+ * (необязательно), валюта;
  * строки — наименование, категория, кол-во, ед., цена, сумма. Внизу всегда пустая строка;
  * Tab/Enter/стрелки; вставка строк из Excel / Google Таблиц. «Сохранить накладную» — номер НК и
  * долг поставщику сразу; несохранённый ввод держится на устройстве (Д-93).
@@ -76,6 +79,8 @@ export function InvoiceSheet({
   initial,
   number,
   suppliers,
+  requests,
+  initialRequestId = "",
   categories,
   units,
   materials,
@@ -85,6 +90,9 @@ export function InvoiceSheet({
   initial?: SheetValues;
   number?: string | null;
   suppliers: Option[];
+  /** Заявки объекта, к которым можно привязать накладную. */
+  requests: Option[];
+  initialRequestId?: string;
   categories: SheetCategory[];
   units: Option[];
   materials: MaterialOption[];
@@ -106,6 +114,7 @@ export function InvoiceSheet({
       : {
           id,
           supplierId: "",
+          requestId: initialRequestId,
           docDate: today,
           docNumber: "",
           currency: "TJS",
@@ -204,6 +213,7 @@ export function InvoiceSheet({
         key: crypto.randomUUID(),
         projectId: object.id,
         supplierId: v.supplierId,
+        requestId: v.requestId ?? "",
         docDate: v.docDate,
         docNumber: v.docNumber,
         currency: v.currency,
@@ -234,7 +244,7 @@ export function InvoiceSheet({
         />
       ) : null}
 
-      <div className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_8rem]">
+      <div className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1.5fr_8rem]">
         <Field data-invalid={hErr("supplierId")}>
           <FieldLabel htmlFor="sheet-supplier">Поставщик</FieldLabel>
           <NativeSelect
@@ -257,6 +267,15 @@ export function InvoiceSheet({
         <Field>
           <FieldLabel htmlFor="sheet-doc">№ накладной поставщика</FieldLabel>
           <Input id="sheet-doc" placeholder="необязательно" {...form.register("docNumber")} />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="sheet-request">По заявке</FieldLabel>
+          <NativeSelect
+            id="sheet-request"
+            placeholder="Без заявки"
+            options={requests.map((r) => ({ value: r.id, label: r.label }))}
+            {...form.register("requestId")}
+          />
         </Field>
         <Field>
           <FieldLabel htmlFor="sheet-currency">Валюта</FieldLabel>

@@ -65,7 +65,7 @@ export async function quickReceive(input: unknown): Promise<ActionResult<Posted>
   return ok(data as Posted);
 }
 
-/** «Выдать» в одно действие: объект, блок, этаж, бригада обязательны (US-03); минус запрещён (Д-19). */
+/** «Выдать» в одно действие: блок, этаж, этап, бригада обязательны (US-03, Д-100); минус запрещён (Д-19). */
 export async function quickIssue(input: unknown): Promise<ActionResult<Posted>> {
   const auth = await authorize("material_issues.post");
   if (!auth.ok) return fail(auth.error);
@@ -82,6 +82,7 @@ export async function quickIssue(input: unknown): Promise<ActionResult<Posted>> 
     p_block_id: v.blockId,
     p_floor_id: v.floorId,
     p_crew_id: v.crewId,
+    p_stage_id: v.stageId,
     p_received_by_name: v.receivedByName,
     p_note: "",
     p_lines: lines.map((l) => ({ material_id: l.materialId, quantity: toNumber(l.quantity) })),

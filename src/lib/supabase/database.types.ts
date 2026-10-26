@@ -4438,6 +4438,7 @@ export type Database = {
           p_note: string;
           p_project_id: string;
           p_received_by_name: string;
+          p_stage_id?: string;
         };
         Returns: string;
       };
@@ -4540,6 +4541,7 @@ export type Database = {
           p_lines: Json;
           p_note: string;
           p_project_id: string;
+          p_purchase_request_id?: string;
           p_supplier_id: string;
         };
         Returns: Json;
