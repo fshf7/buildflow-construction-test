@@ -22,6 +22,7 @@ import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { saveReceiptRow } from "../actions";
+import { incomingBasis, incomingSearch } from "../sheet-labels";
 import { receiptRowFields } from "../schemas";
 import type { IncomingDraft, IncomingRow } from "../sheets";
 
@@ -107,12 +108,7 @@ export function IncomingSheet({
     },
   });
 
-  const visible = filterSheetRows(
-    rows,
-    filter,
-    (r) => r.draft.docDate,
-    (r) => `${r.draft.materialName} ${r.number ?? ""} ${r.requestNumber ?? ""}`,
-  );
+  const visible = filterSheetRows(rows, filter, (r) => r.draft.docDate, incomingSearch);
   const savedIds = new Set(rows.map((r) => r.id));
   const fresh = canEdit ? sheet.fresh.filter((d) => !savedIds.has(d.id)) : [];
   const pending = sheet.pendingNew(savedIds);
@@ -166,7 +162,8 @@ export function IncomingSheet({
   function renderRow(d: IncomingDraft & { id: string }, row?: IncomingRow) {
     const key = row?.key ?? d.id;
     const st = sheet.states[key];
-    const old = row ? row.draft.docDate < minDate && !canFixOld : false;
+    const opening = row?.kind === "opening";
+    const old = row && !opening ? row.draft.docDate < minDate && !canFixOld : false;
     const locked = !canEdit || (row ? !row.editable || old : false);
     const bad = (f: string) => Boolean(st?.fields?.includes(f));
     const set = (patch: Partial<IncomingDraft>) =>
@@ -176,7 +173,11 @@ export function IncomingSheet({
     return (
       <tr
         key={key}
-        className={cn("border-b last:border-b-0", !row && "bg-primary/[0.03]")}
+        className={cn(
+          "border-b last:border-b-0",
+          !row && "bg-primary/[0.03]",
+          opening && "bg-muted/60 text-muted-foreground",
+        )}
         onBlur={(e) => {
           if (locked || e.currentTarget.contains(e.relatedTarget as Node | null)) return;
           if (row) sheet.leaveRow(row);
@@ -254,17 +255,23 @@ export function IncomingSheet({
             </select>
           )}
         </td>
-        <td className={cn(sheetCell, "w-32 px-2 text-xs text-muted-foreground")}>
-          {row?.requestNumber ?? ""}
+        <td className={cn(sheetCell, "w-44 px-2 text-xs text-muted-foreground")}>
+          {row ? (
+            <span className={cn(opening && "font-medium text-foreground")}>
+              {incomingBasis(row)}
+            </span>
+          ) : null}
         </td>
         <td className={cn(sheetCell, "w-10 text-center")}>
           <RowStatus
             state={st}
             locked={Boolean(row) && canEdit && locked}
             lockedHint={
-              old
-                ? "Строка старше 7 дней — исправить может бухгалтер"
-                : "Несколько строк в одной приёмке — исправление в карточке приёмки"
+              opening
+                ? "Начальный остаток из «Ввода остатков» — исправляет бухгалтер сторно документа"
+                : old
+                  ? "Строка старше 7 дней — исправить может бухгалтер"
+                  : "Несколько строк в одной приёмке — исправление в карточке приёмки"
             }
             warning={
               !row && isNewMaterial && !st
@@ -300,7 +307,7 @@ export function IncomingSheet({
               <th className={sheetHead}>Наименование</th>
               <th className={cn(sheetHead, "text-right")}>Кол-во</th>
               <th className={sheetHead}>Ед. изм.</th>
-              <th className={sheetHead}>Заявка</th>
+              <th className={sheetHead}>Основание</th>
               <th className={sheetHead} />
             </tr>
           </thead>
@@ -314,7 +321,8 @@ export function IncomingSheet({
         <p className="text-xs text-muted-foreground">
           Строка проводится, когда вы уходите с неё (Tab, Enter, мышью) — остаток растёт сразу.
           Строки можно вставить из Excel или Google Таблиц (Ctrl+V в пустую строку). Исправить
-          строку можно в течение 7 дней — система сделает корректировку приёмки.
+          строку можно в течение 7 дней — система сделает корректировку приёмки. Серые строки —
+          начальный остаток на дату старта учёта: начальный остаток + приход − расход = остаток.
         </p>
       ) : null}
     </div>
