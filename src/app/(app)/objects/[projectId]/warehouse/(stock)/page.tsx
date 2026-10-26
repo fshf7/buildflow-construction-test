@@ -13,7 +13,10 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Остатки склада" };
 
-const big = cn(buttonVariants({ size: "lg" }), "h-20 flex-col gap-1 text-base [&_svg]:size-6");
+// Крупные кнопки для телефона. Вариант задаётся у каждой отдельно: смешивать default и outline
+// нельзя — от default остаётся белый текст на белом фоне outline.
+const big = "h-20 flex-col gap-1 text-base [&_svg]:size-6";
+const primary = cn(buttonVariants({ size: "lg" }), big);
 
 export default async function WarehousePage({
   params,
@@ -43,24 +46,20 @@ export default async function WarehousePage({
       {canPost ? (
         <div className="grid grid-cols-3 gap-2">
           {hasPermission(org, "goods_receipts.post") ? (
-            <Link href={href("/warehouse/receive")} className={big}>
+            <Link href={href("/warehouse/receive")} className={primary}>
               <ArrowDownToLine aria-hidden />
               Принять
             </Link>
           ) : null}
           {hasPermission(org, "material_issues.post") ? (
             <>
-              <Link href={href("/warehouse/issue")} className={big}>
+              <Link href={href("/warehouse/issue")} className={primary}>
                 <ArrowUpFromLine aria-hidden />
                 Выдать
               </Link>
               <Link
                 href={href("/warehouse/return")}
-                className={cn(
-                  big,
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "h-20 flex-col",
-                )}
+                className={cn(buttonVariants({ variant: "outline", size: "lg" }), big)}
               >
                 <Undo2 aria-hidden />
                 Вернуть
