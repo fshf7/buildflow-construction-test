@@ -32,7 +32,6 @@ const FIELDS: (keyof IncomingDraft)[] = [
   "materialName",
   "unitId",
   "quantity",
-  "supplierId",
 ];
 
 /**
@@ -75,7 +74,6 @@ export function IncomingSheet({
       materialName: "",
       unitId: "",
       quantity: "",
-      supplierId: "",
     }),
     isBlank: (d) => !d.materialName.trim() && !d.quantity,
     same: (a, b) => FIELDS.every((f) => a[f] === b[f]),
@@ -144,7 +142,6 @@ export function IncomingSheet({
           materialName: name,
           unitId: u?.id ?? "",
           quantity: parseRuNumber(qty),
-          supplierId: "",
         };
         return {
           ...base,

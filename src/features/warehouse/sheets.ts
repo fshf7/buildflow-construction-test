@@ -18,8 +18,6 @@ export type IncomingDraft = {
   materialName: string;
   unitId: string;
   quantity: string;
-  /** Не показывается (Д-102): склад поставщика не вводит; при исправлении строки сохраняется. */
-  supplierId: string;
 };
 export type IncomingRow = SheetRow<IncomingDraft> & {
   number: string | null;
@@ -32,7 +30,7 @@ export async function listIncomingRows(projectId: string): Promise<IncomingRow[]
   const { data, error } = await supabase
     .from("goods_receipts")
     .select(
-      "id, number, doc_date, supplier_id, purchase_requests(number), goods_receipt_items(id, line_no, material_id, received_quantity, materials(name, unit_id, units_of_measure(code)))",
+      "id, number, doc_date, purchase_requests(number), goods_receipt_items(id, line_no, material_id, received_quantity, materials(name, unit_id, units_of_measure(code)))",
     )
     .eq("project_id", projectId)
     .eq("status", "POSTED")
@@ -55,7 +53,6 @@ export async function listIncomingRows(projectId: string): Promise<IncomingRow[]
         materialName: i.materials?.name ?? "",
         unitId: i.materials?.unit_id ?? "",
         quantity: num(i.received_quantity),
-        supplierId: g.supplier_id ?? "",
       },
     }));
   });
@@ -189,7 +186,7 @@ export const normKey = (materialId: string, blockId: string, stageId: string) =>
 // Отчёт склада за период (их лист «Отчёт»): приход, расход по блокам и этапам, остаток
 // ---------------------------------------------------------------------------------------
 export type WarehouseReport = {
-  incoming: { material: string; unit: string; quantity: number; suppliers: string }[];
+  incoming: { material: string; unit: string; quantity: number }[];
   outgoing: {
     material: string;
     unit: string;
@@ -226,7 +223,6 @@ export async function warehouseReport(
       material: r.material,
       unit: r.unit,
       quantity: Number(r.quantity),
-      suppliers: r.suppliers ?? "",
     })),
     outgoing: (out.data ?? []).map((r) => ({
       material: r.material,

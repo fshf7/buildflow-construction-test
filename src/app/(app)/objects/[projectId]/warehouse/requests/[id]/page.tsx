@@ -139,7 +139,7 @@ export default async function RequestPage({
                     href={href(`/warehouse/receipts/${g.id}`)}
                     className="underline underline-offset-4"
                   >
-                    {g.number ?? "Черновик"} · {g.supplierName} · {formatDate(g.docDate)}
+                    {g.number ?? "Черновик"} · {formatDate(g.docDate)}
                   </Link>{" "}
                   — {RECEIPT_STATUS_LABELS[g.status as ReceiptStatus]}
                 </li>

@@ -87,18 +87,16 @@ export default async function WarehouseReportPage({
               <TableHead>Материал</TableHead>
               <TableHead>Ед. изм.</TableHead>
               <TableHead className="text-right">Кол-во</TableHead>
-              <TableHead>Поставщик</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {report.incoming.length === 0
-              ? empty(4)
+              ? empty(3)
               : report.incoming.map((r, i) => (
                   <TableRow key={i}>
                     <TableCell>{r.material}</TableCell>
                     <TableCell>{r.unit}</TableCell>
                     <TableCell className="text-right tabular-nums">{qty(r.quantity)}</TableCell>
-                    <TableCell className="whitespace-normal">{r.suppliers}</TableCell>
                   </TableRow>
                 ))}
           </TableBody>

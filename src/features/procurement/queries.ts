@@ -117,8 +117,6 @@ export type RequestDetail = {
   receipts: {
     id: string;
     number: string | null;
-    supplierId: string | null;
-    supplierName: string;
     status: string;
     docDate: string;
   }[];
@@ -154,7 +152,7 @@ export async function getRequest(orgId: string, id: string): Promise<RequestDeta
       .order("created_at"),
     supabase
       .from("goods_receipts")
-      .select("id, number, status, doc_date, supplier_id, suppliers(name)")
+      .select("id, number, status, doc_date")
       .eq("purchase_request_id", id)
       .order("created_at"),
   ]);
@@ -201,8 +199,6 @@ export async function getRequest(orgId: string, id: string): Promise<RequestDeta
     receipts: (receipts.data ?? []).map((g) => ({
       id: g.id,
       number: g.number,
-      supplierId: g.supplier_id,
-      supplierName: g.suppliers?.name ?? "",
       status: g.status,
       docDate: g.doc_date,
     })),
@@ -521,7 +517,7 @@ export async function listPendingCorrections(orgId: string, projectId: string) {
   const { data, error } = await supabase
     .from("goods_receipts")
     .select(
-      "id, correction_reason, created_at, corrects_receipt_id, suppliers(name), projects(code), purchase_requests(number)",
+      "id, correction_reason, created_at, corrects_receipt_id, projects(code), purchase_requests(number)",
     )
     .eq("organization_id", orgId)
     .eq("project_id", projectId)
@@ -533,7 +529,6 @@ export async function listPendingCorrections(orgId: string, projectId: string) {
     reason: g.correction_reason,
     createdAt: g.created_at,
     originalId: g.corrects_receipt_id,
-    supplierName: g.suppliers?.name ?? "",
     projectCode: g.projects?.code ?? "",
     requestNumber: g.purchase_requests?.number ?? null,
   }));

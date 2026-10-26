@@ -181,7 +181,6 @@ export async function GET(
           ["material", "Материал", "text"],
           ["unit", "Ед. изм.", "text"],
           ["quantity", "Кол-во за период", "qty"],
-          ["suppliers", "Поставщик", "text"],
         ]),
         rows: r.incoming as unknown as ReportRow[],
         totals: null,

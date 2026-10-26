@@ -234,8 +234,6 @@ export type ReceiptDetail = {
   docDate: string;
   projectId: string;
   projectLabel: string;
-  supplierId: string | null;
-  supplierName: string;
   requestId: string | null;
   requestNumber: string | null;
   requestStatus: string | null;
@@ -262,7 +260,7 @@ export async function getReceipt(id: string): Promise<ReceiptDetail | null> {
   const { data: g, error } = await supabase
     .from("goods_receipts")
     .select(
-      "id, number, status, doc_date, project_id, supplier_id, purchase_request_id, corrects_receipt_id, correction_reason, projects(code, name), suppliers(name), purchase_requests(number, status), goods_receipt_items(id, line_no, material_id, purchase_request_item_id, ordered_quantity, received_quantity, materials(name, units_of_measure(code)))",
+      "id, number, status, doc_date, project_id, purchase_request_id, corrects_receipt_id, correction_reason, projects(code, name), purchase_requests(number, status), goods_receipt_items(id, line_no, material_id, purchase_request_item_id, ordered_quantity, received_quantity, materials(name, units_of_measure(code)))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -306,8 +304,6 @@ export async function getReceipt(id: string): Promise<ReceiptDetail | null> {
     docDate: g.doc_date,
     projectId: g.project_id,
     projectLabel: g.projects ? `${g.projects.code} — ${g.projects.name}` : "",
-    supplierId: g.supplier_id,
-    supplierName: g.suppliers?.name ?? "",
     requestId: g.purchase_request_id,
     requestNumber: g.purchase_requests?.number ?? null,
     requestStatus,
