@@ -20,7 +20,7 @@ async function fillNewRow(
 }
 
 // Д-100: склад как их Google Таблица — приход (с новым наименованием), расход по блоку/этапу
-// бригадиру, норматив управляющего, перерасход, отчёт за период.
+// бригадиру, норматив управляющего, перерасход, отчёт за период; Д-103: возврат строкой с минусом.
 test("склад таблицами: приход → расход → норматив → перерасход → отчёт", async ({
   browser,
   isMobile,
@@ -101,5 +101,14 @@ test("склад таблицами: приход → расход → норм�
       .filter({ hasText: "100" })
       .last(),
   ).toContainText("70");
+
+  // Д-103: возврат из строки «Расхода» — зелёная строка с минусом; в «Приходе» его нет.
+  await wh.goto(`${base}/outgoing`);
+  await wh.getByRole("button", { name: `Вернуть: ${fx.cement}` }).click();
+  await wh.getByLabel("Сколько вернули").fill("5");
+  await wh.getByRole("button", { name: "Провести возврат" }).click();
+  await expect(wh.getByRole("row", { name: /Возврат: .*[-−]5/ })).toBeVisible();
+  await wh.goto(`${base}/incoming`);
+  await expect(wh.getByText(/Возврат/)).toHaveCount(0);
   await whCtx.close();
 });

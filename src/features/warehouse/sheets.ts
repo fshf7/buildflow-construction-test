@@ -20,42 +20,86 @@ export type IncomingDraft = {
   quantity: string;
 };
 export type IncomingRow = SheetRow<IncomingDraft> & {
+  /** Приёмка — строка прихода; начальный остаток — из «Ввода остатков» (только просмотр). */
+  kind: "receipt" | "opening";
   number: string | null;
   unitCode: string;
   requestNumber: string | null;
 };
 
+/** Начальный остаток + приход − расход (с возвратами) = остаток: сверка видна прямо в таблицах. */
 export async function listIncomingRows(projectId: string): Promise<IncomingRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("goods_receipts")
-    .select(
-      "id, number, doc_date, purchase_requests(number), goods_receipt_items(id, line_no, material_id, received_quantity, materials(name, unit_id, units_of_measure(code)))",
-    )
-    .eq("project_id", projectId)
-    .eq("status", "POSTED")
-    .order("doc_date")
-    .order("created_at")
-    .limit(3000);
-  if (error) throw new Error(error.message);
-  return data.flatMap((g) => {
+  const [receipts, openings] = await Promise.all([
+    supabase
+      .from("goods_receipts")
+      .select(
+        "id, number, doc_date, created_at, purchase_requests(number), goods_receipt_items(id, line_no, material_id, received_quantity, materials(name, unit_id, units_of_measure(code)))",
+      )
+      .eq("project_id", projectId)
+      .eq("status", "POSTED")
+      .limit(3000),
+    supabase
+      .from("opening_balances")
+      .select(
+        "id, number, doc_date, created_at, opening_stock_items(id, line_no, material_id, quantity, materials(name, unit_id, units_of_measure(code)))",
+      )
+      .eq("project_id", projectId)
+      .eq("kind", "STOCK")
+      .eq("status", "POSTED"),
+  ]);
+  if (receipts.error) throw new Error(receipts.error.message);
+  if (openings.error) throw new Error(openings.error.message);
+
+  const fromOpenings = openings.data.flatMap((o) =>
+    [...o.opening_stock_items]
+      .sort((a, b) => a.line_no - b.line_no)
+      .map((i) => ({
+        order: `${o.doc_date}|0|${o.created_at}|${i.line_no}`,
+        row: {
+          key: i.id,
+          id: o.id,
+          kind: "opening" as const,
+          editable: false,
+          number: o.number,
+          unitCode: i.materials?.units_of_measure?.code ?? "",
+          requestNumber: null,
+          draft: {
+            docDate: o.doc_date,
+            materialId: i.material_id,
+            materialName: i.materials?.name ?? "",
+            unitId: i.materials?.unit_id ?? "",
+            quantity: num(i.quantity),
+          },
+        },
+      })),
+  );
+  const fromReceipts = receipts.data.flatMap((g) => {
     const items = [...g.goods_receipt_items].sort((a, b) => a.line_no - b.line_no);
     return items.map((i) => ({
-      key: i.id,
-      id: g.id,
-      editable: items.length === 1,
-      number: g.number,
-      unitCode: i.materials?.units_of_measure?.code ?? "",
-      requestNumber: g.purchase_requests?.number ?? null,
-      draft: {
-        docDate: g.doc_date,
-        materialId: i.material_id,
-        materialName: i.materials?.name ?? "",
-        unitId: i.materials?.unit_id ?? "",
-        quantity: num(i.received_quantity),
+      order: `${g.doc_date}|1|${g.created_at}|${i.line_no}`,
+      row: {
+        key: i.id,
+        id: g.id,
+        kind: "receipt" as const,
+        editable: items.length === 1,
+        number: g.number,
+        unitCode: i.materials?.units_of_measure?.code ?? "",
+        requestNumber: g.purchase_requests?.number ?? null,
+        draft: {
+          docDate: g.doc_date,
+          materialId: i.material_id,
+          materialName: i.materials?.name ?? "",
+          unitId: i.materials?.unit_id ?? "",
+          quantity: num(i.received_quantity),
+        },
       },
     }));
   });
+  // В один день начальный остаток — первым.
+  return [...fromOpenings, ...fromReceipts]
+    .sort((a, b) => a.order.localeCompare(b.order))
+    .map((x) => x.row);
 }
 
 export type OutgoingDraft = {
@@ -68,48 +112,107 @@ export type OutgoingDraft = {
   crewId: string;
 };
 export type OutgoingRow = SheetRow<OutgoingDraft> & {
+  /** Выдача — расход; возврат — строка с минусом: бригада вернула часть выданного. */
+  kind: "issue" | "return";
   number: string | null;
   materialName: string;
   unitCode: string;
   /** Возвраты по выдаче — для подсказки, почему строку нельзя править. */
   hasReturns: boolean;
+  /** Выдача: строка документа и сколько ещё можно вернуть (кнопка «Вернуть»). */
+  issueItemId: string | null;
+  returnable: number;
+  /** Возврат: номер выдачи, к которой он относится. */
+  issueNumber: string | null;
 };
 
+/**
+ * Строки «Расхода»: выдачи и возвраты по ним (Д-103). Возврат — отдельная строка с минусом в дату
+ * возврата, с блоком/этажом/этапом/бригадой своей выдачи: итог колонки — чистый расход.
+ */
 export async function listOutgoingRows(projectId: string): Promise<OutgoingRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("material_issues")
     .select(
-      "id, number, doc_date, block_id, floor_id, stage_id, crew_id, material_issue_items(id, line_no, material_id, quantity, materials(name, units_of_measure(code))), material_returns(status)",
+      "id, number, doc_date, created_at, block_id, floor_id, stage_id, crew_id, material_issue_items(id, line_no, material_id, quantity, materials(name, units_of_measure(code))), material_returns(id, number, status, doc_date, created_at, material_return_items(id, material_issue_item_id, quantity))",
     )
     .eq("project_id", projectId)
     .eq("status", "POSTED")
-    .order("doc_date")
-    .order("created_at")
     .limit(3000);
   if (error) throw new Error(error.message);
-  return data.flatMap((d) => {
+
+  const out: { order: string; row: OutgoingRow }[] = [];
+  for (const d of data) {
     const items = [...d.material_issue_items].sort((a, b) => a.line_no - b.line_no);
-    const hasReturns = d.material_returns.some((r) => r.status === "POSTED");
-    return items.map((i) => ({
-      key: i.id,
-      id: d.id,
-      editable: items.length === 1 && !hasReturns,
-      number: d.number,
-      materialName: i.materials?.name ?? "",
-      unitCode: i.materials?.units_of_measure?.code ?? "",
-      hasReturns,
-      draft: {
-        docDate: d.doc_date,
-        materialId: i.material_id,
-        quantity: num(i.quantity),
-        blockId: d.block_id ?? "",
-        floorId: d.floor_id ?? "",
-        stageId: d.stage_id ?? "",
-        crewId: d.crew_id,
-      },
-    }));
-  });
+    const itemById = new Map(items.map((i) => [i.id, i]));
+    const returns = d.material_returns.filter((r) => r.status === "POSTED");
+    const returned = new Map<string, number>();
+    for (const r of returns)
+      for (const ri of r.material_return_items)
+        returned.set(
+          ri.material_issue_item_id,
+          (returned.get(ri.material_issue_item_id) ?? 0) + Number(ri.quantity),
+        );
+    const hasReturns = returns.length > 0;
+    const place = {
+      blockId: d.block_id ?? "",
+      floorId: d.floor_id ?? "",
+      stageId: d.stage_id ?? "",
+      crewId: d.crew_id,
+    };
+    for (const i of items)
+      out.push({
+        order: `${d.doc_date}|${d.created_at}|${i.line_no}`,
+        row: {
+          key: i.id,
+          id: d.id,
+          kind: "issue",
+          editable: items.length === 1 && !hasReturns,
+          number: d.number,
+          materialName: i.materials?.name ?? "",
+          unitCode: i.materials?.units_of_measure?.code ?? "",
+          hasReturns,
+          issueItemId: i.id,
+          returnable: Math.max(0, Number(i.quantity) - (returned.get(i.id) ?? 0)),
+          issueNumber: null,
+          draft: {
+            docDate: d.doc_date,
+            materialId: i.material_id,
+            quantity: num(i.quantity),
+            ...place,
+          },
+        },
+      });
+    for (const r of returns)
+      for (const ri of r.material_return_items) {
+        const i = itemById.get(ri.material_issue_item_id);
+        if (!i) continue;
+        out.push({
+          order: `${r.doc_date}|${r.created_at}|${i.line_no}`,
+          row: {
+            key: ri.id,
+            id: r.id,
+            kind: "return",
+            editable: false,
+            number: r.number,
+            materialName: i.materials?.name ?? "",
+            unitCode: i.materials?.units_of_measure?.code ?? "",
+            hasReturns: false,
+            issueItemId: null,
+            returnable: 0,
+            issueNumber: d.number,
+            draft: {
+              docDate: r.doc_date,
+              materialId: i.material_id,
+              quantity: num(-Number(ri.quantity)),
+              ...place,
+            },
+          },
+        });
+      }
+  }
+  return out.sort((a, b) => a.order.localeCompare(b.order)).map((x) => x.row);
 }
 
 export type ServiceDraft = {

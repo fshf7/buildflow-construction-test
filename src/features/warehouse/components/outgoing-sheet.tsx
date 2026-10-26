@@ -25,7 +25,10 @@ import { cn } from "@/lib/utils";
 import { saveIssueRow } from "../actions";
 import type { Balance } from "../queries";
 import { issueRowFields } from "../schemas";
+import { outgoingName } from "../sheet-labels";
 import type { NormUsage, OutgoingDraft, OutgoingRow } from "../sheets";
+
+import { ReturnRowButton } from "./return-row-button";
 
 const lower = (s: string) => s.trim().toLocaleLowerCase("ru");
 const FIELDS: (keyof OutgoingDraft)[] = [
@@ -43,6 +46,7 @@ const normKey = (m: string, b: string, s: string) => `${m}:${b}:${s}`;
  * «Расход» склада (Д-100) как их лист: Дата · Наименование · Блок · Этаж · Этап · Кол-во ·
  * Норматив · Остаток норматива · Ответственный (бригадир). Строка проводится при уходе с неё
  * (в минус — нельзя); исправление в ячейке — сторно исходной выдачи и новая (до 7 дней).
+ * Возвраты — строки с минусом (Д-103); «Вернуть» — кнопкой в строке выдачи.
  */
 export function OutgoingSheet({
   rows,
@@ -119,7 +123,7 @@ export function OutgoingSheet({
     filter,
     (r) => r.draft.docDate,
     (r) =>
-      `${r.materialName} ${blockById.get(r.draft.blockId)?.name ?? ""} ${labelOf(stages, r.draft.stageId)} ${labelOf(crews, r.draft.crewId)} ${r.number ?? ""}`,
+      `${outgoingName(r)} ${blockById.get(r.draft.blockId)?.name ?? ""} ${labelOf(stages, r.draft.stageId)} ${labelOf(crews, r.draft.crewId)} ${r.number ?? ""} ${r.issueNumber ?? ""}`,
   );
   const savedIds = new Set(rows.map((r) => r.id));
   const fresh = canEdit ? sheet.fresh.filter((d) => !savedIds.has(d.id)) : [];
@@ -168,7 +172,8 @@ export function OutgoingSheet({
   function renderRow(d: OutgoingDraft & { id: string }, row?: OutgoingRow) {
     const key = row?.key ?? d.id;
     const st = sheet.states[key];
-    const old = row ? row.draft.docDate < minDate && !canFixOld : false;
+    const isReturn = row?.kind === "return";
+    const old = row && !isReturn ? row.draft.docDate < minDate && !canFixOld : false;
     const locked = !canEdit || (row ? !row.editable || old : false);
     const bad = (f: string) => Boolean(st?.fields?.includes(f));
     const set = (patch: Partial<OutgoingDraft>) =>
@@ -176,7 +181,9 @@ export function OutgoingSheet({
     const material = materialById.get(d.materialId);
     const block = blockById.get(d.blockId);
     const n =
-      d.blockId && d.stageId ? norm.get(normKey(d.materialId, d.blockId, d.stageId)) : undefined;
+      d.blockId && d.stageId && !isReturn
+        ? norm.get(normKey(d.materialId, d.blockId, d.stageId))
+        : undefined;
     // Остаток норматива: у сохранённой строки выдача уже учтена; у новой — вычитаем вводимое.
     const pendingQty = !row && d.quantity ? toNumber(d.quantity) : 0;
     const left =
@@ -185,7 +192,11 @@ export function OutgoingSheet({
     return (
       <tr
         key={key}
-        className={cn("border-b last:border-b-0", !row && "bg-primary/[0.03]")}
+        className={cn(
+          "border-b last:border-b-0",
+          !row && "bg-primary/[0.03]",
+          isReturn && "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200",
+        )}
         onBlur={(e) => {
           if (locked || e.currentTarget.contains(e.relatedTarget as Node | null)) return;
           if (row) sheet.leaveRow(row);
@@ -208,7 +219,16 @@ export function OutgoingSheet({
         </td>
         <td data-col="name" className={cn(sheetCell, "min-w-56")}>
           {locked ? (
-            <span className={sheetText}>{row?.materialName}</span>
+            <span
+              className={sheetText}
+              title={
+                isReturn
+                  ? `Возврат ${row?.number ?? ""} по выдаче ${row?.issueNumber ?? ""}`
+                  : undefined
+              }
+            >
+              {row ? outgoingName(row) : ""}
+            </span>
           ) : (
             <input
               aria-label="Наименование"
@@ -288,7 +308,9 @@ export function OutgoingSheet({
         </td>
         <td data-col="qty" className={cn(sheetCell, "w-24")}>
           {locked ? (
-            <span className={cn(sheetText, "text-right tabular-nums")}>{d.quantity}</span>
+            <span className={cn(sheetText, "text-right tabular-nums", isReturn && "font-medium")}>
+              {d.quantity.replace("-", "−")}
+            </span>
           ) : (
             <input
               aria-label="Количество"
@@ -338,18 +360,31 @@ export function OutgoingSheet({
             </select>
           )}
         </td>
-        <td className={cn(sheetCell, "w-10 text-center")}>
-          <RowStatus
-            state={st}
-            locked={Boolean(row) && canEdit && locked}
-            lockedHint={
-              old
-                ? "Строка старше 7 дней — исправить может бухгалтер"
-                : row?.hasReturns
-                  ? "По выдаче есть возврат — исправление через сторно возврата"
-                  : "Несколько строк в одной выдаче — исправление в карточке выдачи"
-            }
-          />
+        <td className={cn(sheetCell, "w-16 px-1")}>
+          <div className="flex items-center justify-center gap-1">
+            <RowStatus
+              state={st}
+              locked={Boolean(row) && canEdit && locked}
+              lockedHint={
+                isReturn
+                  ? "Возврат — отменяется сторно в карточке возврата"
+                  : old
+                    ? "Строка старше 7 дней — исправить может бухгалтер"
+                    : row?.hasReturns
+                      ? "По выдаче есть возврат — исправление через сторно возврата"
+                      : "Несколько строк в одной выдаче — исправление в карточке выдачи"
+              }
+            />
+            {row && !isReturn && canEdit && row.issueItemId && row.returnable > 0 ? (
+              <ReturnRowButton
+                issueId={row.id}
+                issueItemId={row.issueItemId}
+                materialName={row.materialName}
+                unit={row.unitCode}
+                returnable={row.returnable}
+              />
+            ) : null}
+          </div>
         </td>
       </tr>
     );
@@ -400,7 +435,9 @@ export function OutgoingSheet({
         <p className="text-xs text-muted-foreground">
           Строка проводится, когда вы уходите с неё — остаток уменьшается сразу, в минус выдать
           нельзя. Норматив задаёт управляющий; перерасход подсвечен красным. Исправить строку можно
-          в течение 7 дней — система сторнирует старую выдачу и проведёт новую.
+          в течение 7 дней — система сторнирует старую выдачу и проведёт новую. Бригада вернула
+          материал — кнопка ↩ в строке выдачи: появится зелёная строка с минусом, итог — чистый
+          расход.
         </p>
       ) : null}
     </div>

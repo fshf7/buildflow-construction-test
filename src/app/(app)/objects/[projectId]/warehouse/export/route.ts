@@ -2,6 +2,7 @@ import { listServices, listWorkStages } from "@/features/catalog/queries";
 import { getProjectHeader } from "@/features/projects/queries";
 import type { Column, ReportRow } from "@/features/reports/definitions";
 import { listBlockOptions, listResponsibleOptions } from "@/features/shared/lookups";
+import { incomingBasis, incomingSearch, outgoingName } from "@/features/warehouse/sheet-labels";
 import {
   listIncomingRows,
   listOutgoingRows,
@@ -60,7 +61,7 @@ export async function GET(
       await listIncomingRows(project.id),
       f,
       (r) => r.draft.docDate,
-      (r) => `${r.draft.materialName} ${r.number ?? ""} ${r.requestNumber ?? ""}`,
+      incomingSearch,
     );
     name = "prihod";
     sheets = [
@@ -71,14 +72,14 @@ export async function GET(
           { key: "material", label: "Наименование", kind: "text" },
           { key: "quantity", label: "Кол-во", kind: "qty" },
           { key: "unit", label: "Ед. изм.", kind: "text" },
-          { key: "request", label: "Заявка", kind: "text" },
+          { key: "basis", label: "Основание", kind: "text" },
         ],
         rows: rows.map((r) => ({
           date: r.draft.docDate,
           material: r.draft.materialName,
           quantity: qty(r.draft.quantity),
           unit: r.unitCode,
-          request: r.requestNumber,
+          basis: incomingBasis(r),
         })),
         totals: null,
       },
@@ -99,7 +100,7 @@ export async function GET(
         f,
         (r) => r.draft.docDate,
         (r) =>
-          `${r.materialName} ${block(r.draft.blockId)?.name ?? ""} ${stage(r.draft.stageId)} ${crew(r.draft.crewId)} ${r.number ?? ""}`,
+          `${outgoingName(r)} ${block(r.draft.blockId)?.name ?? ""} ${stage(r.draft.stageId)} ${crew(r.draft.crewId)} ${r.number ?? ""} ${r.issueNumber ?? ""}`,
       );
       name = "rashod";
       sheets = [
@@ -117,7 +118,7 @@ export async function GET(
           ],
           rows: rows.map((r) => ({
             date: r.draft.docDate,
-            material: r.materialName,
+            material: outgoingName(r),
             block: block(r.draft.blockId)?.name ?? "",
             floor: floor(r.draft.blockId, r.draft.floorId),
             stage: stage(r.draft.stageId),
