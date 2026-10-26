@@ -4266,7 +4266,6 @@ export type Database = {
           material: string;
           material_id: string;
           quantity: number;
-          suppliers: string;
           unit: string;
         }[];
       };

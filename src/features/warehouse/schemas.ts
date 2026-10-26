@@ -90,8 +90,6 @@ export const receiptRowFields = z
     materialName: z.string().trim().max(300),
     unitId: optionalId,
     quantity: decimalString({ message: "Кол-во" }),
-    // Д-102: склад поставщика не вводит; при исправлении строки сохраняется прежний (если был).
-    supplierId: optionalId,
   })
   .superRefine((v, ctx) => {
     if (!v.materialId && !v.materialName)

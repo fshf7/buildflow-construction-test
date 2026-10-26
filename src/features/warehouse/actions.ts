@@ -280,7 +280,7 @@ export async function saveReceiptRow(input: unknown): Promise<ActionResult<RowSa
     p_material_name: v.materialName,
     p_unit_id: (v.unitId || null) as string,
     p_quantity: toNumber(v.quantity),
-    p_supplier_id: (v.supplierId || null) as string,
+    p_supplier_id: null as unknown as string, // Д-102: поставщика вносит бухгалтер в накладной
   });
   if (error) return fail(rowError(error));
   revalidateApp();

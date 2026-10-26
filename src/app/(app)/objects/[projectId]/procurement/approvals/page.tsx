@@ -34,7 +34,7 @@ export default async function ApprovalsPage({
                 className="flex flex-col gap-1 rounded-lg border p-3 hover:bg-muted/50"
               >
                 <span className="font-medium">
-                  {r.supplierName}
+                  Корректировка приёмки
                   {r.requestNumber ? ` · заявка ${r.requestNumber}` : ""}
                 </span>
                 <span className="text-sm">Причина: {r.reason}</span>

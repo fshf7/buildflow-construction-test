@@ -1,7 +1,8 @@
--- Правки прогона 26.10.2026: этап в выдаче с телефона (нормативы), накладная со ссылкой на заявку.
+-- Правки прогона 26–27.10.2026: этап в выдаче с телефона (нормативы), накладная со ссылкой на заявку,
+-- отчёт прихода без поставщика (Д-102).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(11);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -140,6 +141,10 @@ select results_eq($$ select issued from public.norm_usage(pg_temp.id('p1'))
 select lives_ok($$ select public.save_material_issue_draft(gen_random_uuid(), pg_temp.id('p1'), pg_temp.id('block'),
   pg_temp.id('floor'), pg_temp.id('crew'), '', '', jsonb_build_array(jsonb_build_object('material_id',
   pg_temp.id('cement'), 'quantity', 1))) $$, 'этап необязателен');
+-- Д-102: отчёт «Приход за период» — без поставщика: материал, ед., количество.
+select results_eq($$ select material, unit, quantity from public.report_warehouse_incoming(pg_temp.id('p1'),
+                       private.today() - 1, private.today()) $$,
+  $$ values ('Цемент'::text, 'кг'::text, 100::numeric) $$, 'приход за период — без колонки поставщика');
 select pg_temp.logout();
 
 -- ---- 2. Накладная со ссылкой на заявку ----

@@ -43,10 +43,7 @@ export default async function ReceiptPage({
 
   return (
     <>
-      <PageHeader
-        title={title}
-        description={`${receipt.supplierName} · ${formatDate(receipt.docDate)}`}
-      />
+      <PageHeader title={title} description={formatDate(receipt.docDate)} />
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge variant={receipt.status === "POSTED" ? "default" : "secondary"}>
           {RECEIPT_STATUS_LABELS[receipt.status]}
