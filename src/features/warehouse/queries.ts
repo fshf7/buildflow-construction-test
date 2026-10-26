@@ -351,6 +351,7 @@ export type IssueDetail = {
   crewName: string;
   blockName: string;
   floorName: string;
+  stageName: string;
   receivedByName: string | null;
   cancelReason: string | null;
   lines: { name: string; unit: string; quantity: number }[];
@@ -362,7 +363,7 @@ export async function getIssue(id: string): Promise<IssueDetail | null> {
   const { data: i, error } = await supabase
     .from("material_issues")
     .select(
-      "id, number, status, doc_date, project_id, received_by_name, cancel_reason, projects(code, name), crews(name), blocks(name), floors(name), material_issue_items(line_no, quantity, materials(name, units_of_measure(code))), material_returns(id, number, status)",
+      "id, number, status, doc_date, project_id, received_by_name, cancel_reason, projects(code, name), crews(name), blocks(name), floors(name), work_stages(name), material_issue_items(line_no, quantity, materials(name, units_of_measure(code))), material_returns(id, number, status)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -378,6 +379,7 @@ export async function getIssue(id: string): Promise<IssueDetail | null> {
     crewName: i.crews?.name ?? "",
     blockName: i.blocks?.name ?? "",
     floorName: i.floors?.name ?? "",
+    stageName: i.work_stages?.name ?? "",
     receivedByName: i.received_by_name,
     cancelReason: i.cancel_reason,
     lines: [...i.material_issue_items]

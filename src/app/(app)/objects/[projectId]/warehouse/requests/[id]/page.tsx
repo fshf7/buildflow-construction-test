@@ -34,10 +34,10 @@ export default async function RequestPage({
   // Д-92: заявку оформляет склад (manage), сверяет и закрывает бухгалтер (review).
   const canManage = hasPermission(org, "purchase_requests.manage");
   const canReview = hasPermission(org, "purchase_requests.review");
-  // Д-97: затраты вносятся в журнал «Затраты» (свободный ввод, связь с заявкой не обязательна).
+  // Накладная по заявке — со ссылкой на неё (сверка BP-01); связь необязательна (Д-99).
   const canInvoice =
     hasPermission(org, "supplier_invoices.manage") &&
-    !["DRAFT", "CANCELLED"].includes(request.status);
+    !["DRAFT", "CANCELLED", "CLOSED"].includes(request.status);
 
   return (
     <>
@@ -119,7 +119,7 @@ export default async function RequestPage({
           {canInvoice ? (
             <div>
               <Link
-                href={href("/procurement/invoices/new")}
+                href={href(`/procurement/invoices/new?request=${request.id}`)}
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 Новая накладная

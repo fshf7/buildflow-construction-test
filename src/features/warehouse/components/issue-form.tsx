@@ -19,21 +19,24 @@ import type { Balance } from "../queries";
 import { QtyInput } from "./qty-input";
 import { SubmitBar } from "./submit-bar";
 
-type Place = { crewId: string; blockId: string; floorId: string };
+type Place = { crewId: string; blockId: string; floorId: string; stageId: string };
 
 /**
- * Выдача бригаде (US-03): бригада, блок, этаж обязательны и запоминаются на этом устройстве
- * (обычно склад выдаёт одной бригаде на один участок несколько раз подряд). Только материалы с остатком.
+ * Выдача бригаде (US-03): бригада, блок, этаж обязательны, этап работ — для нормативов (Д-100);
+ * выбор запоминается на этом устройстве (обычно склад выдаёт одной бригаде на один участок
+ * несколько раз подряд). Только материалы с остатком.
  */
 export function IssueForm({
   projectId,
   crews,
   blocks,
+  stages,
   balances,
 }: {
   projectId: string;
   crews: Option[];
   blocks: BlockOption[];
+  stages: Option[];
   balances: Balance[];
 }) {
   const router = useRouter();
@@ -41,7 +44,7 @@ export function IssueForm({
   const issueId = useDocumentId();
   const { key } = useIdempotencyKey();
   const storageKey = `bf.issue.${projectId}`;
-  const [place, setPlace] = useState<Place>({ crewId: "", blockId: "", floorId: "" });
+  const [place, setPlace] = useState<Place>({ crewId: "", blockId: "", floorId: "", stageId: "" });
   const [receivedBy, setReceivedBy] = useState("");
   const [qty, setQty] = useState<Record<string, string>>({});
   const [q, setQ] = useState("");
@@ -51,10 +54,12 @@ export function IssueForm({
   // Последний выбор бригады/блока/этажа — удобство на устройстве, не данные (localStorage может быть недоступен).
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null") as Place | null;
+      // Сохранённое до Д-100 — без этапа.
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null") as
+        (Omit<Place, "stageId"> & Partial<Pick<Place, "stageId">>) | null;
       // localStorage есть только в браузере: читаем после гидратации, иначе разметка сервера и клиента разойдётся.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (saved && crews.some((c) => c.id === saved.crewId)) setPlace(saved);
+      if (saved && crews.some((c) => c.id === saved.crewId)) setPlace({ stageId: "", ...saved });
     } catch {
       /* без сохранённого выбора */
     }
@@ -99,7 +104,7 @@ export function IssueForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">
           <Label htmlFor="crew">Бригада</Label>
           <NativeSelect
@@ -131,6 +136,17 @@ export function IssueForm({
             options={floors.map((f) => ({ value: f.id, label: f.name }))}
             value={place.floorId}
             onChange={(e) => setPlace((p) => ({ ...p, floorId: e.target.value }))}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="stage">Этап работ</Label>
+          <NativeSelect
+            id="stage"
+            className="h-11 text-base"
+            placeholder="Выберите"
+            options={stages.map((s) => ({ value: s.id, label: s.label }))}
+            value={place.stageId}
+            onChange={(e) => setPlace((p) => ({ ...p, stageId: e.target.value }))}
           />
         </div>
       </div>

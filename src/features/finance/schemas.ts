@@ -43,7 +43,8 @@ export const quickCashSchema = z.object({
     z.object({
       payableId: z.union([z.uuid(), z.literal("")]),
       paymentRequestId: z.union([z.uuid(), z.literal("")]),
-      amount: money({ allowZero: true }),
+      // Пустое поле — «по этому обязательству не платим» (сервер такие строки отбрасывает).
+      amount: z.union([z.literal(""), money({ allowZero: true })]),
     }),
   ),
 });

@@ -41,6 +41,7 @@ export const invoiceSheetSchema = z.object({
   key: z.uuid(),
   projectId: z.uuid(),
   supplierId: z.uuid({ error: "Поставщик" }),
+  requestId: z.union([z.uuid(), z.literal("")]).default(""),
   docDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Дата" }),
   docNumber: z.string().trim().max(50),
   currency: z.string().trim().length(3, { error: "Валюта" }),

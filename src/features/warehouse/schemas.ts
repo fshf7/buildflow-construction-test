@@ -32,6 +32,7 @@ export const quickIssueSchema = z.object({
   crewId: z.uuid({ error: "Выберите бригаду" }),
   blockId: z.uuid({ error: "Выберите блок" }),
   floorId: z.uuid({ error: "Выберите этаж" }),
+  stageId: z.uuid({ error: "Выберите этап работ" }),
   receivedByName: z.string().trim().max(200),
   lines: z.array(z.object({ materialId: z.uuid(), quantity: qty })).min(1),
 });
