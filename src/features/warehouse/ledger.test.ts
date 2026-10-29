@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildLedger, type LedgerDoc, type LedgerMovement } from "./ledger";
+import {
+  buildLedger,
+  filterLedger,
+  ledgerTotals,
+  type LedgerDoc,
+  type LedgerMovement,
+} from "./ledger";
 
 // Гвозди: приход 10, выдачи 3 и 2, возврат 1, приход 101 исправлен на 100 (сторно + новая приёмка).
 const mv = (
@@ -73,5 +79,52 @@ describe("карточка материала (Д-104)", () => {
       true,
     );
     expect(entries.map((e) => e.status)).toEqual(["reversal", "cancelled"]);
+  });
+});
+
+describe("фильтры карточки (Д-105)", () => {
+  const at = (m: LedgerMovement, occurredOn: string) => ({ ...m, occurredOn });
+  // Приход 10 (27.10), выдачи 3 и 2 (27.10), возврат 1 (28.10), приход 100 (29.10) → остаток 106.
+  const list = [
+    at(mv("m7", 100, "GOODS_RECEIPT", "r16"), "2026-10-29"),
+    at(mv("m4", 1, "MATERIAL_RETURN", "ret1"), "2026-10-28"),
+    at(mv("m3", -2, "MATERIAL_ISSUE", "i2"), "2026-10-27"),
+    at(mv("m2", -3, "MATERIAL_ISSUE", "i1"), "2026-10-27"),
+    at(mv("m1", 10, "GOODS_RECEIPT", "r9"), "2026-10-27"),
+  ];
+  const withCrew = new Map<string, LedgerDoc>([
+    ...docs,
+    ["i1", { number: "ВДЧ-1", crewId: "c1", blockId: "b1" }],
+    ["i2", { number: "ВДЧ-2", crewId: "c2", blockId: "b1" }],
+    ["ret1", { number: "ВЗВ-1", crewId: "c2", blockId: "b1" }],
+  ]);
+  const { entries } = buildLedger(list, withCrew, 106, false);
+
+  it("операция, бригада и номер документа", () => {
+    expect(filterLedger(entries, { kind: "MATERIAL_ISSUE" }).map((e) => e.number)).toEqual([
+      "ВДЧ-2",
+      "ВДЧ-1",
+    ]);
+    expect(filterLedger(entries, { crew: "c2" }).map((e) => e.number)).toEqual(["ВЗВ-1", "ВДЧ-2"]);
+    expect(filterLedger(entries, { q: "прм-9" }).map((e) => e.number)).toEqual(["ПРМ-9"]);
+  });
+
+  it("период: остаток на начало и конец, итоги — по отфильтрованному", () => {
+    const f = { from: "2026-10-28", to: "2026-10-28" };
+    const shown = filterLedger(entries, f);
+    expect(ledgerTotals(shown, entries, 106, f)).toEqual({
+      received: 0,
+      issued: 0,
+      returned: 1,
+      start: 5,
+      end: 6,
+    });
+    expect(ledgerTotals(entries, entries, 106, {})).toMatchObject({
+      received: 110,
+      issued: 5,
+      returned: 1,
+      start: null,
+      end: null,
+    });
   });
 });
