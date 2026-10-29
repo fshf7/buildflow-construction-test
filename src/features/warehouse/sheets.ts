@@ -27,10 +27,24 @@ export type IncomingRow = SheetRow<IncomingDraft> & {
   requestNumber: string | null;
 };
 
+/**
+ * Исправленная строка (корректировка приёмки / сторно и новая выдача) — новый документ; чтобы она
+ * осталась на месте исходной, порядок берём по времени создания первого документа цепочки.
+ */
+function chainStart(docs: { id: string; created_at: string; parent: string | null }[]) {
+  const byId = new Map(docs.map((d) => [d.id, d]));
+  const start = (id: string): string => {
+    let d = byId.get(id);
+    for (let i = 0; d?.parent && byId.has(d.parent) && i < 50; i++) d = byId.get(d.parent);
+    return d?.created_at ?? "";
+  };
+  return start;
+}
+
 /** Начальный остаток + приход − расход (с возвратами) = остаток: сверка видна прямо в таблицах. */
 export async function listIncomingRows(projectId: string): Promise<IncomingRow[]> {
   const supabase = await createClient();
-  const [receipts, openings] = await Promise.all([
+  const [receipts, openings, chain] = await Promise.all([
     supabase
       .from("goods_receipts")
       .select(
@@ -47,7 +61,17 @@ export async function listIncomingRows(projectId: string): Promise<IncomingRow[]
       .eq("project_id", projectId)
       .eq("kind", "STOCK")
       .eq("status", "POSTED"),
+    supabase
+      .from("goods_receipts")
+      .select("id, created_at, corrects_receipt_id")
+      .eq("project_id", projectId)
+      .in("status", ["POSTED", "CORRECTED"])
+      .limit(5000),
   ]);
+  if (chain.error) throw new Error(chain.error.message);
+  const startOf = chainStart(
+    chain.data.map((g) => ({ id: g.id, created_at: g.created_at, parent: g.corrects_receipt_id })),
+  );
   if (receipts.error) throw new Error(receipts.error.message);
   if (openings.error) throw new Error(openings.error.message);
 
@@ -77,7 +101,7 @@ export async function listIncomingRows(projectId: string): Promise<IncomingRow[]
   const fromReceipts = receipts.data.flatMap((g) => {
     const items = [...g.goods_receipt_items].sort((a, b) => a.line_no - b.line_no);
     return items.map((i) => ({
-      order: `${g.doc_date}|1|${g.created_at}|${i.line_no}`,
+      order: `${g.doc_date}|1|${startOf(g.id) || g.created_at}|${i.line_no}`,
       row: {
         key: i.id,
         id: g.id,
@@ -132,15 +156,27 @@ export type OutgoingRow = SheetRow<OutgoingDraft> & {
  */
 export async function listOutgoingRows(projectId: string): Promise<OutgoingRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("material_issues")
-    .select(
-      "id, number, doc_date, created_at, block_id, floor_id, stage_id, crew_id, material_issue_items(id, line_no, material_id, quantity, materials(name, units_of_measure(code))), material_returns(id, number, status, doc_date, created_at, material_return_items(id, material_issue_item_id, quantity))",
-    )
-    .eq("project_id", projectId)
-    .eq("status", "POSTED")
-    .limit(3000);
+  const [{ data, error }, chain] = await Promise.all([
+    supabase
+      .from("material_issues")
+      .select(
+        "id, number, doc_date, created_at, block_id, floor_id, stage_id, crew_id, material_issue_items(id, line_no, material_id, quantity, materials(name, units_of_measure(code))), material_returns(id, number, status, doc_date, created_at, material_return_items(id, material_issue_item_id, quantity))",
+      )
+      .eq("project_id", projectId)
+      .eq("status", "POSTED")
+      .limit(3000),
+    supabase
+      .from("material_issues")
+      .select("id, created_at, replaces_issue_id")
+      .eq("project_id", projectId)
+      .in("status", ["POSTED", "REVERSED"])
+      .limit(5000),
+  ]);
   if (error) throw new Error(error.message);
+  if (chain.error) throw new Error(chain.error.message);
+  const startOf = chainStart(
+    chain.data.map((d) => ({ id: d.id, created_at: d.created_at, parent: d.replaces_issue_id })),
+  );
 
   const out: { order: string; row: OutgoingRow }[] = [];
   for (const d of data) {
@@ -163,7 +199,7 @@ export async function listOutgoingRows(projectId: string): Promise<OutgoingRow[]
     };
     for (const i of items)
       out.push({
-        order: `${d.doc_date}|${d.created_at}|${i.line_no}`,
+        order: `${d.doc_date}|${startOf(d.id) || d.created_at}|${i.line_no}`,
         row: {
           key: i.id,
           id: d.id,

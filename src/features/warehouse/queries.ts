@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 
 import type { IssueStatus, ReceiptStatus } from "./labels";
+import type { LedgerDoc, LedgerMovement } from "./ledger";
 
 // Цен здесь нет и быть не может: складские таблицы их не содержат (§5.4).
 
@@ -436,15 +437,105 @@ export async function getReturn(id: string): Promise<ReturnDetail | null> {
 // ---------------------------------------------------------------------------------------
 // Журнал и история
 // ---------------------------------------------------------------------------------------
-export async function listMaterialMovements(projectId: string, materialId: string) {
+/**
+ * Движения материала и сведения о документах для карточки (Д-104): номер, бригада и место,
+ * какой документ исправлен. Сторно и исправления сворачивает buildLedger.
+ */
+export async function getMaterialLedgerData(
+  projectId: string,
+  materialId: string,
+): Promise<{ movements: LedgerMovement[]; docs: Map<string, LedgerDoc> }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("stock_movements")
-    .select("id, quantity, movement_type, occurred_on, created_at, source_doc_type, source_doc_id")
+    .select(
+      "id, quantity, movement_type, occurred_on, source_doc_type, source_doc_id, reversal_of_id",
+    )
     .eq("project_id", projectId)
     .eq("material_id", materialId)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .order("id", { ascending: false })
+    .limit(500);
   if (error) throw new Error(error.message);
-  return data;
+
+  const idsOf = (type: string) => [
+    ...new Set(data.filter((m) => m.source_doc_type === type).map((m) => m.source_doc_id)),
+  ];
+  const none = { data: [], error: null };
+  const [receipts, issues, returns, openings] = await Promise.all([
+    idsOf("GOODS_RECEIPT").length
+      ? supabase
+          .from("goods_receipts")
+          .select("id, number, corrects_receipt_id, purchase_requests(number)")
+          .in("id", idsOf("GOODS_RECEIPT"))
+      : none,
+    idsOf("MATERIAL_ISSUE").length
+      ? supabase
+          .from("material_issues")
+          .select(
+            "id, number, replaces_issue_id, crews(name, leader_name), blocks(name), floors(name), work_stages(name)",
+          )
+          .in("id", idsOf("MATERIAL_ISSUE"))
+      : none,
+    idsOf("MATERIAL_RETURN").length
+      ? supabase
+          .from("material_returns")
+          .select("id, number, crews(name, leader_name), material_issues(number)")
+          .in("id", idsOf("MATERIAL_RETURN"))
+      : none,
+    idsOf("OPENING_BALANCE").length
+      ? supabase.from("opening_balances").select("id, number").in("id", idsOf("OPENING_BALANCE"))
+      : none,
+  ]);
+  for (const r of [receipts, issues, returns, openings])
+    if (r.error) throw new Error(r.error.message);
+
+  const crew = (c: { name: string; leader_name: string | null } | null) => {
+    const leader = c?.leader_name?.trim();
+    return c ? (leader && leader !== c.name ? `${leader} (${c.name})` : c.name) : "";
+  };
+  const docs = new Map<string, LedgerDoc>();
+  for (const g of receipts.data ?? [])
+    docs.set(g.id, {
+      number: g.number,
+      detail: g.purchase_requests?.number ? `по заявке ${g.purchase_requests.number}` : "",
+      parentId: g.corrects_receipt_id,
+      href: `/warehouse/receipts/${g.id}`,
+    });
+  for (const i of issues.data ?? [])
+    docs.set(i.id, {
+      number: i.number,
+      detail: [
+        crew(i.crews),
+        [i.blocks?.name, i.floors?.name && `этаж ${i.floors.name}`, i.work_stages?.name]
+          .filter(Boolean)
+          .join(", "),
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      parentId: i.replaces_issue_id,
+      href: `/warehouse/issues/${i.id}`,
+    });
+  for (const r of returns.data ?? [])
+    docs.set(r.id, {
+      number: r.number,
+      detail: [crew(r.crews), r.material_issues?.number && `по выдаче ${r.material_issues.number}`]
+        .filter(Boolean)
+        .join(" · "),
+      href: `/warehouse/returns/${r.id}`,
+    });
+  for (const o of openings.data ?? []) docs.set(o.id, { number: o.number });
+
+  return {
+    movements: data.map((m) => ({
+      id: m.id,
+      quantity: Number(m.quantity),
+      type: m.movement_type,
+      occurredOn: m.occurred_on,
+      docType: m.source_doc_type,
+      docId: m.source_doc_id,
+      reversalOf: m.reversal_of_id,
+    })),
+    docs,
+  };
 }
