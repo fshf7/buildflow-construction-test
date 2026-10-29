@@ -2,9 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { FiltersBar } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
 import { requireObject } from "@/features/projects/object";
-import { buildLedger, type LedgerEntry } from "@/features/warehouse/ledger";
+import { listBlockOptions, listResponsibleOptions } from "@/features/shared/lookups";
+import {
+  buildLedger,
+  filterLedger,
+  LEDGER_KINDS,
+  ledgerTotals,
+  type LedgerEntry,
+  type LedgerFilter,
+} from "@/features/warehouse/ledger";
 import { getMaterialLedgerData, listBalances } from "@/features/warehouse/queries";
 import { formatDate, formatQuantity } from "@/lib/format";
 import { objectHref } from "@/lib/routes";
@@ -21,6 +30,8 @@ const STATUS: Record<NonNullable<LedgerEntry["status"]>, string> = {
 /**
  * Карточка материала (Д-104): одна строка на документ и остаток после неё. Исправления и отмены
  * (документ + его сторно) свёрнуты; «Показать исправления и отмены» — полный журнал движений.
+ * Фильтры (Д-105): период, операция, бригада, блок, номер — в адресе страницы; итоги и остаток
+ * на начало/конец периода.
  * Остаток = Σ движений (источник истины — stock_movements, §6.4).
  */
 export default async function MaterialStockPage({
@@ -28,17 +39,44 @@ export default async function MaterialStockPage({
   searchParams,
 }: PageProps<"/objects/[projectId]/warehouse/stock/[materialId]">) {
   const { projectId, materialId } = await params;
-  const showAll = (await searchParams).all === "1";
-  const { project } = await requireObject(projectId, "stock.view");
-  const [balances, data] = await Promise.all([
+  const sp = await searchParams;
+  const str = (k: string) => (typeof sp[k] === "string" && sp[k] ? (sp[k] as string) : undefined);
+  const date = (k: string) => (/^\d{4}-\d{2}-\d{2}$/.test(str(k) ?? "") ? str(k) : undefined);
+  const showAll = str("all") === "1";
+  const f: LedgerFilter = {
+    from: date("from"),
+    to: date("to"),
+    kind: str("kind"),
+    crew: str("crew"),
+    block: str("block"),
+    q: str("q"),
+  };
+  const { org, project } = await requireObject(projectId, "stock.view");
+  const [balances, data, crews, blocks] = await Promise.all([
     listBalances(project.id),
     getMaterialLedgerData(project.id, materialId),
+    listResponsibleOptions(org.id),
+    listBlockOptions(project.id),
   ]);
   const balance = balances.find((b) => b.materialId === materialId);
   if (!balance) notFound();
-  const { entries, hidden } = buildLedger(data.movements, data.docs, balance.quantity, showAll);
-  const base = objectHref(project.id, `/warehouse/stock/${materialId}`);
+  const { entries: all, hidden } = buildLedger(
+    data.movements,
+    data.docs,
+    balance.quantity,
+    showAll,
+  );
+  const entries = filterLedger(all, f);
+  const totals = ledgerTotals(entries, all, balance.quantity, f);
+  const filtered = Object.values(f).some(Boolean);
   const qty = (v: number) => formatQuantity(Math.abs(v), balance.unit);
+  // Переключатель журнала сохраняет фильтры.
+  const toggle = new URLSearchParams(
+    Object.entries({ ...f, all: showAll ? undefined : "1" }).flatMap(([k, v]) =>
+      v ? [[k, v]] : [],
+    ),
+  ).toString();
+  const toggleHref = `${objectHref(project.id, `/warehouse/stock/${materialId}`)}${toggle ? `?${toggle}` : ""}`;
 
   return (
     <>
@@ -46,15 +84,51 @@ export default async function MaterialStockPage({
         title={balance.name}
         description={`${project.label} · остаток ${formatQuantity(balance.quantity, balance.unit)}`}
       />
+      <FiltersBar
+        fields={[
+          { name: "from", label: "С даты", type: "date" },
+          { name: "to", label: "По дату", type: "date" },
+          { name: "kind", label: "Операция", type: "select", options: LEDGER_KINDS },
+          {
+            name: "crew",
+            label: "Бригада",
+            type: "select",
+            options: crews.map((c) => ({ value: c.id, label: c.label })),
+          },
+          {
+            name: "block",
+            label: "Блок",
+            type: "select",
+            options: blocks.map((b) => ({ value: b.id, label: b.name })),
+          },
+          { name: "q", label: "Документ", type: "search", placeholder: "ПРМ-… / ВДЧ-…" },
+        ]}
+      />
+      <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        {totals.start !== null ? (
+          <Total label="На начало" value={formatQuantity(totals.start, balance.unit)} />
+        ) : null}
+        <Total label="Приход" value={`+${qty(totals.received)}`} />
+        <Total label="Выдано" value={`−${qty(totals.issued)}`} />
+        <Total label="Возвращено" value={`+${qty(totals.returned)}`} />
+        {totals.end !== null ? (
+          <Total label="На конец" value={formatQuantity(totals.end, balance.unit)} strong />
+        ) : null}
+      </dl>
       {hidden > 0 ? (
         <Link
-          href={showAll ? base : `${base}?all=1`}
+          href={toggleHref}
           className="self-start text-sm text-primary underline-offset-4 hover:underline"
         >
           {showAll ? "Скрыть исправления и отмены" : `Показать исправления и отмены (${hidden})`}
         </Link>
       ) : null}
       <ul className="flex flex-col divide-y rounded-lg border">
+        {entries.length === 0 ? (
+          <li className="p-6 text-center text-sm text-muted-foreground">
+            {filtered ? "По фильтрам ничего не найдено" : "Движений пока нет"}
+          </li>
+        ) : null}
         {entries.map((e) => {
           const off = e.status !== null; // в полном журнале: исправленное, отменённое, сторно
           const title = e.href ? (
@@ -109,5 +183,14 @@ export default async function MaterialStockPage({
         })}
       </ul>
     </>
+  );
+}
+
+function Total({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex gap-1.5">
+      <dt className="text-muted-foreground">{label}:</dt>
+      <dd className={cn("tabular-nums", strong && "font-semibold")}>{value}</dd>
+    </div>
   );
 }

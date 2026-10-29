@@ -473,14 +473,16 @@ export async function getMaterialLedgerData(
       ? supabase
           .from("material_issues")
           .select(
-            "id, number, replaces_issue_id, crews(name, leader_name), blocks(name), floors(name), work_stages(name)",
+            "id, number, replaces_issue_id, crew_id, block_id, crews(name, leader_name), blocks(name), floors(name), work_stages(name)",
           )
           .in("id", idsOf("MATERIAL_ISSUE"))
       : none,
     idsOf("MATERIAL_RETURN").length
       ? supabase
           .from("material_returns")
-          .select("id, number, crews(name, leader_name), material_issues(number)")
+          .select(
+            "id, number, crew_id, crews(name, leader_name), material_issues(number, block_id)",
+          )
           .in("id", idsOf("MATERIAL_RETURN"))
       : none,
     idsOf("OPENING_BALANCE").length
@@ -515,6 +517,8 @@ export async function getMaterialLedgerData(
         .join(" · "),
       parentId: i.replaces_issue_id,
       href: `/warehouse/issues/${i.id}`,
+      crewId: i.crew_id,
+      blockId: i.block_id,
     });
   for (const r of returns.data ?? [])
     docs.set(r.id, {
@@ -523,6 +527,8 @@ export async function getMaterialLedgerData(
         .filter(Boolean)
         .join(" · "),
       href: `/warehouse/returns/${r.id}`,
+      crewId: r.crew_id,
+      blockId: r.material_issues?.block_id ?? null,
     });
   for (const o of openings.data ?? []) docs.set(o.id, { number: o.number });
 
