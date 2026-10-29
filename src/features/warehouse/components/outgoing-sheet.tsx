@@ -171,7 +171,8 @@ export function OutgoingSheet({
 
   function renderRow(d: OutgoingDraft & { id: string }, row?: OutgoingRow) {
     const key = row?.key ?? d.id;
-    const st = sheet.states[key];
+    // Новая строка после сохранения показывается строкой сервера (id документа = id черновика).
+    const st = sheet.states[key] ?? (row ? sheet.states[row.id] : undefined);
     const isReturn = row?.kind === "return";
     const old = row && !isReturn ? row.draft.docDate < minDate && !canFixOld : false;
     const locked = !canEdit || (row ? !row.editable || old : false);

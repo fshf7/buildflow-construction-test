@@ -31,6 +31,9 @@ export function useRowSheet<D extends Record<string, unknown>, P>({
   const [edits, setEdits] = useState<Record<string, D>>({});
   const [fresh, setFresh] = useState<(D & { id: string })[]>(() => [emptyDraft()]);
   const [states, setStates] = useState<Record<string, RowState>>({});
+  // Сохранённые новые строки: дальше их показывает сервер (строкой документа). Без этого после
+  // исправления строки (корректировка = новый документ) черновик всплывал снова как несохранённый.
+  const [persisted, setPersisted] = useState<Set<string>>(() => new Set());
 
   function draftOf(row: SheetRow<D>): D {
     return edits[row.key] ?? row.draft;
@@ -59,7 +62,7 @@ export function useRowSheet<D extends Record<string, unknown>, P>({
     });
   }
 
-  async function run(key: string, id: string, draft: D) {
+  async function run(key: string, id: string, draft: D, isNew = false) {
     const v = validate(draft);
     if (!v.ok) {
       setStates((s) => ({ ...s, [key]: { state: "error", message: v.message, fields: v.fields } }));
@@ -67,6 +70,7 @@ export function useRowSheet<D extends Record<string, unknown>, P>({
     }
     setStates((s) => ({ ...s, [key]: { state: "saving" } }));
     const r = await save(v.data, id);
+    if (r.ok && isNew) setPersisted((p) => new Set(p).add(id));
     setStates((s) => ({
       ...s,
       [key]: r.ok ? { state: "saved" } : { state: "error", message: r.error },
@@ -84,7 +88,7 @@ export function useRowSheet<D extends Record<string, unknown>, P>({
   function leaveNew(id: string) {
     const d = fresh.find((x) => x.id === id);
     if (!d || isBlank(d) || states[id]?.state === "saving") return;
-    void run(id, id, d);
+    void run(id, id, d, true);
   }
 
   /** Вставка строк: заменяет пустые новые строки, в конце — снова пустая. id — свой или новый. */
@@ -98,7 +102,7 @@ export function useRowSheet<D extends Record<string, unknown>, P>({
 
   return {
     states,
-    fresh,
+    fresh: fresh.filter((d) => !persisted.has(d.id)),
     draftOf,
     changeRow,
     changeNew,
@@ -107,7 +111,13 @@ export function useRowSheet<D extends Record<string, unknown>, P>({
     addPasted,
     /** Новые строки, ещё не сохранённые (для кнопки «Сохранить строки»). */
     pendingNew: (savedIds: Set<string>) =>
-      fresh.filter((d) => !isBlank(d) && !savedIds.has(d.id) && states[d.id]?.state !== "saving"),
-    saveNew: (d: D & { id: string }) => run(d.id, d.id, d),
+      fresh.filter(
+        (d) =>
+          !isBlank(d) &&
+          !persisted.has(d.id) &&
+          !savedIds.has(d.id) &&
+          states[d.id]?.state !== "saving",
+      ),
+    saveNew: (d: D & { id: string }) => run(d.id, d.id, d, true),
   };
 }
