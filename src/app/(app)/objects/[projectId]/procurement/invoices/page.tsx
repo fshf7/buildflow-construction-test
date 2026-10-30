@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { FiltersBar } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -103,45 +104,48 @@ export default async function InvoiceJournalPage({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => {
-                const cancelled = r.status === "CANCELLED";
-                return (
-                  <TableRow key={r.id} className={cn(cancelled && "text-muted-foreground")}>
-                    <TableCell>
-                      <Link
-                        href={href(`/procurement/invoices/${r.id}`)}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {r.number ?? "Черновик"}
-                      </Link>
-                      {cancelled ? (
-                        <Badge variant="outline" className="ml-2">
-                          Отменена
-                        </Badge>
+              <PageSlice>
+                {rows.map((r) => {
+                  const cancelled = r.status === "CANCELLED";
+                  return (
+                    <TableRow key={r.id} className={cn(cancelled && "text-muted-foreground")}>
+                      <TableCell>
+                        <Link
+                          href={href(`/procurement/invoices/${r.id}`)}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {r.number ?? "Черновик"}
+                        </Link>
+                        {cancelled ? (
+                          <Badge variant="outline" className="ml-2">
+                            Отменена
+                          </Badge>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{formatDate(r.docDate)}</TableCell>
+                      <TableCell>{r.supplierName}</TableCell>
+                      <TableCell>{r.docNumber ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.linesCount}</TableCell>
+                      {access.prices ? (
+                        <>
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {formatAmount(r.total ?? 0)}
+                          </TableCell>
+                          <TableCell>{currencyLabel(r.currency)}</TableCell>
+                        </>
                       ) : null}
-                    </TableCell>
-                    <TableCell>{formatDate(r.docDate)}</TableCell>
-                    <TableCell>{r.supplierName}</TableCell>
-                    <TableCell>{r.docNumber ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.linesCount}</TableCell>
-                    {access.prices ? (
-                      <>
-                        <TableCell className="text-right font-medium tabular-nums">
-                          {formatAmount(r.total ?? 0)}
-                        </TableCell>
-                        <TableCell>{currencyLabel(r.currency)}</TableCell>
-                      </>
-                    ) : null}
-                    {access.debts ? (
-                      <TableCell>{cancelled ? "—" : <DebtState debt={r.debt} />}</TableCell>
-                    ) : null}
-                  </TableRow>
-                );
-              })
+                      {access.debts ? (
+                        <TableCell>{cancelled ? "—" : <DebtState debt={r.debt} />}</TableCell>
+                      ) : null}
+                    </TableRow>
+                  );
+                })}
+              </PageSlice>
             )}
           </TableBody>
         </Table>
       </div>
+      <PagedPager total={rows.length} />
     </>
   );
 }

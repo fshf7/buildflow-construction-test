@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { FiltersBar } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import {
   Table,
   TableBody,
@@ -61,50 +62,53 @@ export default async function ReversalsPage({ searchParams }: PageProps<"/financ
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => (
-                <TableRow key={r.transactionId}>
-                  <TableCell className="whitespace-nowrap">
-                    {canOpen ? (
-                      <Link
-                        href={`/finance/operations/${r.transactionId}`}
-                        className="font-medium hover:underline"
-                      >
-                        {r.number}
-                      </Link>
-                    ) : (
-                      r.number
-                    )}
-                    <span className="block text-xs text-muted-foreground">
-                      {r.accountName} · сторно {r.reversalNumber}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {CATEGORY_LABELS[r.category]}
-                    {r.counterparty ? ` · ${r.counterparty}` : ""}
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    {r.direction === "IN" ? "+" : "−"}
-                    {formatMoney(r.amount, r.currency)}
-                  </TableCell>
-                  <TableCell>{r.reason}</TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {r.initiatedBy}
-                    <span className="block text-xs text-muted-foreground">
-                      {formatDateTime(r.initiatedAt)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {r.approvedBy}
-                    <span className="block text-xs text-muted-foreground">
-                      {formatDateTime(r.approvedAt)}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))
+              <PageSlice>
+                {rows.map((r) => (
+                  <TableRow key={r.transactionId}>
+                    <TableCell className="whitespace-nowrap">
+                      {canOpen ? (
+                        <Link
+                          href={`/finance/operations/${r.transactionId}`}
+                          className="font-medium hover:underline"
+                        >
+                          {r.number}
+                        </Link>
+                      ) : (
+                        r.number
+                      )}
+                      <span className="block text-xs text-muted-foreground">
+                        {r.accountName} · сторно {r.reversalNumber}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {CATEGORY_LABELS[r.category]}
+                      {r.counterparty ? ` · ${r.counterparty}` : ""}
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      {r.direction === "IN" ? "+" : "−"}
+                      {formatMoney(r.amount, r.currency)}
+                    </TableCell>
+                    <TableCell>{r.reason}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {r.initiatedBy}
+                      <span className="block text-xs text-muted-foreground">
+                        {formatDateTime(r.initiatedAt)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {r.approvedBy}
+                      <span className="block text-xs text-muted-foreground">
+                        {formatDateTime(r.approvedAt)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </PageSlice>
             )}
           </TableBody>
         </Table>
       </div>
+      <PagedPager total={rows.length} />
     </>
   );
 }

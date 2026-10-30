@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/page-header";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import { listCrewsWithDebt, listSuppliersWithDebt } from "@/features/finance/queries";
 import { formatMoney } from "@/lib/format";
 
@@ -42,17 +43,22 @@ export default async function PayPage({ params }: { params: ScopedParams }) {
       {suppliers.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-sm font-semibold text-muted-foreground">Поставщики</h2>
-          <ul className="flex flex-col gap-2">
-            {suppliers.map((s) => (
-              <li key={`${s.supplierId}:${s.currency}`}>
-                <DebtLink
-                  href={`${scope.base}/pay/${s.supplierId}`}
-                  name={s.supplierName}
-                  text={`Долг: ${formatMoney(s.remaining, s.currency)} · обязательств: ${s.count}`}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="flex flex-col gap-2">
+              <PageSlice>
+                {suppliers.map((s) => (
+                  <li key={`${s.supplierId}:${s.currency}`}>
+                    <DebtLink
+                      href={`${scope.base}/pay/${s.supplierId}`}
+                      name={s.supplierName}
+                      text={`Долг: ${formatMoney(s.remaining, s.currency)} · обязательств: ${s.count}`}
+                    />
+                  </li>
+                ))}
+              </PageSlice>
+            </ul>
+            <PagedPager total={suppliers.length} />
+          </>
         </section>
       ) : null}
       {crews.length > 0 ? (
@@ -60,17 +66,22 @@ export default async function PayPage({ params }: { params: ScopedParams }) {
           <h2 className="text-sm font-semibold text-muted-foreground">
             Бригады (утверждённые акты)
           </h2>
-          <ul className="flex flex-col gap-2">
-            {crews.map((c) => (
-              <li key={`${c.crewId}:${c.currency}`}>
-                <DebtLink
-                  href={`${scope.base}/pay/crew/${c.crewId}`}
-                  name={c.crewName}
-                  text={`Долг: ${formatMoney(c.remaining, c.currency)} · актов: ${c.count}`}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="flex flex-col gap-2">
+              <PageSlice param="crewPage">
+                {crews.map((c) => (
+                  <li key={`${c.crewId}:${c.currency}`}>
+                    <DebtLink
+                      href={`${scope.base}/pay/crew/${c.crewId}`}
+                      name={c.crewName}
+                      text={`Долг: ${formatMoney(c.remaining, c.currency)} · актов: ${c.count}`}
+                    />
+                  </li>
+                ))}
+              </PageSlice>
+            </ul>
+            <PagedPager total={crews.length} param="crewPage" />
+          </>
         </section>
       ) : null}
     </div>

@@ -4,6 +4,7 @@ import { Download, Filter } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useObjectHref } from "@/components/object-context";
+import { Pager, usePagination } from "@/components/pagination";
 import { ObjectLink } from "@/components/object-link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -52,9 +53,14 @@ export function ExpensesTable({
   const [showFilters, setShowFilters] = useState(false);
   const visible = useMemo(() => filterExpenseRows(rows, filters), [rows, filters]);
   const totals = totalsByCurrency(visible);
+  // Д-108: по 30 строк; итоги — по всем отфильтрованным строкам.
+  const paging = usePagination(visible.length, { scrollTarget: "expenses-table" });
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const filtered = Object.values(filters).some(Boolean);
-  const setFilter = (patch: Partial<ExpenseFilters>) => setFilters((f) => ({ ...f, ...patch }));
+  const setFilter = (patch: Partial<ExpenseFilters>) => {
+    setFilters((f) => ({ ...f, ...patch }));
+    paging.resetPage();
+  };
   const exportQuery = new URLSearchParams(
     Object.entries(filters)
       .filter(([, v]) => Boolean(v))
@@ -74,7 +80,15 @@ export function ExpensesTable({
           Фильтры{filtered ? " (включены)" : ""}
         </Button>
         {filtered ? (
-          <Button type="button" variant="ghost" size="sm" onClick={() => setFilters({})}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFilters({});
+              paging.resetPage();
+            }}
+          >
             Сбросить
           </Button>
         ) : null}
@@ -96,7 +110,7 @@ export function ExpensesTable({
         </span>
       </div>
 
-      <div className="max-h-[70vh] overflow-auto rounded-lg border">
+      <div id="expenses-table" className="max-h-[70vh] overflow-auto rounded-lg border">
         <Table>
           <TableHeader className="sticky top-0 z-[1] bg-background">
             <TableRow className="hover:bg-transparent">
@@ -220,7 +234,7 @@ export function ExpensesTable({
                 </TableCell>
               </TableRow>
             ) : (
-              visible.map((r) => {
+              paging.slice(visible).map((r) => {
                 const category = r.categoryId ? categoryById.get(r.categoryId) : undefined;
                 return (
                   <TableRow
@@ -274,6 +288,7 @@ export function ExpensesTable({
           </TableBody>
         </Table>
       </div>
+      <Pager paging={paging} />
     </div>
   );
 }

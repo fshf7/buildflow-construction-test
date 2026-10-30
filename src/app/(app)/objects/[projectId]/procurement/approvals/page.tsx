@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/page-header";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import { listPendingCorrections } from "@/features/procurement/queries";
 import { requireObject } from "@/features/projects/object";
 import { formatDateTime } from "@/lib/format";
@@ -26,23 +27,30 @@ export default async function ApprovalsPage({
       {rows.length === 0 ? (
         <p className="text-muted-foreground">Нет корректировок, ожидающих решения.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {rows.map((r) => (
-            <li key={r.id}>
-              <Link
-                href={objectHref(project.id, `/warehouse/receipts/${r.id}`)}
-                className="flex flex-col gap-1 rounded-lg border p-3 hover:bg-muted/50"
-              >
-                <span className="font-medium">
-                  Корректировка приёмки
-                  {r.requestNumber ? ` · заявка ${r.requestNumber}` : ""}
-                </span>
-                <span className="text-sm">Причина: {r.reason}</span>
-                <span className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-2">
+            <PageSlice>
+              {rows.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={objectHref(project.id, `/warehouse/receipts/${r.id}`)}
+                    className="flex flex-col gap-1 rounded-lg border p-3 hover:bg-muted/50"
+                  >
+                    <span className="font-medium">
+                      Корректировка приёмки
+                      {r.requestNumber ? ` · заявка ${r.requestNumber}` : ""}
+                    </span>
+                    <span className="text-sm">Причина: {r.reason}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateTime(r.createdAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </PageSlice>
+          </ul>
+          <PagedPager total={rows.length} />
+        </>
       )}
     </>
   );

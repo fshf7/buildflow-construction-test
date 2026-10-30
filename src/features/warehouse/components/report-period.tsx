@@ -19,6 +19,7 @@ export function ReportPeriod({ from, to }: { from: string; to: string }) {
     const next = new URLSearchParams(params.toString());
     if (value) next.set(name, value);
     else next.delete(name);
+    next.delete("page");
     startTransition(() => router.replace(`${pathname}?${next.toString()}`));
   }
 
