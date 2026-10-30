@@ -4270,7 +4270,7 @@ export type Database = {
         }[];
       };
       report_warehouse_outgoing: {
-        Args: { p_from: string; p_project: string; p_to: string };
+        Args: { p_crew?: string; p_from: string; p_project: string; p_to: string };
         Returns: {
           block: string;
           floor: string;

@@ -2,12 +2,14 @@ import { listServices, listWorkStages } from "@/features/catalog/queries";
 import { getProjectHeader } from "@/features/projects/queries";
 import type { Column, ReportRow } from "@/features/reports/definitions";
 import { listBlockOptions, listResponsibleOptions } from "@/features/shared/lookups";
+import { filterReport, parseReportParams } from "@/features/warehouse/report-filter";
 import { incomingBasis, incomingSearch, outgoingName } from "@/features/warehouse/sheet-labels";
 import {
   listIncomingRows,
   listOutgoingRows,
   listServiceRows,
   normStatus,
+  warehouseOutgoing,
   warehouseReport,
 } from "@/features/warehouse/sheets";
 import { filterSheetRows } from "@/components/sheet/filter";
@@ -171,7 +173,13 @@ export async function GET(
     const today = businessToday();
     const from = f.from ?? `${today.slice(0, 8)}01`;
     const to = f.to ?? today;
-    const r = await warehouseReport(project.id, from, to);
+    // Д-107: фильтры текущей вкладки отчёта — к её листу.
+    const { view, filter, crew } = parseReportParams((k) => sp.get(k));
+    const [full, crewOutgoing] = await Promise.all([
+      warehouseReport(project.id, from, to),
+      crew ? warehouseOutgoing(project.id, from, to, crew) : null,
+    ]);
+    const r = filterReport(crewOutgoing ? { ...full, outgoing: crewOutgoing } : full, view, filter);
     name = `otchet-${from}-${to}`;
     const cols = (c: [string, string, Column["kind"]][]): Column[] =>
       c.map(([key, label, kind]) => ({ key, label, kind }));
