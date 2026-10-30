@@ -351,28 +351,19 @@ export async function warehouseReport(
   to: string,
 ): Promise<WarehouseReport> {
   const supabase = await createClient();
-  const [inc, out, bal] = await Promise.all([
+  const [inc, outgoing, bal] = await Promise.all([
     supabase.rpc("report_warehouse_incoming", { p_project: projectId, p_from: from, p_to: to }),
-    supabase.rpc("report_warehouse_outgoing", { p_project: projectId, p_from: from, p_to: to }),
+    warehouseOutgoing(projectId, from, to),
     supabase.rpc("report_warehouse_balance", { p_project: projectId, p_to: to }),
   ]);
-  for (const r of [inc, out, bal]) if (r.error) throw new Error(r.error.message);
+  for (const r of [inc, bal]) if (r.error) throw new Error(r.error.message);
   return {
     incoming: (inc.data ?? []).map((r) => ({
       material: r.material,
       unit: r.unit,
       quantity: Number(r.quantity),
     })),
-    outgoing: (out.data ?? []).map((r) => ({
-      material: r.material,
-      unit: r.unit,
-      block: r.block ?? "",
-      floor: r.floor ?? "",
-      stage: r.stage ?? "",
-      quantity: Number(r.quantity),
-      norm: r.norm === null ? null : Number(r.norm),
-      normIssued: r.norm_issued === null ? null : Number(r.norm_issued),
-    })),
+    outgoing,
     balance: (bal.data ?? []).map((r) => ({
       material: r.material,
       unit: r.unit,
@@ -381,6 +372,33 @@ export async function warehouseReport(
       balance: Number(r.balance),
     })),
   };
+}
+
+/** Расход за период по блокам и этапам; crew (Д-107) — только выдачи этой бригады и возвраты по ним. */
+export async function warehouseOutgoing(
+  projectId: string,
+  from: string,
+  to: string,
+  crew?: string,
+): Promise<WarehouseReport["outgoing"]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("report_warehouse_outgoing", {
+    p_project: projectId,
+    p_from: from,
+    p_to: to,
+    ...(crew ? { p_crew: crew } : {}),
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    material: r.material,
+    unit: r.unit,
+    block: r.block ?? "",
+    floor: r.floor ?? "",
+    stage: r.stage ?? "",
+    quantity: Number(r.quantity),
+    norm: r.norm === null ? null : Number(r.norm),
+    normIssued: r.norm_issued === null ? null : Number(r.norm_issued),
+  }));
 }
 
 /** Статус норматива строки расхода: «В норме» / «Перерасход» / пусто (норматив не задан). */
