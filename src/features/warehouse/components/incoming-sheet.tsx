@@ -14,6 +14,7 @@ import {
   sheetTable,
   sheetText,
 } from "@/components/sheet/sheet-kit";
+import { Pager, usePagination } from "@/components/pagination";
 import { SheetToolbar } from "@/components/sheet/sheet-toolbar";
 import { useRowSheet } from "@/components/sheet/use-row-sheet";
 import { parseRuDate, parseRuNumber } from "@/features/procurement/expenses";
@@ -111,6 +112,9 @@ export function IncomingSheet({
   const visible = filterSheetRows(rows, filter, (r) => r.draft.docDate, incomingSearch);
   const savedIds = new Set(rows.map((r) => r.id));
   const fresh = canEdit ? sheet.fresh.filter((d) => !savedIds.has(d.id)) : [];
+  // Д-108: по 30 строк; по умолчанию — последняя страница (новые строки внизу). Новые
+  // несохранённые строки видны на любой странице.
+  const paging = usePagination(visible.length, { last: true, scrollTarget: "incoming-sheet" });
   const pending = sheet.pendingNew(savedIds);
 
   function nameChange(value: string): Partial<IncomingDraft> {
@@ -289,7 +293,10 @@ export function IncomingSheet({
     <div className="flex flex-col gap-3">
       <SheetToolbar
         filter={filter}
-        onFilter={setFilter}
+        onFilter={(f) => {
+          setFilter(f);
+          paging.resetPage();
+        }}
         count={visible.length}
         exportHref={href("/warehouse/export?sheet=incoming")}
         pending={pending.length}
@@ -300,7 +307,7 @@ export function IncomingSheet({
           <option key={m.id} value={m.name} />
         ))}
       </datalist>
-      <div className="max-h-[70vh] overflow-auto rounded-lg border">
+      <div id="incoming-sheet" className="max-h-[70vh] overflow-auto rounded-lg border">
         <table className={sheetTable} onKeyDown={sheetNavigate}>
           <thead className="sticky top-0 z-[2] bg-muted">
             <tr>
@@ -313,11 +320,12 @@ export function IncomingSheet({
             </tr>
           </thead>
           <tbody>
-            {visible.map((r) => renderRow({ ...sheet.draftOf(r), id: r.id }, r))}
+            {paging.slice(visible).map((r) => renderRow({ ...sheet.draftOf(r), id: r.id }, r))}
             {fresh.map((d) => renderRow(d))}
           </tbody>
         </table>
       </div>
+      <Pager paging={paging} />
       {canEdit ? (
         <p className="text-xs text-muted-foreground">
           Строка проводится, когда вы уходите с неё (Tab, Enter, мышью) — остаток растёт сразу.

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { FiltersBar } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import { requireObject } from "@/features/projects/object";
 import { listBlockOptions, listResponsibleOptions } from "@/features/shared/lookups";
 import {
@@ -129,59 +130,62 @@ export default async function MaterialStockPage({
             {filtered ? "По фильтрам ничего не найдено" : "Движений пока нет"}
           </li>
         ) : null}
-        {entries.map((e) => {
-          const off = e.status !== null; // в полном журнале: исправленное, отменённое, сторно
-          const title = e.href ? (
-            <Link
-              href={objectHref(project.id, e.href)}
-              className="underline-offset-4 hover:underline"
-            >
-              {e.title}
-            </Link>
-          ) : (
-            e.title
-          );
-          return (
-            <li
-              key={e.id}
-              className={cn(
-                "flex items-center justify-between gap-3 p-3 text-sm",
-                off && "bg-muted/50 text-muted-foreground",
-              )}
-            >
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className={cn("font-medium", off && "font-normal")}>
-                  {title}
-                  {e.status ? <span className="text-xs"> · {STATUS[e.status]}</span> : null}
+        <PageSlice>
+          {entries.map((e) => {
+            const off = e.status !== null; // в полном журнале: исправленное, отменённое, сторно
+            const title = e.href ? (
+              <Link
+                href={objectHref(project.id, e.href)}
+                className="underline-offset-4 hover:underline"
+              >
+                {e.title}
+              </Link>
+            ) : (
+              e.title
+            );
+            return (
+              <li
+                key={e.id}
+                className={cn(
+                  "flex items-center justify-between gap-3 p-3 text-sm",
+                  off && "bg-muted/50 text-muted-foreground",
+                )}
+              >
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className={cn("font-medium", off && "font-normal")}>
+                    {title}
+                    {e.status ? <span className="text-xs"> · {STATUS[e.status]}</span> : null}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {[
+                      formatDate(e.date),
+                      e.detail,
+                      e.was !== null && `исправлено, было ${qty(e.was)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {[
-                    formatDate(e.date),
-                    e.detail,
-                    e.was !== null && `исправлено, было ${qty(e.was)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+                <span className="flex shrink-0 flex-col items-end gap-0.5">
+                  <span
+                    className={cn(
+                      "font-medium tabular-nums",
+                      !off && e.quantity > 0 && "text-emerald-700 dark:text-emerald-400",
+                    )}
+                  >
+                    {e.quantity > 0 ? "+" : "−"}
+                    {qty(e.quantity)}
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    остаток {formatQuantity(e.balanceAfter, balance.unit)}
+                  </span>
                 </span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-0.5">
-                <span
-                  className={cn(
-                    "font-medium tabular-nums",
-                    !off && e.quantity > 0 && "text-emerald-700 dark:text-emerald-400",
-                  )}
-                >
-                  {e.quantity > 0 ? "+" : "−"}
-                  {qty(e.quantity)}
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  остаток {formatQuantity(e.balanceAfter, balance.unit)}
-                </span>
-              </span>
-            </li>
-          );
-        })}
+              </li>
+            );
+          })}
+        </PageSlice>
       </ul>
+      <PagedPager total={entries.length} />
     </>
   );
 }

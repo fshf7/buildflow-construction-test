@@ -45,6 +45,7 @@ export function FiltersBar({
     const next = new URLSearchParams(params.toString());
     if (value) next.set(name, value);
     else next.delete(name);
+    next.delete("page"); // другой набор строк — с первой страницы (Д-108)
     startTransition(() => router.replace(`${pathname}?${next.toString()}`));
   }
 
@@ -53,6 +54,7 @@ export function FiltersBar({
   function reset() {
     const next = new URLSearchParams(params.toString());
     for (const f of fields) next.delete(f.name);
+    next.delete("page");
     const query = next.toString();
     startTransition(() => router.replace(query ? `${pathname}?${query}` : pathname));
   }

@@ -12,6 +12,7 @@ import {
   sheetTable,
   sheetText,
 } from "@/components/sheet/sheet-kit";
+import { Pager, usePagination } from "@/components/pagination";
 import { useRowSheet, type SheetRow } from "@/components/sheet/use-row-sheet";
 import type { BlockOption, MaterialOption, Option } from "@/features/shared/lookups";
 import { toNumber } from "@/lib/decimal";
@@ -125,6 +126,8 @@ export function NormsSheet({
         (d) => !existing.has(`${d.materialId}:${d.blockId}:${d.stageId}`) || !d.materialId,
       )
     : [];
+  // Д-108: по 30 строк; новые несохранённые строки видны на любой странице.
+  const paging = usePagination(visible.length, { scrollTarget: "norms-sheet" });
 
   function status(norm: number | null, issued: number) {
     if (norm === null) return <span className="text-muted-foreground">Норматив не задан</span>;
@@ -259,7 +262,10 @@ export function NormsSheet({
           placeholder="Поиск: материал, блок, этап"
           className="h-8 w-64 rounded-md border bg-background px-2 text-sm"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            paging.resetPage();
+          }}
         />
         <span className="ml-auto text-sm text-muted-foreground">Строк: {visible.length}</span>
       </div>
@@ -268,7 +274,7 @@ export function NormsSheet({
           <option key={m.id} value={m.name} />
         ))}
       </datalist>
-      <div className="max-h-[70vh] overflow-auto rounded-lg border">
+      <div id="norms-sheet" className="max-h-[70vh] overflow-auto rounded-lg border">
         <table className={sheetTable} onKeyDown={sheetNavigate}>
           <thead className="sticky top-0 z-[2] bg-muted">
             <tr>
@@ -291,11 +297,12 @@ export function NormsSheet({
                 </td>
               </tr>
             ) : null}
-            {visible.map((r) => renderRow({ ...sheet.draftOf(r), id: r.id }, r))}
+            {paging.slice(visible).map((r) => renderRow({ ...sheet.draftOf(r), id: r.id }, r))}
             {fresh.map((d) => renderRow(d))}
           </tbody>
         </table>
       </div>
+      <Pager paging={paging} />
       <p className="text-xs text-muted-foreground">
         {canEdit
           ? "Норматив — на материал, блок и этап. Строка сохраняется, когда вы уходите с неё; 0 — убрать норматив. Выдано считается по «Расходу» (минус возвраты)."

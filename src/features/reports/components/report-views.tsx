@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { FiltersBar } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -140,18 +141,20 @@ export async function ReportView({
                 </TableCell>
               </TableRow>
             ) : (
-              data.rows.map((r, i) => (
-                <TableRow key={i}>
-                  {data.columns.map((c) => (
-                    <TableCell
-                      key={c.key}
-                      className={cn(numeric(c) && "text-right whitespace-nowrap tabular-nums")}
-                    >
-                      {show(r[c.key] ?? null, c, r.currency ?? null)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              <PageSlice>
+                {data.rows.map((r, i) => (
+                  <TableRow key={i}>
+                    {data.columns.map((c) => (
+                      <TableCell
+                        key={c.key}
+                        className={cn(numeric(c) && "text-right whitespace-nowrap tabular-nums")}
+                      >
+                        {show(r[c.key] ?? null, c, r.currency ?? null)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </PageSlice>
             )}
           </TableBody>
           {data.totals && data.rows.length > 0 ? (
@@ -177,6 +180,8 @@ export async function ReportView({
           ) : null}
         </Table>
       </div>
+      {/* «Итого» — по всем строкам отчёта, не только по странице */}
+      <PagedPager total={data.rows.length} />
     </div>
   );
 }

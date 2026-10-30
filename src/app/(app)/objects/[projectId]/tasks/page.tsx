@@ -6,6 +6,7 @@ import { FiltersBar } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import { requireObject } from "@/features/projects/object";
 import { TASK_STATUS_LABELS, isOverdue, type TaskStatus } from "@/features/tasks/labels";
 import { listTasks } from "@/features/tasks/queries";
@@ -66,42 +67,47 @@ export default async function TasksPage({
       {rows.length === 0 ? (
         <p className="text-muted-foreground">Задач нет.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {rows.map((t) => {
-            const late = isOverdue(t.dueDate, t.status, today);
-            return (
-              <li key={t.id}>
-                <Link
-                  href={objectHref(project.id, `/tasks/${t.id}`)}
-                  className={cn(
-                    "flex items-start justify-between gap-3 rounded-xl border p-4 hover:bg-muted/50",
-                    late && "border-destructive/60 bg-destructive/5",
-                  )}
-                >
-                  <span className="flex min-w-0 flex-col gap-1">
-                    <span className="text-base font-semibold">{t.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {t.number}
-                      {executorOnly ? "" : ` · ${t.assigneeName}`}
-                    </span>
-                    {t.dueDate ? (
-                      <span className={cn("text-sm", late && "font-semibold text-destructive")}>
-                        {late ? "Просрочена! Срок " : "Срок "}
-                        {formatDate(t.dueDate)}
+        <>
+          <ul className="flex flex-col gap-2">
+            <PageSlice>
+              {rows.map((t) => {
+                const late = isOverdue(t.dueDate, t.status, today);
+                return (
+                  <li key={t.id}>
+                    <Link
+                      href={objectHref(project.id, `/tasks/${t.id}`)}
+                      className={cn(
+                        "flex items-start justify-between gap-3 rounded-xl border p-4 hover:bg-muted/50",
+                        late && "border-destructive/60 bg-destructive/5",
+                      )}
+                    >
+                      <span className="flex min-w-0 flex-col gap-1">
+                        <span className="text-base font-semibold">{t.title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t.number}
+                          {executorOnly ? "" : ` · ${t.assigneeName}`}
+                        </span>
+                        {t.dueDate ? (
+                          <span className={cn("text-sm", late && "font-semibold text-destructive")}>
+                            {late ? "Просрочена! Срок " : "Срок "}
+                            {formatDate(t.dueDate)}
+                          </span>
+                        ) : null}
                       </span>
-                    ) : null}
-                  </span>
-                  <span className="flex flex-col items-end gap-1">
-                    <Badge variant={t.status === "BLOCKED" ? "destructive" : "outline"}>
-                      {TASK_STATUS_LABELS[t.status]}
-                    </Badge>
-                    {t.priority === "HIGH" ? <Badge variant="secondary">Срочно</Badge> : null}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                      <span className="flex flex-col items-end gap-1">
+                        <Badge variant={t.status === "BLOCKED" ? "destructive" : "outline"}>
+                          {TASK_STATUS_LABELS[t.status]}
+                        </Badge>
+                        {t.priority === "HIGH" ? <Badge variant="secondary">Срочно</Badge> : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </PageSlice>
+          </ul>
+          <PagedPager total={rows.length} />
+        </>
       )}
     </div>
   );

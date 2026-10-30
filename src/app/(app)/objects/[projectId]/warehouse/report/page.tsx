@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { FiltersBar, type FilterField } from "@/components/filters-bar";
 import { PageHeader } from "@/components/page-header";
+import { PagedPager, PageSlice } from "@/components/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -275,15 +276,19 @@ export default async function WarehouseReportPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.incoming.length === 0
-                ? empty(3)
-                : report.incoming.map((r, i) => (
+              {report.incoming.length === 0 ? (
+                empty(3)
+              ) : (
+                <PageSlice>
+                  {report.incoming.map((r, i) => (
                     <TableRow key={i}>
                       <TableCell>{r.material}</TableCell>
                       <TableCell>{r.unit}</TableCell>
                       <TableCell className="text-right tabular-nums">{qty(r.quantity)}</TableCell>
                     </TableRow>
                   ))}
+                </PageSlice>
+              )}
             </TableBody>
           </Table>
         </Panel>
@@ -305,9 +310,11 @@ export default async function WarehouseReportPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.outgoing.length === 0
-                ? empty(8)
-                : report.outgoing.map((r, i) => {
+              {report.outgoing.length === 0 ? (
+                empty(8)
+              ) : (
+                <PageSlice>
+                  {report.outgoing.map((r, i) => {
                     const status = normStatus(r.norm, r.normIssued);
                     const deviation =
                       r.norm !== null && r.normIssued !== null ? r.normIssued - r.norm : null;
@@ -344,6 +351,8 @@ export default async function WarehouseReportPage({
                       </TableRow>
                     );
                   })}
+                </PageSlice>
+              )}
             </TableBody>
           </Table>
         </Panel>
@@ -362,9 +371,11 @@ export default async function WarehouseReportPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.balance.length === 0
-                ? empty(5)
-                : report.balance.map((r, i) => (
+              {report.balance.length === 0 ? (
+                empty(5)
+              ) : (
+                <PageSlice>
+                  {report.balance.map((r, i) => (
                     <TableRow key={i}>
                       <TableCell>{r.material}</TableCell>
                       <TableCell>{r.unit}</TableCell>
@@ -375,10 +386,13 @@ export default async function WarehouseReportPage({
                       </TableCell>
                     </TableRow>
                   ))}
+                </PageSlice>
+              )}
             </TableBody>
           </Table>
         </Panel>
       ) : null}
+      <PagedPager total={shown} />
       <p className="text-xs text-muted-foreground">
         {view === "balance"
           ? `Остаток на ${formatDate(to)}: приход и расход — с начала учёта.`
