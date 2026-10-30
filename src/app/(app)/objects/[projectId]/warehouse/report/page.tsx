@@ -30,7 +30,7 @@ function Panel({ children }: { children: React.ReactNode }) {
 
 const VIEWS = [
   { value: "incoming", label: "Приход" },
-  { value: "outgoing", label: "Расход по блокам и этапам" },
+  { value: "outgoing", label: "Расход" },
   { value: "balance", label: "Остаток" },
 ] as const;
 type View = (typeof VIEWS)[number]["value"];
