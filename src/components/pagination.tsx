@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Children, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ export type PaginationOptions = {
   last?: boolean;
   /** id прокручиваемого контейнера списка: при смене страницы он прокручивается в начало. */
   scrollTarget?: string;
+  /** Страницу загружает сервер (длинные журналы): смена страницы — запрос к серверу. */
+  server?: boolean;
 };
 
 /**
@@ -24,10 +26,11 @@ export type PaginationOptions = {
  */
 export function usePagination(
   total: number,
-  { param = "page", last = false, scrollTarget }: PaginationOptions = {},
+  { param = "page", last = false, scrollTarget, server = false }: PaginationOptions = {},
 ) {
   const params = useSearchParams();
   const pathname = usePathname();
+  const router = useRouter();
   const pages = pageCount(total);
   const page = resolvePage(params.get(param), pages, last);
   const start = (page - 1) * PAGE_SIZE;
@@ -38,6 +41,10 @@ export function usePagination(
     if (next === (last ? pages : 1)) query.delete(param);
     else query.set(param, String(next));
     const q = query.toString();
+    if (server) {
+      router.replace(q ? `${pathname}?${q}` : pathname);
+      return;
+    }
     window.history.replaceState(null, "", q ? `${pathname}?${q}` : pathname);
     const box = scrollTarget ? document.getElementById(scrollTarget) : null;
     if (box) box.scrollTop = 0;
@@ -141,5 +148,15 @@ export function PagedPager({
   ...options
 }: PaginationOptions & { total: number; className?: string }) {
   const paging = usePagination(total, options);
+  return <Pager paging={paging} className={className} />;
+}
+
+/** Кнопки страниц для списка, который сервер отдаёт по страницам (`server`: total — всего строк). */
+export function ServerPager({
+  total,
+  className,
+  ...options
+}: Omit<PaginationOptions, "server"> & { total: number; className?: string }) {
+  const paging = usePagination(total, { ...options, server: true });
   return <Pager paging={paging} className={className} />;
 }
