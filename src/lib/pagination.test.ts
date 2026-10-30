@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { pageCount, pageWindow, resolvePage } from "./pagination";
+import { pageCount, pageRange, pageWindow, resolvePage } from "./pagination";
 
 describe("пагинация (Д-108)", () => {
   it("число страниц: по 30, пустой список — одна страница", () => {
@@ -27,5 +27,10 @@ describe("пагинация (Д-108)", () => {
     expect(pageWindow(5, 10)).toEqual([1, null, 4, 5, 6, null, 10]);
     expect(pageWindow(4, 10)).toEqual([1, 2, 3, 4, 5, null, 10]);
     expect(pageWindow(10, 10)).toEqual([1, null, 9, 10]);
+  });
+
+  it("диапазон строк страницы для запроса к БД", () => {
+    expect(pageRange(1)).toEqual({ from: 0, to: 29 });
+    expect(pageRange(3)).toEqual({ from: 60, to: 89 });
   });
 });

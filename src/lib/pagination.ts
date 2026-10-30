@@ -30,3 +30,8 @@ export function pageWindow(page: number, pages: number): (number | null)[] {
   });
   return out;
 }
+
+/** Диапазон строк страницы для запроса к БД (`.range(from, to)`, включительно). */
+export function pageRange(page: number, size = PAGE_SIZE): { from: number; to: number } {
+  return { from: (page - 1) * size, to: page * size - 1 };
+}
