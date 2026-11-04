@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { PageHeader } from "@/components/page-header";
-import { listExpenseCategories } from "@/features/catalog/queries";
+import { listExpenseCategories, listServices } from "@/features/catalog/queries";
 import { InvoiceSheet } from "@/features/procurement/components/invoice-sheet";
 import { listInvoiceRequestOptions } from "@/features/procurement/queries";
 import { requireObject } from "@/features/projects/object";
@@ -26,12 +26,13 @@ export default async function NewInvoicePage({
   const { projectId } = await params;
   const { request } = await searchParams;
   const { org, project } = await requireObject(projectId, "supplier_invoices.manage");
-  const [categories, suppliers, units, materials, requests] = await Promise.all([
+  const [categories, suppliers, units, materials, requests, services] = await Promise.all([
     listExpenseCategories(org.id, true),
     listSupplierOptions(org.id),
     listUnitOptions(org.id),
     listMaterialOptions(org.id),
     listInvoiceRequestOptions(project.id),
+    listServices(org.id, true),
   ]);
   const requestId = requests.find((r) => r.id === request)?.id ?? "";
   return (
@@ -47,6 +48,7 @@ export default async function NewInvoicePage({
         categories={categories}
         units={units}
         materials={materials}
+        services={services}
         draftKey={draftStorageKey(
           org.member_id,
           `invoice.new.${project.id}${requestId ? `.${requestId}` : ""}`,

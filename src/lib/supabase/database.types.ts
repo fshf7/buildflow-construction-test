@@ -2913,6 +2913,7 @@ export type Database = {
           project_id: string;
           purchase_request_item_id: string | null;
           quantity: number;
+          service_id: string | null;
           supplier_invoice_id: string;
           unit_id: string;
           updated_at: string;
@@ -2931,6 +2932,7 @@ export type Database = {
           project_id: string;
           purchase_request_item_id?: string | null;
           quantity: number;
+          service_id?: string | null;
           supplier_invoice_id: string;
           unit_id: string;
           updated_at?: string;
@@ -2949,6 +2951,7 @@ export type Database = {
           project_id?: string;
           purchase_request_item_id?: string | null;
           quantity?: number;
+          service_id?: string | null;
           supplier_invoice_id?: string;
           unit_id?: string;
           updated_at?: string;
@@ -2988,6 +2991,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "purchase_request_items_priced";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "supplier_invoice_items_service_id_organization_id_fkey";
+            columns: ["service_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id", "organization_id"];
           },
           {
             foreignKeyName: "supplier_invoice_items_supplier_invoice_id_organization_id_fkey";
@@ -3897,6 +3907,7 @@ export type Database = {
           project_id: string | null;
           purchase_request_item_id: string | null;
           quantity: number | null;
+          service_id: string | null;
           supplier_invoice_id: string | null;
           unit_id: string | null;
         };
@@ -3912,6 +3923,7 @@ export type Database = {
           project_id?: string | null;
           purchase_request_item_id?: string | null;
           quantity?: number | null;
+          service_id?: string | null;
           supplier_invoice_id?: string | null;
           unit_id?: string | null;
         };
@@ -3927,6 +3939,7 @@ export type Database = {
           project_id?: string | null;
           purchase_request_item_id?: string | null;
           quantity?: number | null;
+          service_id?: string | null;
           supplier_invoice_id?: string | null;
           unit_id?: string | null;
         };
@@ -3965,6 +3978,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "purchase_request_items_priced";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "supplier_invoice_items_service_id_organization_id_fkey";
+            columns: ["service_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id", "organization_id"];
           },
           {
             foreignKeyName: "supplier_invoice_items_supplier_invoice_id_organization_id_fkey";
@@ -4397,6 +4417,21 @@ export type Database = {
           source_doc_type: Database["public"]["Enums"]["document_type"];
           source_number: string;
           status: Database["public"]["Enums"]["payable_status"];
+        }[];
+      };
+      report_service_reconciliation: {
+        Args: { p_from: string; p_project: string; p_to: string };
+        Returns: {
+          currencies: string[];
+          invoiced: number;
+          invoiced_amount: number;
+          invoices: number;
+          requested: number;
+          service: string;
+          service_id: string;
+          unit: string;
+          used: number;
+          used_rows: number;
         }[];
       };
       report_stock_balances: {

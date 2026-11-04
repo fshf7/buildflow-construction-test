@@ -5,7 +5,7 @@ import { requireOrg } from "@/lib/auth/access";
 import { hasAnyPermission, hasPermission } from "@/lib/auth/access-model";
 import { objectHref } from "@/lib/routes";
 
-/** Закупки объекта (Д-99): новая накладная, журнал накладных, затраты, согласования. */
+/** Закупки объекта (Д-99): новая накладная, журнал накладных, затраты, сверка услуг, согласования. */
 export default async function ProcurementLayout({
   children,
   params,
@@ -30,6 +30,10 @@ export default async function ProcurementLayout({
           },
           { href: href("/procurement/expenses"), label: "Затраты" },
         ]
+      : []),
+    // Д-112: сверка журнала услуг склада со строками-услугами накладных (нужны цены).
+    ...(canView && hasPermission(org, "prices.view")
+      ? [{ href: href("/procurement/services"), label: "Сверка услуг" }]
       : []),
     ...(hasPermission(org, "goods_receipts.approve_correction")
       ? [{ href: href("/procurement/approvals"), label: "Согласования" }]

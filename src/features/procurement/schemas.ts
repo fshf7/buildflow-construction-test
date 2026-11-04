@@ -28,6 +28,7 @@ export type RequestDraftInput = z.infer<typeof requestDraftSchema>;
 export const invoiceLineFields = z.object({
   description: z.string().trim().min(1, { error: "Наименование" }).max(300),
   materialId: z.union([z.uuid(), z.literal("")]),
+  serviceId: z.union([z.uuid(), z.literal("")]).default(""),
   categoryId: z.uuid({ error: "Категория" }),
   quantity: decimalString({ message: "Кол-во" }),
   unitId: z.uuid({ error: "Ед. изм." }),
