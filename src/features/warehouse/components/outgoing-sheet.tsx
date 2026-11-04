@@ -179,7 +179,8 @@ export function OutgoingSheet({
     const st = sheet.states[key] ?? (row ? sheet.states[row.id] : undefined);
     const isReturn = row?.kind === "return";
     const old = row && !isReturn ? row.draft.docDate < minDate && !canFixOld : false;
-    const locked = !canEdit || (row ? !row.editable || old : false);
+    // Д-109: склад — свои строки в пределах 7 дней, бухгалтер (canFixOld) — любые; новые — склад.
+    const locked = row ? !(canEdit || canFixOld) || !row.editable || old : !canEdit;
     const bad = (f: string) => Boolean(st?.fields?.includes(f));
     const set = (patch: Partial<OutgoingDraft>) =>
       row ? sheet.changeRow(row, patch) : sheet.changeNew(d.id, patch);
@@ -376,7 +377,7 @@ export function OutgoingSheet({
           <div className="flex items-center justify-center gap-1">
             <RowStatus
               state={st}
-              locked={Boolean(row) && canEdit && locked}
+              locked={Boolean(row) && (canEdit || canFixOld) && locked}
               lockedHint={
                 isReturn
                   ? "Возврат — отменяется сторно в карточке возврата"
@@ -448,6 +449,12 @@ export function OutgoingSheet({
         </table>
       </div>
       <Pager paging={paging} />
+      {!canEdit && canFixOld ? (
+        <p className="text-xs text-muted-foreground">
+          Бухгалтер исправляет строки в любой срок (у склада — 7 дней): поправьте ячейку и уйдите со
+          строки — система сторнирует старую выдачу и проведёт новую. Новые строки вносит склад.
+        </p>
+      ) : null}
       {canEdit ? (
         <p className="text-xs text-muted-foreground">
           Строка проводится, когда вы уходите с неё — остаток уменьшается сразу, в минус выдать

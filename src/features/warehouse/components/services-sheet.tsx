@@ -199,7 +199,8 @@ export function ServicesSheet({
     const key = row?.key ?? d.id;
     const st = sheet.states[key];
     const old = row ? row.draft.docDate < minDate && !canFixOld : false;
-    const locked = !canEdit || old;
+    // Д-109: склад — свои строки в пределах 7 дней, бухгалтер (canFixOld) — любые; новые — склад.
+    const locked = row ? !(canEdit || canFixOld) || old : !canEdit;
     const bad = (f: string) => Boolean(st?.fields?.includes(f));
     const set = (patch: Partial<ServiceDraft>) =>
       row ? sheet.changeRow(row, patch) : sheet.changeNew(d.id, patch);
@@ -363,7 +364,7 @@ export function ServicesSheet({
           <span className="inline-flex items-center gap-1">
             <RowStatus
               state={st}
-              locked={Boolean(row) && canEdit && locked}
+              locked={Boolean(row) && (canEdit || canFixOld) && locked}
               lockedHint="Строка старше 7 дней — исправить может бухгалтер"
               warning={
                 !row && isNew && !st ? "Новая услуга — будет добавлена в справочник" : undefined
@@ -427,6 +428,13 @@ export function ServicesSheet({
         </table>
       </div>
       <Pager paging={paging} />
+      {!canEdit && canFixOld ? (
+        <p className="text-xs text-muted-foreground">
+          Бухгалтер исправляет строки в любой срок (у склада — 7 дней): поправьте ячейку и уйдите со
+          строки — система сохранит исправление (история — в журнале аудита). Новые строки вносит
+          склад.
+        </p>
+      ) : null}
       {canEdit ? (
         <p className="text-xs text-muted-foreground">
           Учёт использования услуг (кран, экскаватор, геодезист, питание) по блокам и этапам. Строка
