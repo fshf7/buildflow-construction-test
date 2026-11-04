@@ -125,6 +125,7 @@ export const serviceRowFields = z
     floorId: optionalId,
     stageId: optionalId,
     crewId: optionalId,
+    requestId: optionalId,
   })
   .superRefine((v, ctx) => {
     if (!v.serviceId && !v.serviceName)
@@ -135,6 +136,31 @@ export const serviceRowFields = z
       ctx.addIssue({ code: "custom", path: ["blockId"], message: "Блок" });
   });
 export type ServiceRowInput = z.infer<typeof serviceRowFields>;
+
+/** Заявка на услугу (Д-111): услуга из справочника, план, место, бригада (прорабу — обязательна). */
+export const serviceRequestSchema = z
+  .object({
+    id: z.uuid(),
+    key: z.uuid(),
+    projectId: z.uuid(),
+    serviceId: z.uuid({ error: "Выберите услугу" }),
+    quantity: decimalString({ message: "Укажите количество" }),
+    plannedDate: z.union([z.literal(""), date]),
+    blockId: optionalId,
+    floorId: optionalId,
+    stageId: optionalId,
+    crewId: optionalId,
+    note: z.string().trim().max(500),
+  })
+  .refine((v) => !v.floorId || v.blockId, { path: ["floorId"], message: "Этаж — вместе с блоком" });
+export type ServiceRequestInput = z.infer<typeof serviceRequestSchema>;
+
+export const serviceRequestDecisionSchema = z.object({
+  id: z.uuid(),
+  key: z.uuid(),
+  approve: z.boolean(),
+  comment: z.string().trim().max(500),
+});
 
 /** Норматив: материал + блок + этап; 0 — удалить. */
 export const normFields = z.object({

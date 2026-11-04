@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 
 import { cancelServiceRow, saveServiceRow } from "../actions";
 import { serviceRowFields } from "../schemas";
-import type { ServiceDraft, ServiceUsageRow } from "../sheets";
+import type { ServiceDraft, ServiceRequestRow, ServiceUsageRow } from "../sheets";
 
 export type ServiceOption = { id: string; name: string; unitId: string; unitCode: string };
 
@@ -42,11 +42,13 @@ const FIELDS: (keyof ServiceDraft)[] = [
   "floorId",
   "stageId",
   "crewId",
+  "requestId",
 ];
 
 /**
  * «Услуги» склада (Д-100) как их лист: Дата · Услуга · Кол-во · Ед. · Блок · Этаж · Этап · Бригада.
  * Учёт того, где и кем использованы кран, экскаватор, геодезист, питание — без денег и остатков.
+ * Д-111: «Заявка» — необязательно, согласованная заявка на эту услугу (место и бригада — из неё).
  */
 export function ServicesSheet({
   rows,
@@ -55,6 +57,7 @@ export function ServicesSheet({
   blocks,
   stages,
   crews,
+  requests,
   canEdit,
   canFixOld,
   today,
@@ -65,6 +68,8 @@ export function ServicesSheet({
   blocks: BlockOption[];
   stages: Option[];
   crews: Option[];
+  /** Согласованные заявки объекта (к ним можно привязать строку). */
+  requests: ServiceRequestRow[];
   canEdit: boolean;
   canFixOld: boolean;
   today: string;
@@ -92,6 +97,7 @@ export function ServicesSheet({
       floorId: "",
       stageId: "",
       crewId: "",
+      requestId: "",
     }),
     isBlank: (d) => !d.serviceName.trim() && !d.quantity,
     same: (a, b) => FIELDS.every((f) => a[f] === b[f]),
@@ -135,9 +141,10 @@ export function ServicesSheet({
 
   function nameChange(value: string): Partial<ServiceDraft> {
     const s = serviceByName.get(lower(value));
+    // Другая услуга — заявка выбирается заново.
     return s
-      ? { serviceName: value, serviceId: s.id, unitId: s.unitId }
-      : { serviceName: value, serviceId: "" };
+      ? { serviceName: value, serviceId: s.id, unitId: s.unitId, requestId: "" }
+      : { serviceName: value, serviceId: "", requestId: "" };
   }
 
   function paste(e: React.ClipboardEvent) {
@@ -164,6 +171,7 @@ export function ServicesSheet({
           floorId: b?.floors.find((f) => lower(f.name) === lower(floor))?.id ?? "",
           stageId: stages.find((s) => lower(s.label) === lower(stage))?.id ?? "",
           crewId: crews.find((c) => crew && lower(c.label).startsWith(lower(crew)))?.id ?? "",
+          requestId: "",
           ...nameChange(name),
         };
       });
@@ -360,6 +368,47 @@ export function ServicesSheet({
             </select>
           )}
         </td>
+        <td data-col="request" className={cn(sheetCell, "w-40")}>
+          {locked ? (
+            <span className={cn(sheetText, "text-xs")}>{row?.requestNumber ?? ""}</span>
+          ) : (
+            <select
+              aria-label="Заявка"
+              aria-invalid={bad("requestId")}
+              className={sheetInput}
+              value={d.requestId}
+              disabled={!d.serviceId}
+              title={d.serviceId ? undefined : "Сначала выберите услугу из справочника"}
+              onChange={(e) => {
+                const r = requests.find((x) => x.id === e.target.value);
+                // Место и бригада — из заявки, если в строке ещё не заполнены.
+                set(
+                  r
+                    ? {
+                        requestId: r.id,
+                        blockId: d.blockId || r.blockId,
+                        floorId: d.blockId ? d.floorId : r.floorId,
+                        stageId: d.stageId || r.stageId,
+                        crewId: d.crewId || r.crewId,
+                      }
+                    : { requestId: "" },
+                );
+              }}
+            >
+              <option value="">—</option>
+              {requests
+                .filter((r) => r.serviceId === d.serviceId)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.number} · {r.done}/{r.quantity} {r.unit}
+                  </option>
+                ))}
+              {d.requestId && !requests.some((r) => r.id === d.requestId) ? (
+                <option value={d.requestId}>{row?.requestNumber ?? "заявка"}</option>
+              ) : null}
+            </select>
+          )}
+        </td>
         <td className={cn(sheetCell, "w-16 text-center")}>
           <span className="inline-flex items-center gap-1">
             <RowStatus
@@ -418,6 +467,7 @@ export function ServicesSheet({
               <th className={sheetHead}>Этаж</th>
               <th className={sheetHead}>Этап</th>
               <th className={sheetHead}>Бригада</th>
+              <th className={sheetHead}>Заявка</th>
               <th className={sheetHead} />
             </tr>
           </thead>

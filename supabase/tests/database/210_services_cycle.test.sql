@@ -1,7 +1,7 @@
 -- Услуги (Д-109…Д-112): исправление строк бухгалтером, заявки на услуги, сверка с накладными.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(25);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -172,6 +172,71 @@ select throws_ok($$ select public.save_issue_row(gen_random_uuid(), gen_random_u
   '42501', 'BF_FORBIDDEN', 'бухгалтер новую строку расхода не вносит');
 select throws_ok($$ select public.post_material_issue(pg_temp.id('old_i'), gen_random_uuid()) $$,
   '42501', 'BF_FORBIDDEN', 'бухгалтер не проводит выдачи напрямую');
+select pg_temp.logout();
+
+-- ---- Д-111: заявка на услугу (необязательная) ----
+select pg_temp.login(pg_temp.id('foreman2'));
+insert into public.crews (organization_id, name, foreman_member_id)
+  select pg_temp.id('org'), 'Бригада Саидова', m.id from public.organization_members m
+  where m.user_id = pg_temp.id('foreman2');
+insert into ids select 'crew2', id from public.crews where name = 'Бригада Саидова';
+select pg_temp.logout();
+select pg_temp.login(pg_temp.id('acc'), 'aal2');
+insert into public.services (organization_id, name, unit_id) values (pg_temp.id('org'), 'Экскаватор', pg_temp.id('kg'));
+insert into ids select 'excav', id from public.services where name = 'Экскаватор' and organization_id = pg_temp.id('org');
+select pg_temp.logout();
+
+insert into ids values ('sr1', gen_random_uuid());
+select pg_temp.login(pg_temp.id('foreman'));
+select matches(public.save_service_request(pg_temp.id('sr1'), gen_random_uuid(), pg_temp.id('p1'), pg_temp.id('crane'),
+  8, private.today(), pg_temp.id('block'), null, pg_temp.stage('Кладка'), pg_temp.id('crew'), 'кран на кладку') ->> 'number',
+  '^ЗУ-\d{4}-\d{6}$', 'прораб создал заявку для своей бригады, номер ЗУ-…');
+select throws_ok($$ select public.save_service_request(gen_random_uuid(), gen_random_uuid(), pg_temp.id('p1'),
+  pg_temp.id('crane'), 2, null, null, null, null, pg_temp.id('crew2'), null) $$,
+  '42501', 'BF_FORBIDDEN', 'прораб — не для чужой бригады');
+select throws_ok($$ select public.save_service_request(gen_random_uuid(), gen_random_uuid(), pg_temp.id('p1'),
+  pg_temp.id('crane'), 2, null, null, null, null, null, null) $$,
+  '42501', 'BF_FORBIDDEN', 'прораб — только с бригадой');
+select is((select count(*)::int from public.service_requests), 1, 'прораб видит свою заявку');
+select pg_temp.logout();
+select pg_temp.login(pg_temp.id('foreman2'));
+select is((select count(*)::int from public.service_requests), 0, 'другой прораб чужую заявку не видит');
+select pg_temp.logout();
+
+select pg_temp.login(pg_temp.id('wh'));
+select throws_ok($$ select public.decide_service_request(pg_temp.id('sr1'), gen_random_uuid(), true, null) $$,
+  '42501', 'BF_FORBIDDEN', 'склад не согласует');
+select pg_temp.logout();
+select pg_temp.login(pg_temp.id('pm'));
+select throws_ok($$ select public.decide_service_request(pg_temp.id('sr1'), gen_random_uuid(), false, '') $$,
+  'P0001', 'BF_REASON_REQUIRED', 'отказ — только с причиной');
+select is(public.decide_service_request(pg_temp.id('sr1'), gen_random_uuid(), true, null) ->> 'status', 'APPROVED',
+  'управляющий согласовал');
+select pg_temp.logout();
+
+select pg_temp.login(pg_temp.id('wh'));
+select throws_ok($$ select public.save_service_request(pg_temp.id('sr1'), gen_random_uuid(), pg_temp.id('p1'),
+  pg_temp.id('crane'), 10, null, null, null, null, pg_temp.id('crew'), null) $$,
+  'P0001', 'BF_INVALID_STATUS', 'согласованную заявку не изменить');
+select throws_ok($$ select public.save_service_row(gen_random_uuid(), gen_random_uuid(), pg_temp.id('p1'),
+  private.today(), pg_temp.id('excav'), null, null, 3, null, null, null, pg_temp.id('crew'), pg_temp.id('sr1')) $$,
+  'P0001', 'BF_SERVICE_REQUEST_MISMATCH', 'факт другой услуги к заявке не привязать');
+insert into ids values ('fact1', gen_random_uuid());
+select public.save_service_row(pg_temp.id('fact1'), gen_random_uuid(), pg_temp.id('p1'), private.today(),
+  pg_temp.id('crane'), null, null, 6, pg_temp.id('block'), null, pg_temp.stage('Кладка'), pg_temp.id('crew'),
+  pg_temp.id('sr1'));
+select is((select service_request_id from public.service_usages where id = pg_temp.id('fact1')), pg_temp.id('sr1'),
+  'факт по заявке: 6 из 8');
+select throws_ok($$ select public.cancel_service_request(pg_temp.id('sr1'), 'не нужна') $$,
+  'P0001', 'BF_HAS_USAGES', 'с выполнением — не отменить, только закрыть');
+select lives_ok($$ select public.close_service_request(pg_temp.id('sr1')) $$, 'склад закрыл заявку');
+select is((select status from public.service_requests where id = pg_temp.id('sr1')), 'DONE', 'заявка выполнена');
+select throws_ok($$ select public.save_service_row(gen_random_uuid(), gen_random_uuid(), pg_temp.id('p1'),
+  private.today(), pg_temp.id('crane'), null, null, 1, null, null, null, pg_temp.id('crew'), pg_temp.id('sr1')) $$,
+  'P0001', 'BF_SERVICE_REQUEST_MISMATCH', 'к закрытой заявке факт не привязать');
+select is(public.save_service_row(pg_temp.id('fact1'), gen_random_uuid(), pg_temp.id('p1'), private.today(),
+  pg_temp.id('crane'), null, null, 7, pg_temp.id('block'), null, pg_temp.stage('Кладка'), pg_temp.id('crew'),
+  pg_temp.id('sr1')) ->> 'id', pg_temp.id('fact1')::text, 'исправление строки сохраняет закрытую заявку');
 select pg_temp.logout();
 
 select * from finish();
