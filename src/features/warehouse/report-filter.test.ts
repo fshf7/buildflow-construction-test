@@ -37,6 +37,41 @@ const report: WarehouseReport = {
     { material: "Песок", unit: "м³", incoming: 28, outgoing: 28, balance: 0 },
     { material: "Цемент М400", unit: "меш", incoming: 306, outgoing: 101, balance: 205 },
   ],
+  services: [
+    {
+      service: "Кран",
+      unit: "ч",
+      block: "Блок А",
+      floor: "1",
+      stage: "Кладка",
+      crewId: "c1",
+      crew: "Саидов",
+      quantity: 6,
+      rows: 2,
+    },
+    {
+      service: "Кран",
+      unit: "ч",
+      block: "Блок Б",
+      floor: "",
+      stage: "",
+      crewId: "c2",
+      crew: "Назаров",
+      quantity: 10,
+      rows: 1,
+    },
+    {
+      service: "Питание",
+      unit: "чел",
+      block: "",
+      floor: "",
+      stage: "",
+      crewId: "c1",
+      crew: "Саидов",
+      quantity: 40,
+      rows: 4,
+    },
+  ],
 };
 
 describe("filterReport (Д-107)", () => {
@@ -91,6 +126,24 @@ describe("filterReport (Д-107)", () => {
     expect(p({ view: "balance", crew: id }).crew).toBeUndefined();
     expect(p({ view: "outgoing", crew: "x' or 1=1" }).crew).toBeUndefined();
     expect(p({ view: "чужое" }).view).toBe("incoming");
+  });
+
+  it("услуги (Д-110): поиск, услуга, блок, бригада, сортировка — только своя вкладка", () => {
+    expect(filterReport(report, "services", { q: "кра" }).services).toHaveLength(2);
+    expect(
+      filterReport(report, "services", { service: "Питание" }).services.map((r) => r.quantity),
+    ).toEqual([40]);
+    expect(
+      filterReport(report, "services", { block: "Блок Б" }).services.map((r) => r.crew),
+    ).toEqual(["Назаров"]);
+    expect(filterReport(report, "services", { crew: "c1" }).services).toHaveLength(2);
+    expect(
+      filterReport(report, "services", { sort: "qty" }).services.map((r) => r.quantity),
+    ).toEqual([40, 10, 6]);
+    expect(filterReport(report, "incoming", { crew: "c1" }).services).toHaveLength(3);
+    const p = parseReportParams((k) => ({ view: "services", crew: "c1" })[k]);
+    expect(p.filter.crew).toBe("c1");
+    expect(p.crew).toBeUndefined();
   });
 
   it("варианты выбора — без пустых и повторов, этажи по числу", () => {

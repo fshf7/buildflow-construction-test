@@ -226,6 +226,20 @@ export async function GET(
         rows: r.balance as unknown as ReportRow[],
         totals: null,
       },
+      {
+        title: "Услуги за период",
+        columns: cols([
+          ["service", "Услуга", "text"],
+          ["block", "Блок", "text"],
+          ["floor", "Этаж", "text"],
+          ["stage", "Этап работ", "text"],
+          ["crew", "Бригада", "text"],
+          ["quantity", "Кол-во", "qty"],
+          ["unit", "Ед. изм.", "text"],
+        ]),
+        rows: r.services as unknown as ReportRow[],
+        totals: null,
+      },
     ];
   } else {
     return new Response("Неизвестная таблица или недостаточно прав", { status: 400 });
