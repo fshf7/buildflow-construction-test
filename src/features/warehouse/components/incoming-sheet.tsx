@@ -169,7 +169,8 @@ export function IncomingSheet({
     const st = sheet.states[key] ?? (row ? sheet.states[row.id] : undefined);
     const opening = row?.kind === "opening";
     const old = row && !opening ? row.draft.docDate < minDate && !canFixOld : false;
-    const locked = !canEdit || (row ? !row.editable || old : false);
+    // Д-109: склад — свои строки в пределах 7 дней, бухгалтер (canFixOld) — любые; новые — склад.
+    const locked = row ? !(canEdit || canFixOld) || !row.editable || old : !canEdit;
     const bad = (f: string) => Boolean(st?.fields?.includes(f));
     const set = (patch: Partial<IncomingDraft>) =>
       row ? sheet.changeRow(row, patch) : sheet.changeNew(d.id, patch);
@@ -270,7 +271,7 @@ export function IncomingSheet({
         <td className={cn(sheetCell, "w-10 text-center")}>
           <RowStatus
             state={st}
-            locked={Boolean(row) && canEdit && locked}
+            locked={Boolean(row) && (canEdit || canFixOld) && locked}
             lockedHint={
               opening
                 ? "Начальный остаток из «Ввода остатков» — исправляет бухгалтер сторно документа"
@@ -326,6 +327,13 @@ export function IncomingSheet({
         </table>
       </div>
       <Pager paging={paging} />
+      {!canEdit && canFixOld ? (
+        <p className="text-xs text-muted-foreground">
+          Бухгалтер исправляет строки в любой срок (у склада — 7 дней): поправьте ячейку и уйдите со
+          строки — система сделает корректировку приёмки, остаток пересчитается. Новые строки вносит
+          склад.
+        </p>
+      ) : null}
       {canEdit ? (
         <p className="text-xs text-muted-foreground">
           Строка проводится, когда вы уходите с неё (Tab, Enter, мышью) — остаток растёт сразу.
