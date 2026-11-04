@@ -358,6 +358,8 @@ export type InvoiceLine = {
   id: string;
   materialId: string | null;
   materialName: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
   description: string | null;
   categoryId: string | null;
   unitId: string;
@@ -413,7 +415,7 @@ export async function getInvoice(
     supabase
       .from("supplier_invoice_items")
       .select(
-        "id, line_no, material_id, description, category_id, unit_id, quantity, purchase_request_item_id, materials(name), units_of_measure(code)",
+        "id, line_no, material_id, service_id, description, category_id, unit_id, quantity, purchase_request_item_id, materials(name), services(name), units_of_measure(code)",
       )
       .eq("supplier_invoice_id", id)
       .order("line_no"),
@@ -497,6 +499,8 @@ export async function getInvoice(
       id: i.id,
       materialId: i.material_id,
       materialName: i.materials?.name ?? null,
+      serviceId: i.service_id,
+      serviceName: i.services?.name ?? null,
       description: i.description,
       categoryId: i.category_id ?? v.category_id,
       unitId: i.unit_id,
@@ -532,4 +536,145 @@ export async function listPendingCorrections(orgId: string, projectId: string) {
     projectCode: g.projects?.code ?? "",
     requestNumber: g.purchase_requests?.number ?? null,
   }));
+}
+
+// ---------------------------------------------------------------------------------------
+// Сверка услуг (Д-112): журнал услуг склада ↔ строки-услуги накладных за период
+// ---------------------------------------------------------------------------------------
+export type ServiceReconRow = {
+  serviceId: string;
+  service: string;
+  unit: string;
+  used: number;
+  usedRows: number;
+  requested: number;
+  invoiced: number;
+  invoicedAmount: number;
+  currencies: string[];
+  invoices: number;
+};
+
+export async function serviceReconciliation(
+  projectId: string,
+  from: string,
+  to: string,
+): Promise<ServiceReconRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("report_service_reconciliation", {
+    p_project: projectId,
+    p_from: from,
+    p_to: to,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    serviceId: r.service_id,
+    service: r.service,
+    unit: r.unit,
+    used: Number(r.used),
+    usedRows: r.used_rows,
+    requested: Number(r.requested),
+    invoiced: Number(r.invoiced),
+    invoicedAmount: Number(r.invoiced_amount),
+    currencies: r.currencies ?? [],
+    invoices: r.invoices,
+  }));
+}
+
+export type ServiceReconDetail = {
+  usages: {
+    id: string;
+    date: string;
+    quantity: number;
+    block: string;
+    stage: string;
+    crew: string;
+    request: string;
+  }[];
+  lines: {
+    id: string;
+    invoiceId: string;
+    number: string;
+    date: string;
+    supplier: string;
+    quantity: number;
+    price: number;
+    amount: number;
+    currency: string;
+  }[];
+};
+
+/** Строки, из которых сложилась сверка по одной услуге: журнал склада и строки накладных. */
+export async function serviceReconDetail(
+  projectId: string,
+  serviceId: string,
+  from: string,
+  to: string,
+): Promise<ServiceReconDetail> {
+  const supabase = await createClient();
+  const [usages, invoices] = await Promise.all([
+    supabase
+      .from("service_usages")
+      .select(
+        "id, doc_date, quantity, blocks(name), work_stages(name), crews(name, leader_name), service_requests(number)",
+      )
+      .eq("project_id", projectId)
+      .eq("service_id", serviceId)
+      .eq("status", "ACTIVE")
+      .gte("doc_date", from)
+      .lte("doc_date", to)
+      .order("doc_date"),
+    supabase
+      .from("supplier_invoices")
+      .select("id, number, doc_date, currency, suppliers(name)")
+      .eq("project_id", projectId)
+      .neq("status", "CANCELLED")
+      .gte("doc_date", from)
+      .lte("doc_date", to),
+  ]);
+  if (usages.error) throw new Error(usages.error.message);
+  if (invoices.error) throw new Error(invoices.error.message);
+  const byInvoice = new Map(invoices.data.map((v) => [v.id, v]));
+  const ids = [...byInvoice.keys()];
+  const priced = ids.length
+    ? await supabase
+        .from("supplier_invoice_items_priced")
+        .select("id, supplier_invoice_id, quantity, price, amount")
+        .eq("service_id", serviceId)
+        .in("supplier_invoice_id", ids)
+    : { data: [], error: null };
+  if (priced.error) throw new Error(priced.error.message);
+  return {
+    usages: usages.data.map((u) => {
+      const leader = u.crews?.leader_name?.trim();
+      return {
+        id: u.id,
+        date: u.doc_date,
+        quantity: Number(u.quantity),
+        block: u.blocks?.name ?? "",
+        stage: u.work_stages?.name ?? "",
+        crew: u.crews
+          ? leader && leader !== u.crews.name
+            ? `${leader} (${u.crews.name})`
+            : u.crews.name
+          : "",
+        request: u.service_requests?.number ?? "",
+      };
+    }),
+    lines: (priced.data ?? [])
+      .map((l) => {
+        const v = byInvoice.get(l.supplier_invoice_id ?? "");
+        return {
+          id: l.id ?? "",
+          invoiceId: v?.id ?? "",
+          number: v?.number ?? "",
+          date: v?.doc_date ?? "",
+          supplier: v?.suppliers?.name ?? "",
+          quantity: Number(l.quantity),
+          price: Number(l.price),
+          amount: Number(l.amount),
+          currency: v?.currency ?? "",
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date)),
+  };
 }

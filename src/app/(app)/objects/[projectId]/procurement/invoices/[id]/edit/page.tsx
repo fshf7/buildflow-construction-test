@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
-import { listExpenseCategories } from "@/features/catalog/queries";
+import { listExpenseCategories, listServices } from "@/features/catalog/queries";
 import { InvoiceSheet } from "@/features/procurement/components/invoice-sheet";
 import { getInvoice, listInvoiceRequestOptions } from "@/features/procurement/queries";
 import { ensureDocInObject, requireObject } from "@/features/projects/object";
@@ -31,12 +31,13 @@ export default async function EditInvoicePage({
   if (invoice.status === "CANCELLED" || (invoice.payable?.paid ?? 0) > 0) {
     redirect(objectHref(project.id, `/procurement/invoices/${id}`));
   }
-  const [categories, suppliers, units, materials, requests] = await Promise.all([
+  const [categories, suppliers, units, materials, requests, services] = await Promise.all([
     listExpenseCategories(org.id),
     listSupplierOptions(org.id),
     listUnitOptions(org.id),
     listMaterialOptions(org.id),
     listInvoiceRequestOptions(project.id, invoice.purchaseRequestId),
+    listServices(org.id, true),
   ]);
   return (
     <>
@@ -55,8 +56,9 @@ export default async function EditInvoicePage({
           currency: invoice.currency,
           note: invoice.note ?? "",
           lines: invoice.lines.map((l) => ({
-            description: l.description ?? l.materialName ?? "",
+            description: l.description ?? l.materialName ?? l.serviceName ?? "",
             materialId: l.materialId ?? "",
+            serviceId: l.serviceId ?? "",
             categoryId: l.categoryId ?? "",
             quantity: num(l.quantity),
             unitId: l.unitId,
@@ -68,6 +70,7 @@ export default async function EditInvoicePage({
         categories={categories}
         units={units}
         materials={materials}
+        services={services}
         draftKey={draftStorageKey(org.member_id, `invoice.${invoice.id}`)}
         today={businessToday()}
       />

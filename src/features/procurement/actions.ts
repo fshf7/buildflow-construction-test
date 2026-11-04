@@ -105,6 +105,7 @@ export async function saveInvoice(
     p_lines: v.lines.map((l) => ({
       description: l.description,
       material_id: l.materialId || null,
+      service_id: l.serviceId || null,
       category_id: l.categoryId,
       unit_id: l.unitId,
       quantity: toNumber(l.quantity),

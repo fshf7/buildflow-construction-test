@@ -30,6 +30,8 @@ export type SheetCategory = { id: string; name: string; color: string };
 type SheetLine = {
   description: string;
   materialId: string;
+  /** Д-112: услуга из справочника — для сверки с журналом услуг склада. */
+  serviceId: string;
   categoryId: string;
   quantity: string;
   unitId: string;
@@ -53,6 +55,7 @@ export type SheetValues = {
 const emptyLine = (): SheetLine => ({
   description: "",
   materialId: "",
+  serviceId: "",
   categoryId: "",
   quantity: "",
   unitId: "",
@@ -84,6 +87,7 @@ export function InvoiceSheet({
   categories,
   units,
   materials,
+  services = [],
   draftKey,
   today,
 }: {
@@ -96,6 +100,8 @@ export function InvoiceSheet({
   categories: SheetCategory[];
   units: Option[];
   materials: MaterialOption[];
+  /** Услуги справочника: строка с таким наименованием — услуга (сверка, Д-112). */
+  services?: { id: string; name: string; unitId: string }[];
   draftKey: string;
   today: string;
 }) {
@@ -132,6 +138,14 @@ export function InvoiceSheet({
 
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const materialByName = new Map(materials.map((m) => [m.name.toLocaleLowerCase("ru"), m]));
+  const serviceByName = new Map(services.map((s) => [s.name.toLocaleLowerCase("ru"), s]));
+  /** Материал справочника, иначе услуга справочника — по наименованию строки. */
+  const matchName = (value: string) => {
+    const key = value.trim().toLocaleLowerCase("ru");
+    const m = materialByName.get(key);
+    const sv = m ? undefined : serviceByName.get(key);
+    return { materialId: m?.id ?? "", serviceId: sv?.id ?? "", unitId: m?.unitId ?? sv?.unitId };
+  };
   const unitLabel = (u: Option) => u.label.split(" — ")[0]!;
   const amountOf = (l?: SheetLine) =>
     l?.quantity && l.price ? toNumber(l.quantity) * toNumber(l.price) : null;
@@ -148,10 +162,11 @@ export function InvoiceSheet({
   }
 
   function onDescription(i: number, value: string) {
-    // Наименование совпало с материалом справочника — подставляем материал и его единицу.
-    const m = materialByName.get(value.trim().toLocaleLowerCase("ru"));
-    form.setValue(`lines.${i}.materialId`, m?.id ?? "");
-    if (m) form.setValue(`lines.${i}.unitId`, m.unitId);
+    // Наименование совпало с материалом или услугой справочника — подставляем их и единицу.
+    const m = matchName(value);
+    form.setValue(`lines.${i}.materialId`, m.materialId);
+    form.setValue(`lines.${i}.serviceId`, m.serviceId);
+    if (m.unitId) form.setValue(`lines.${i}.unitId`, m.unitId);
     form.setValue(`lines.${i}.unmatched`, []);
     ensureTrailing();
   }
@@ -167,8 +182,13 @@ export function InvoiceSheet({
     });
     if (pasted.length === 0) return;
     const filled = pasted.map((p) => {
-      const m = materialByName.get(p.description.trim().toLocaleLowerCase("ru"));
-      return { ...p, materialId: m?.id ?? "", unitId: p.unitId || m?.unitId || "" };
+      const m = matchName(p.description);
+      return {
+        ...p,
+        materialId: m.materialId,
+        serviceId: m.serviceId,
+        unitId: m.unitId || p.unitId || "",
+      };
     });
     const kept = form.getValues("lines").filter((l) => !isBlank(l));
     replace([...kept, ...filled, emptyLine()]);
@@ -366,7 +386,10 @@ export function InvoiceSheet({
                       aria-label={`Единица, строка ${i + 1}`}
                       aria-invalid={bad("unitId")}
                       className={cell}
-                      disabled={Boolean(l?.materialId)}
+                      disabled={Boolean(l?.materialId || l?.serviceId)}
+                      title={
+                        l?.serviceId ? "Услуга справочника — единица из справочника" : undefined
+                      }
                       {...form.register(`lines.${i}.unitId`)}
                     >
                       <option value="">—</option>
@@ -428,6 +451,9 @@ export function InvoiceSheet({
       <datalist id="sheet-materials">
         {materials.map((m) => (
           <option key={m.id} value={m.name} />
+        ))}
+        {services.map((s) => (
+          <option key={`s-${s.id}`} value={s.name} label="услуга" />
         ))}
       </datalist>
 

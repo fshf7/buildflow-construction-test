@@ -1,7 +1,7 @@
 -- Услуги (Д-109…Д-112): исправление строк бухгалтером, заявки на услуги, сверка с накладными.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(28);
 -- ---- Общая фикстура фазы 2 (одинакова в 030/040/050) ----
 create function pg_temp.mk_user(p_email text) returns uuid language sql as $$
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -237,6 +237,27 @@ select throws_ok($$ select public.save_service_row(gen_random_uuid(), gen_random
 select is(public.save_service_row(pg_temp.id('fact1'), gen_random_uuid(), pg_temp.id('p1'), private.today(),
   pg_temp.id('crane'), null, null, 7, pg_temp.id('block'), null, pg_temp.stage('Кладка'), pg_temp.id('crew'),
   pg_temp.id('sr1')) ->> 'id', pg_temp.id('fact1')::text, 'исправление строки сохраняет закрытую заявку');
+select pg_temp.logout();
+
+-- ---- Д-112: сверка услуг — накладная со строкой-услугой ----
+select pg_temp.login(pg_temp.id('acc'), 'aal2');
+insert into ids values ('inv', gen_random_uuid());
+select public.save_supplier_invoice(pg_temp.id('inv'), gen_random_uuid(), pg_temp.id('p1'), pg_temp.id('s1'),
+  private.today(), null, 'TJS', null, jsonb_build_array(jsonb_build_object(
+    'description', 'Кран', 'service_id', pg_temp.id('crane'), 'unit_id', pg_temp.id('bag'),
+    'category_id', (select id from public.expense_categories where organization_id = pg_temp.id('org') limit 1),
+    'quantity', 10, 'price', 100)));
+select is((select unit_id from public.supplier_invoice_items where supplier_invoice_id = pg_temp.id('inv')),
+  pg_temp.id('kg'), 'строка-услуга: единица — из справочника услуг');
+select results_eq($$ select used, used_rows, requested, invoiced, invoiced_amount, currencies, invoices
+                    from public.report_service_reconciliation(pg_temp.id('p1'), private.today() - 30, private.today())
+                    where service_id = pg_temp.id('crane') $$,
+  $$ values (12.0000::numeric, 2, 8.0000::numeric, 10.0000::numeric, 1000.00::numeric, array['TJS'], 1) $$,
+  'сверка: использовано 5 + 7 = 12, по заявке 8, в накладных 10 на 1000 TJS');
+select pg_temp.logout();
+select pg_temp.login(pg_temp.id('wh'));
+select is((select invoiced_amount from public.report_service_reconciliation(pg_temp.id('p1'), private.today() - 30,
+  private.today()) where service_id = pg_temp.id('crane')), 0.00::numeric, 'склад сумм накладных не видит');
 select pg_temp.logout();
 
 select * from finish();

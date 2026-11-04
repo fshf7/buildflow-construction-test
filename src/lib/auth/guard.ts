@@ -11,7 +11,9 @@ export type Authorized = { ok: true; org: OrgAccess } | { ok: false; error: stri
  * Возвращает текущую организацию — действие работает только в её рамках.
  * Список прав — достаточно любого (точную проверку делает функция БД).
  */
-export async function authorize(permission: Permission | readonly Permission[]): Promise<Authorized> {
+export async function authorize(
+  permission: Permission | readonly Permission[],
+): Promise<Authorized> {
   const org = await getCurrentOrg();
   if (!org) return { ok: false, error: "Вы не состоите в организации" };
   if (!hasAnyPermission(org, typeof permission === "string" ? [permission] : permission))
