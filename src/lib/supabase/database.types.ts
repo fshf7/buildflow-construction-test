@@ -1,6 +1,11 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.18";
+  };
   public: {
     Tables: {
       approval_actions: {
@@ -2465,6 +2470,140 @@ export type Database = {
           },
         ];
       };
+      service_requests: {
+        Row: {
+          block_id: string | null;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          crew_id: string | null;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_comment: string | null;
+          doc_date: string;
+          floor_id: string | null;
+          id: string;
+          note: string | null;
+          number: string | null;
+          organization_id: string;
+          planned_date: string | null;
+          project_id: string;
+          quantity: number;
+          service_id: string;
+          stage_id: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          block_id?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          crew_id?: string | null;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_comment?: string | null;
+          doc_date?: string;
+          floor_id?: string | null;
+          id?: string;
+          note?: string | null;
+          number?: string | null;
+          organization_id: string;
+          planned_date?: string | null;
+          project_id: string;
+          quantity: number;
+          service_id: string;
+          stage_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          block_id?: string | null;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          crew_id?: string | null;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_comment?: string | null;
+          doc_date?: string;
+          floor_id?: string | null;
+          id?: string;
+          note?: string | null;
+          number?: string | null;
+          organization_id?: string;
+          planned_date?: string | null;
+          project_id?: string;
+          quantity?: number;
+          service_id?: string;
+          stage_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "service_requests_block_id_project_id_fkey";
+            columns: ["block_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id", "project_id"];
+          },
+          {
+            foreignKeyName: "service_requests_crew_id_organization_id_fkey";
+            columns: ["crew_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "service_requests_floor_id_block_id_fkey";
+            columns: ["floor_id", "block_id"];
+            isOneToOne: false;
+            referencedRelation: "floors";
+            referencedColumns: ["id", "block_id"];
+          },
+          {
+            foreignKeyName: "service_requests_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "service_requests_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "service_requests_service_id_organization_id_fkey";
+            columns: ["service_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "service_requests_stage_id_organization_id_fkey";
+            columns: ["stage_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "work_stages";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
       service_usages: {
         Row: {
           block_id: string | null;
@@ -2479,6 +2618,7 @@ export type Database = {
           project_id: string;
           quantity: number;
           service_id: string;
+          service_request_id: string | null;
           stage_id: string | null;
           status: string;
           updated_at: string;
@@ -2496,6 +2636,7 @@ export type Database = {
           project_id: string;
           quantity: number;
           service_id: string;
+          service_request_id?: string | null;
           stage_id?: string | null;
           status?: string;
           updated_at?: string;
@@ -2513,6 +2654,7 @@ export type Database = {
           project_id?: string;
           quantity?: number;
           service_id?: string;
+          service_request_id?: string | null;
           stage_id?: string | null;
           status?: string;
           updated_at?: string;
@@ -2559,6 +2701,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "services";
             referencedColumns: ["id", "organization_id"];
+          },
+          {
+            foreignKeyName: "service_usages_service_request_id_project_id_fkey";
+            columns: ["service_request_id", "project_id"];
+            isOneToOne: false;
+            referencedRelation: "service_requests";
+            referencedColumns: ["id", "project_id"];
           },
           {
             foreignKeyName: "service_usages_stage_id_organization_id_fkey";
@@ -3976,6 +4125,10 @@ export type Database = {
         Args: { p_id: string; p_key: string; p_reason: string };
         Returns: Json;
       };
+      cancel_service_request: {
+        Args: { p_id: string; p_reason: string };
+        Returns: undefined;
+      };
       cancel_service_row: { Args: { p_id: string }; Returns: undefined };
       cancel_supplier_invoice: {
         Args: { p_id: string; p_key: string; p_reason: string };
@@ -4037,6 +4190,7 @@ export type Database = {
         Args: { p_id: string; p_key: string };
         Returns: Json;
       };
+      close_service_request: { Args: { p_id: string }; Returns: undefined };
       complete_password_reset: {
         Args: { p_member_id: string; p_reason: string };
         Returns: number;
@@ -4068,6 +4222,15 @@ export type Database = {
         Returns: string;
       };
       current_user_requires_mfa: { Args: never; Returns: boolean };
+      decide_service_request: {
+        Args: {
+          p_approve: boolean;
+          p_comment: string;
+          p_id: string;
+          p_key: string;
+        };
+        Returns: Json;
+      };
       delete_document_draft: {
         Args: {
           p_doc_type: Database["public"]["Enums"]["document_type"];
@@ -4270,7 +4433,12 @@ export type Database = {
         }[];
       };
       report_warehouse_outgoing: {
-        Args: { p_crew?: string; p_from: string; p_project: string; p_to: string };
+        Args: {
+          p_crew?: string;
+          p_from: string;
+          p_project: string;
+          p_to: string;
+        };
         Returns: {
           block: string;
           floor: string;
@@ -4513,6 +4681,22 @@ export type Database = {
         };
         Returns: Json;
       };
+      save_service_request: {
+        Args: {
+          p_block_id: string;
+          p_crew_id: string;
+          p_floor_id: string;
+          p_id: string;
+          p_key: string;
+          p_note: string;
+          p_planned_date: string;
+          p_project_id: string;
+          p_quantity: number;
+          p_service_id: string;
+          p_stage_id: string;
+        };
+        Returns: Json;
+      };
       save_service_row: {
         Args: {
           p_block_id: string;
@@ -4523,6 +4707,7 @@ export type Database = {
           p_key: string;
           p_project_id: string;
           p_quantity: number;
+          p_request_id?: string;
           p_service_id: string;
           p_service_name: string;
           p_stage_id: string;
@@ -4691,7 +4876,8 @@ export type Database = {
         | "CASH_OUT"
         | "WORK_ACT"
         | "TASK"
-        | "OPENING_BALANCE";
+        | "OPENING_BALANCE"
+        | "SERVICE_REQUEST";
       goods_receipt_status: "DRAFT" | "CORRECTION_APPROVAL" | "POSTED" | "CORRECTED";
       issue_status: "DRAFT" | "POSTED" | "REVERSED";
       opening_kind: "STOCK" | "CASH" | "PAYABLES";
@@ -4875,6 +5061,7 @@ export const Constants = {
         "WORK_ACT",
         "TASK",
         "OPENING_BALANCE",
+        "SERVICE_REQUEST",
       ],
       goods_receipt_status: ["DRAFT", "CORRECTION_APPROVAL", "POSTED", "CORRECTED"],
       issue_status: ["DRAFT", "POSTED", "REVERSED"],

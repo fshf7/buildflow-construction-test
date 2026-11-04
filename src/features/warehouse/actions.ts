@@ -12,6 +12,8 @@ import {
   issueRowFields,
   normFields,
   receiptRowFields,
+  serviceRequestDecisionSchema,
+  serviceRequestSchema,
   serviceRowFields,
   sheetSaveSchema,
   finishCorrectionSchema,
@@ -263,7 +265,8 @@ function rowError(error: { message?: string; code?: string; details?: string } |
 }
 
 export async function saveReceiptRow(input: unknown): Promise<ActionResult<RowSaved>> {
-  const auth = await authorize("goods_receipts.post");
+  // Д-109: исправление строки — и бухгалтер (новую строку не пропустит функция БД).
+  const auth = await authorize(["goods_receipts.post", "goods_receipts.approve_correction"]);
   if (!auth.ok) return fail(auth.error);
   const meta = sheetSaveSchema.safeParse(input);
   const parsed = receiptRowFields.safeParse(input);
@@ -289,7 +292,8 @@ export async function saveReceiptRow(input: unknown): Promise<ActionResult<RowSa
 }
 
 export async function saveIssueRow(input: unknown): Promise<ActionResult<RowSaved>> {
-  const auth = await authorize("material_issues.post");
+  // Д-109: исправление строки — и бухгалтер (новую строку не пропустит функция БД).
+  const auth = await authorize(["material_issues.post", "goods_receipts.approve_correction"]);
   if (!auth.ok) return fail(auth.error);
   const meta = sheetSaveSchema.safeParse(input);
   const parsed = issueRowFields.safeParse(input);
@@ -316,7 +320,8 @@ export async function saveIssueRow(input: unknown): Promise<ActionResult<RowSave
 }
 
 export async function saveServiceRow(input: unknown): Promise<ActionResult<{ id: string }>> {
-  const auth = await authorize("material_issues.post");
+  // Д-109: исправление строки — и бухгалтер (новую строку не пропустит функция БД).
+  const auth = await authorize(["material_issues.post", "goods_receipts.approve_correction"]);
   if (!auth.ok) return fail(auth.error);
   const meta = sheetSaveSchema.safeParse(input);
   const parsed = serviceRowFields.safeParse(input);
@@ -337,14 +342,85 @@ export async function saveServiceRow(input: unknown): Promise<ActionResult<{ id:
     p_floor_id: (v.floorId || null) as string,
     p_stage_id: (v.stageId || null) as string,
     p_crew_id: (v.crewId || null) as string,
+    p_request_id: v.requestId || undefined,
   });
   if (error) return fail(rowError(error));
   revalidateApp();
   return ok({ id: meta.data.id });
 }
 
-export async function cancelServiceRow(id: string): Promise<ActionResult> {
+// ---------------------------------------------------------------------------------------
+// Заявки на услуги (Д-111). Точные права (своя бригада прораба, автор) — в функциях БД.
+// ---------------------------------------------------------------------------------------
+export async function saveServiceRequest(
+  input: unknown,
+): Promise<ActionResult<{ id: string; number: string }>> {
+  const auth = await authorize("service_requests.create");
+  if (!auth.ok) return fail(auth.error);
+  const parsed = serviceRequestSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Проверьте заявку");
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("save_service_request", {
+    p_id: v.id,
+    p_key: v.key,
+    p_project_id: v.projectId,
+    p_service_id: v.serviceId,
+    p_quantity: toNumber(v.quantity),
+    p_planned_date: (v.plannedDate || null) as string,
+    p_block_id: (v.blockId || null) as string,
+    p_floor_id: (v.floorId || null) as string,
+    p_stage_id: (v.stageId || null) as string,
+    p_crew_id: (v.crewId || null) as string,
+    p_note: v.note,
+  });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  const r = data as { id: string; number: string };
+  return ok({ id: r.id, number: r.number });
+}
+
+export async function decideServiceRequest(input: unknown): Promise<ActionResult> {
+  const auth = await authorize("service_requests.approve");
+  if (!auth.ok) return fail(auth.error);
+  const parsed = serviceRequestDecisionSchema.safeParse(input);
+  if (!parsed.success) return fail("Проверьте решение");
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("decide_service_request", {
+    p_id: v.id,
+    p_key: v.key,
+    p_approve: v.approve,
+    p_comment: v.comment,
+  });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  return ok();
+}
+
+export async function cancelServiceRequest(id: string, reason: string): Promise<ActionResult> {
+  const auth = await authorize(["service_requests.create", "material_issues.post"]);
+  if (!auth.ok) return fail(auth.error);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cancel_service_request", { p_id: id, p_reason: reason });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  return ok();
+}
+
+export async function closeServiceRequest(id: string): Promise<ActionResult> {
   const auth = await authorize("material_issues.post");
+  if (!auth.ok) return fail(auth.error);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("close_service_request", { p_id: id });
+  if (error) return fail(rowError(error));
+  revalidateApp();
+  return ok();
+}
+
+export async function cancelServiceRow(id: string): Promise<ActionResult> {
+  // Д-109: исправление строки — и бухгалтер (новую строку не пропустит функция БД).
+  const auth = await authorize(["material_issues.post", "goods_receipts.approve_correction"]);
   if (!auth.ok) return fail(auth.error);
   const supabase = await createClient();
   const { error } = await supabase.rpc("cancel_service_row", { p_id: id });

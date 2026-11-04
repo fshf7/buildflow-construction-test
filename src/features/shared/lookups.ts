@@ -116,3 +116,16 @@ export async function listResponsibleOptions(orgId: string): Promise<Option[]> {
     })
     .sort((a, b) => a.label.localeCompare(b.label, "ru"));
 }
+
+/** Бригады прораба (он — бригадир-ответственный): для заявки на услугу (Д-111). */
+export async function listOwnCrewIds(orgId: string, memberId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("crews")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("foreman_member_id", memberId)
+    .eq("is_active", true);
+  if (error) throw new Error(error.message);
+  return new Set(data.map((c) => c.id));
+}

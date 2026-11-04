@@ -261,15 +261,17 @@ export type ServiceDraft = {
   floorId: string;
   stageId: string;
   crewId: string;
+  /** Д-111: согласованная заявка, по которой выполнена услуга (необязательно). */
+  requestId: string;
 };
-export type ServiceUsageRow = SheetRow<ServiceDraft> & { unitCode: string };
+export type ServiceUsageRow = SheetRow<ServiceDraft> & { unitCode: string; requestNumber: string };
 
 export async function listServiceRows(projectId: string): Promise<ServiceUsageRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("service_usages")
     .select(
-      "id, doc_date, service_id, quantity, block_id, floor_id, stage_id, crew_id, services(name, unit_id, units_of_measure(code))",
+      "id, doc_date, service_id, quantity, block_id, floor_id, stage_id, crew_id, service_request_id, services(name, unit_id, units_of_measure(code)), service_requests(number)",
     )
     .eq("project_id", projectId)
     .eq("status", "ACTIVE")
@@ -282,6 +284,7 @@ export async function listServiceRows(projectId: string): Promise<ServiceUsageRo
     id: u.id,
     editable: true,
     unitCode: u.services?.units_of_measure?.code ?? "",
+    requestNumber: u.service_requests?.number ?? "",
     draft: {
       docDate: u.doc_date,
       serviceId: u.service_id,
@@ -292,7 +295,83 @@ export async function listServiceRows(projectId: string): Promise<ServiceUsageRo
       floorId: u.floor_id ?? "",
       stageId: u.stage_id ?? "",
       crewId: u.crew_id ?? "",
+      requestId: u.service_request_id ?? "",
     },
+  }));
+}
+
+// ---------------------------------------------------------------------------------------
+// Заявки на услуги (Д-111): необязательные, согласует управляющий; факт — в журнале
+// ---------------------------------------------------------------------------------------
+export type ServiceRequestStatus = "SUBMITTED" | "APPROVED" | "REJECTED" | "DONE" | "CANCELLED";
+
+export type ServiceRequestRow = {
+  id: string;
+  number: string;
+  docDate: string;
+  plannedDate: string | null;
+  serviceId: string;
+  service: string;
+  unit: string;
+  quantity: number;
+  /** Выполнено: сумма действующих строк журнала по заявке. */
+  done: number;
+  blockId: string;
+  floorId: string;
+  stageId: string;
+  crewId: string;
+  note: string;
+  status: ServiceRequestStatus;
+  decisionComment: string;
+  cancelReason: string;
+  createdBy: string | null;
+  author: string;
+};
+
+export async function listServiceRequests(
+  orgId: string,
+  projectId: string,
+): Promise<ServiceRequestRow[]> {
+  const supabase = await createClient();
+  const [{ data, error }, { data: members }] = await Promise.all([
+    supabase
+      .from("service_requests")
+      .select(
+        "id, number, doc_date, planned_date, service_id, quantity, block_id, floor_id, stage_id, crew_id, note, status, decision_comment, cancel_reason, created_by, services(name, units_of_measure(code)), service_usages(quantity, status)",
+      )
+      .eq("project_id", projectId)
+      .order("doc_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    supabase.from("organization_members").select("user_id, full_name").eq("organization_id", orgId),
+  ]);
+  if (error) throw new Error(error.message);
+  const names = new Map((members ?? []).map((m) => [m.user_id, m.full_name]));
+  return data.map((r) => ({
+    id: r.id,
+    number: r.number ?? "",
+    docDate: r.doc_date,
+    plannedDate: r.planned_date,
+    serviceId: r.service_id,
+    service: r.services?.name ?? "",
+    unit: r.services?.units_of_measure?.code ?? "",
+    quantity: Number(r.quantity),
+    done:
+      Math.round(
+        r.service_usages
+          .filter((u) => u.status === "ACTIVE")
+          .reduce((sum, u) => sum + Number(u.quantity), 0) * 10000,
+      ) / 10000,
+    blockId: r.block_id ?? "",
+    floorId: r.floor_id ?? "",
+    stageId: r.stage_id ?? "",
+    crewId: r.crew_id ?? "",
+    note: r.note ?? "",
+    status: r.status as ServiceRequestStatus,
+    decisionComment: r.decision_comment ?? "",
+    cancelReason: r.cancel_reason ?? "",
+    createdBy: r.created_by,
+    author: (r.created_by && names.get(r.created_by)) || "",
   }));
 }
 
