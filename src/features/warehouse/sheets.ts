@@ -343,6 +343,19 @@ export type WarehouseReport = {
     outgoing: number;
     balance: number;
   }[];
+  /** Д-110: услуги за период — по услуге, блоку, этажу, этапу и бригаде. */
+  services: {
+    service: string;
+    unit: string;
+    block: string;
+    floor: string;
+    stage: string;
+    crewId: string;
+    crew: string;
+    quantity: number;
+    /** Сколько строк журнала в группе. */
+    rows: number;
+  }[];
 };
 
 export async function warehouseReport(
@@ -351,10 +364,11 @@ export async function warehouseReport(
   to: string,
 ): Promise<WarehouseReport> {
   const supabase = await createClient();
-  const [inc, outgoing, bal] = await Promise.all([
+  const [inc, outgoing, bal, services] = await Promise.all([
     supabase.rpc("report_warehouse_incoming", { p_project: projectId, p_from: from, p_to: to }),
     warehouseOutgoing(projectId, from, to),
     supabase.rpc("report_warehouse_balance", { p_project: projectId, p_to: to }),
+    warehouseServices(projectId, from, to),
   ]);
   for (const r of [inc, bal]) if (r.error) throw new Error(r.error.message);
   return {
@@ -371,7 +385,59 @@ export async function warehouseReport(
       outgoing: Number(r.outgoing),
       balance: Number(r.balance),
     })),
+    services,
   };
+}
+
+/** Услуги за период (Д-110): действующие строки журнала, сгруппированные по месту и бригаде. */
+export async function warehouseServices(
+  projectId: string,
+  from: string,
+  to: string,
+): Promise<WarehouseReport["services"]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("service_usages")
+    .select(
+      "quantity, crew_id, services(name, units_of_measure(code)), blocks(name), floors(name), work_stages(name), crews(name, leader_name)",
+    )
+    .eq("project_id", projectId)
+    .eq("status", "ACTIVE")
+    .gte("doc_date", from)
+    .lte("doc_date", to)
+    .limit(5000);
+  if (error) throw new Error(error.message);
+  const groups = new Map<string, WarehouseReport["services"][number]>();
+  for (const u of data) {
+    const leader = u.crews?.leader_name?.trim();
+    const row = {
+      service: u.services?.name ?? "",
+      unit: u.services?.units_of_measure?.code ?? "",
+      block: u.blocks?.name ?? "",
+      floor: u.floors?.name ?? "",
+      stage: u.work_stages?.name ?? "",
+      crewId: u.crew_id ?? "",
+      crew: u.crews
+        ? leader && leader !== u.crews.name
+          ? `${leader} (${u.crews.name})`
+          : u.crews.name
+        : "",
+    };
+    const key = [row.service, row.block, row.floor, row.stage, row.crewId].join("\u0000");
+    const g = groups.get(key) ?? { ...row, quantity: 0, rows: 0 };
+    g.quantity = Math.round((g.quantity + Number(u.quantity)) * 10000) / 10000;
+    g.rows += 1;
+    groups.set(key, g);
+  }
+  const by = (a: string, b: string) => a.localeCompare(b, "ru", { numeric: true });
+  return [...groups.values()].sort(
+    (a, b) =>
+      by(a.service, b.service) ||
+      by(a.block, b.block) ||
+      by(a.floor, b.floor) ||
+      by(a.stage, b.stage) ||
+      by(a.crew, b.crew),
+  );
 }
 
 /** Расход за период по блокам и этапам; crew (Д-107) — только выдачи этой бригады и возвраты по ним. */

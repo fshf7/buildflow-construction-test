@@ -122,6 +122,41 @@ function filterFields(
         ],
       },
     ];
+  if (view === "services")
+    return [
+      { name: "q", label: "Поиск по услуге", type: "search", placeholder: "Услуга…" },
+      {
+        name: "service",
+        label: "Услуга",
+        type: "select",
+        options: distinct(full.services.map((r) => r.service)),
+      },
+      {
+        name: "crew",
+        label: "Бригада",
+        type: "select",
+        options: crews.map((c) => ({ value: c.id, label: c.label })),
+      },
+      {
+        name: "block",
+        label: "Блок",
+        type: "select",
+        options: distinct(full.services.map((r) => r.block)),
+      },
+      {
+        name: "stage",
+        label: "Этап",
+        type: "select",
+        options: distinct(full.services.map((r) => r.stage)),
+      },
+      {
+        name: "sort",
+        label: "Сортировка",
+        type: "select",
+        allLabel: "По названию",
+        options: [{ value: "qty", label: "Больше — сверху" }],
+      },
+    ];
   return [
     search,
     unit(full.balance),
@@ -164,7 +199,7 @@ export default async function WarehouseReportPage({
   const [full, crewOutgoing, crews] = await Promise.all([
     warehouseReport(project.id, from, to),
     crew ? warehouseOutgoing(project.id, from, to, crew) : null,
-    view === "outgoing" ? listResponsibleOptions(org.id) : [],
+    view === "outgoing" || view === "services" ? listResponsibleOptions(org.id) : [],
   ]);
   const base = crewOutgoing ? { ...full, outgoing: crewOutgoing } : full;
   const report = filterReport(base, view, filter);
@@ -178,6 +213,7 @@ export default async function WarehouseReportPage({
     incoming: full.incoming.length,
     outgoing: full.outgoing.length,
     balance: full.balance.length,
+    services: full.services.length,
   };
   const empty = (cols: number) => (
     <TableRow>
@@ -392,12 +428,53 @@ export default async function WarehouseReportPage({
           </Table>
         </Panel>
       ) : null}
+
+      {view === "services" ? (
+        <Panel>
+          <Table>
+            <TableHeader className="sticky top-0 bg-background">
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Услуга</TableHead>
+                <TableHead>Блок</TableHead>
+                <TableHead>Этаж</TableHead>
+                <TableHead>Этап работ</TableHead>
+                <TableHead>Бригада</TableHead>
+                <TableHead className="text-right">Кол-во</TableHead>
+                <TableHead className="text-right">Строк</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {report.services.length === 0 ? (
+                empty(7)
+              ) : (
+                <PageSlice>
+                  {report.services.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{r.service}</TableCell>
+                      <TableCell>{r.block}</TableCell>
+                      <TableCell>{r.floor}</TableCell>
+                      <TableCell>{r.stage}</TableCell>
+                      <TableCell>{r.crew}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {qty(r.quantity)} {r.unit}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground tabular-nums">
+                        {r.rows}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </PageSlice>
+              )}
+            </TableBody>
+          </Table>
+        </Panel>
+      ) : null}
       <PagedPager total={shown} />
       <p className="text-xs text-muted-foreground">
         {view === "balance"
           ? `Остаток на ${formatDate(to)}: приход и расход — с начала учёта.`
           : `За период с ${formatDate(from)} по ${formatDate(to)}.`}{" "}
-        В Excel — все три отчёта, фильтры — только к этой вкладке.
+        В Excel — все четыре отчёта, фильтры — только к этой вкладке.
       </p>
     </>
   );

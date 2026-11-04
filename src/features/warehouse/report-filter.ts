@@ -5,7 +5,7 @@
  */
 import type { WarehouseReport } from "./sheets";
 
-export type ReportView = "incoming" | "outgoing" | "balance";
+export type ReportView = "incoming" | "outgoing" | "balance" | "services";
 
 export type ReportFilter = {
   q?: string;
@@ -17,6 +17,10 @@ export type ReportFilter = {
   status?: string;
   /** Остаток: yes — есть остаток, zero — нулевой. */
   has?: string;
+  /** Услуги: название услуги из справочника. */
+  service?: string;
+  /** Услуги: бригада (расход фильтруется по бригаде в БД — `crew` из parseReportParams). */
+  crew?: string;
   /** qty — по количеству (больше сверху), deviation — по отклонению от норматива; иначе по названию. */
   sort?: string;
 };
@@ -67,6 +71,19 @@ export function filterReport(
     if (f.sort === "deviation") outgoing = sortDesc(outgoing, deviation);
     return { ...report, outgoing };
   }
+  if (view === "services") {
+    const needle = norm(f.q ?? "");
+    let services = report.services.filter(
+      (r) =>
+        (!needle || norm(r.service).includes(needle)) &&
+        (!f.service || r.service === f.service) &&
+        (!f.block || r.block === f.block) &&
+        (!f.stage || r.stage === f.stage) &&
+        (!f.crew || r.crewId === f.crew),
+    );
+    if (f.sort === "qty") services = sortDesc(services, (r) => r.quantity);
+    return { ...report, services };
+  }
   let balance = byName(report.balance, f.q).filter(
     (r) =>
       (!f.unit || r.unit === f.unit) &&
@@ -80,6 +97,7 @@ export const REPORT_VIEWS: { value: ReportView; label: string }[] = [
   { value: "incoming", label: "Приход" },
   { value: "outgoing", label: "Расход" },
   { value: "balance", label: "Остаток" },
+  { value: "services", label: "Услуги" },
 ];
 
 /** Вкладка и фильтры из параметров адреса (страница и выгрузка в Excel). */
@@ -104,6 +122,8 @@ export function parseReportParams(get: (key: string) => unknown): {
       status: str("status"),
       has: str("has"),
       sort: str("sort"),
+      service: str("service"),
+      crew: view === "services" ? str("crew") : undefined,
     },
     // Бригада — только для расхода (фильтр в БД).
     crew:
