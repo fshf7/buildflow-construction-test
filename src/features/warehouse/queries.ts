@@ -141,35 +141,62 @@ export type IssueCard = {
   lines: { name: string; unit: string; quantity: number }[];
 };
 
-/** Проведённые выдачи за 30 дней — из них оформляют возврат (US-04). */
-export async function listRecentIssues(projectId: string): Promise<IssueCard[]> {
+/**
+ * Выдачи, по которым ещё можно вернуть материал (US-04, Д-113): без ограничения по дате; поиск по
+ * номеру, бригаде, месту и материалу. «Можно вернуть» = выдано − проведённые возвраты.
+ */
+export async function listIssuesForReturn(projectId: string, q = ""): Promise<IssueCard[]> {
   const supabase = await createClient();
-  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("material_issues")
     .select(
-      "id, number, doc_date, crews(name), blocks(name), floors(name), material_issue_items(quantity, materials(name, units_of_measure(code)))",
+      "id, number, doc_date, crews(name, leader_name), blocks(name), floors(name), material_issue_items(quantity, materials(name, units_of_measure(code)), material_return_items(quantity, material_returns(status)))",
     )
     .eq("project_id", projectId)
     .eq("status", "POSTED")
-    .gte("doc_date", since)
+    .order("doc_date", { ascending: false })
     .order("posted_at", { ascending: false })
-    .limit(50);
+    .limit(1000);
   if (error) throw new Error(error.message);
-  return data.map((i) => ({
-    id: i.id,
-    number: i.number,
-    docDate: i.doc_date,
-    crewName: i.crews?.name ?? "",
-    place: [i.blocks?.name, i.floors?.name ? `этаж ${i.floors.name}` : null]
-      .filter(Boolean)
-      .join(", "),
-    lines: i.material_issue_items.map((l) => ({
-      name: l.materials?.name ?? "",
-      unit: l.materials?.units_of_measure?.code ?? "",
-      quantity: Number(l.quantity),
-    })),
-  }));
+  const needle = q.trim().toLocaleLowerCase("ru");
+  return data
+    .map((i): IssueCard => {
+      const leader = i.crews?.leader_name?.trim();
+      return {
+        id: i.id,
+        number: i.number,
+        docDate: i.doc_date,
+        crewName: i.crews
+          ? leader && leader !== i.crews.name
+            ? `${leader} (${i.crews.name})`
+            : i.crews.name
+          : "",
+        place: [i.blocks?.name, i.floors?.name ? `этаж ${i.floors.name}` : null]
+          .filter(Boolean)
+          .join(", "),
+        lines: i.material_issue_items
+          .map((l) => {
+            const returned = l.material_return_items
+              .filter((r) => r.material_returns?.status === "POSTED")
+              .reduce((sum, r) => sum + Number(r.quantity), 0);
+            return {
+              name: l.materials?.name ?? "",
+              unit: l.materials?.units_of_measure?.code ?? "",
+              quantity: Math.round((Number(l.quantity) - returned) * 10000) / 10000,
+            };
+          })
+          .filter((l) => l.quantity > 0),
+      };
+    })
+    .filter(
+      (c) =>
+        c.lines.length > 0 &&
+        (!needle ||
+          [c.number ?? "", c.crewName, c.place, ...c.lines.map((l) => l.name)]
+            .join(" ")
+            .toLocaleLowerCase("ru")
+            .includes(needle)),
+    );
 }
 
 export type ReturnLine = {

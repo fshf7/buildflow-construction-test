@@ -67,7 +67,7 @@ export async function quickReceive(input: unknown): Promise<ActionResult<Posted>
   return ok(data as Posted);
 }
 
-/** «Выдать» в одно действие: блок, этаж, этап, бригада обязательны (US-03, Д-100); минус запрещён (Д-19). */
+/** «Выдать» в одно действие: бригада и этап обязательны, блок и этаж — нет (Д-113); минус запрещён (Д-19). */
 export async function quickIssue(input: unknown): Promise<ActionResult<Posted>> {
   const auth = await authorize("material_issues.post");
   if (!auth.ok) return fail(auth.error);
@@ -81,8 +81,8 @@ export async function quickIssue(input: unknown): Promise<ActionResult<Posted>> 
   const { error: saveError } = await supabase.rpc("save_material_issue_draft", {
     p_id: v.issueId,
     p_project_id: v.projectId,
-    p_block_id: v.blockId,
-    p_floor_id: v.floorId,
+    p_block_id: (v.blockId || null) as string,
+    p_floor_id: (v.floorId || null) as string,
     p_crew_id: v.crewId,
     p_stage_id: v.stageId,
     p_received_by_name: v.receivedByName,
