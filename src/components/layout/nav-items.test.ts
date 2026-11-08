@@ -19,7 +19,7 @@ describe("навигация (Д-94)", () => {
     expect(allowedItems(COMMON_NAV, [])).toEqual([]);
   });
 
-  it("склад: закупки, склад, задачи, отчёты объекта; без кассы и актов; «Общего» нет", () => {
+  it("склад: закупки, склад, задачи; без отчётов (Д-113), кассы и актов; «Общего» нет", () => {
     const perms = [
       "projects.view",
       "purchase_requests.view",
@@ -35,9 +35,10 @@ describe("навигация (Д-94)", () => {
       "/procurement",
       "/warehouse",
       "/tasks",
-      "/reports",
     ]);
     expect(allowedItems(COMMON_NAV, perms)).toEqual([]);
+    // Бухгалтер и управляющий видят «Отчёты» по своим правам (долги, касса, акты).
+    expect(paths(allowedItems(OBJECT_NAV, ["stock.view", "payables.view"]))).toContain("/reports");
   });
 
   it("прораб не видит участников, аудит и справочники", () => {

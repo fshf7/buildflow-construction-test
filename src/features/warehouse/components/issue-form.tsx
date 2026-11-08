@@ -22,7 +22,8 @@ import { SubmitBar } from "./submit-bar";
 type Place = { crewId: string; blockId: string; floorId: string; stageId: string };
 
 /**
- * Выдача бригаде (US-03): бригада, блок, этаж обязательны, этап работ — для нормативов (Д-100);
+ * Выдача бригаде (US-03): бригада и этап работ обязательны (этап — для нормативов, Д-100); блок и
+ * этаж — нет: хозрасход (перчатки, инвентарь) выдают без места, как в «Расходе» (Д-113);
  * выбор запоминается на этом устройстве (обычно склад выдаёт одной бригаде на один участок
  * несколько раз подряд). Только материалы с остатком.
  */
@@ -117,22 +118,27 @@ export function IssueForm({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="block">Блок</Label>
+          <Label htmlFor="block">
+            Блок <span className="font-normal text-muted-foreground">(необязательно)</span>
+          </Label>
           <NativeSelect
             id="block"
             className="h-11 text-base"
-            placeholder="Выберите"
+            placeholder="Без блока"
             options={blocks.map((b) => ({ value: b.id, label: b.name }))}
             value={place.blockId}
             onChange={(e) => setPlace((p) => ({ ...p, blockId: e.target.value, floorId: "" }))}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="floor">Этаж</Label>
+          <Label htmlFor="floor">
+            Этаж <span className="font-normal text-muted-foreground">(необязательно)</span>
+          </Label>
           <NativeSelect
             id="floor"
             className="h-11 text-base"
-            placeholder="Выберите"
+            placeholder={place.blockId ? "Без этажа" : "Сначала блок"}
+            disabled={!place.blockId}
             options={floors.map((f) => ({ value: f.id, label: f.name }))}
             value={place.floorId}
             onChange={(e) => setPlace((p) => ({ ...p, floorId: e.target.value }))}
@@ -150,11 +156,6 @@ export function IssueForm({
           />
         </div>
       </div>
-      {blocks.length === 0 ? (
-        <p className="text-sm text-destructive">
-          У объекта нет блоков и этажей — их заводит управляющий в разделе «Объекты».
-        </p>
-      ) : null}
 
       <Input
         type="search"

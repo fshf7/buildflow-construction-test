@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { NativeSelect } from "@/components/native-select";
 import { useObjectHref } from "@/components/object-context";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { MaterialOption } from "@/features/shared/lookups";
 import { formatQuantity } from "@/lib/format";
 import { useDocumentId, useIdempotencyKey } from "@/lib/idempotency";
@@ -18,7 +18,13 @@ import type { ReceiveLine } from "../queries";
 import { QtyInput } from "./qty-input";
 import { SubmitBar } from "./submit-bar";
 
-type Line = { purchaseRequestItemId: string; materialId: string; quantity: string };
+type Line = {
+  purchaseRequestItemId: string;
+  materialId: string;
+  quantity: string;
+  /** Без заявки: набранное наименование (подсказки по справочнику, Д-113). */
+  text?: string;
+};
 
 /**
  * Приёмка (US-02): только фактические количества. Поставщика склад не указывает (Д-102) —
@@ -51,6 +57,7 @@ export function ReceiveForm({
       : [{ purchaseRequestItemId: "", materialId: "", quantity: "" }],
   );
   const unitOf = new Map((materials ?? []).map((m) => [m.id, m.unit]));
+  const byName = new Map((materials ?? []).map((m) => [m.name.trim().toLocaleLowerCase("ru"), m]));
 
   function setQty(index: number, quantity: string) {
     setLines((ls) => ls.map((l, i) => (i === index ? { ...l, quantity } : l)));
@@ -99,19 +106,33 @@ export function ReceiveForm({
                   />
                 </>
               ) : (
-                <div className="flex items-end gap-2">
-                  <NativeSelect
-                    aria-label={`Материал ${index + 1}`}
-                    className="h-12 flex-1 text-base"
-                    placeholder="Материал"
-                    options={(materials ?? []).map((m) => ({ value: m.id, label: m.name }))}
-                    value={line.materialId}
-                    onChange={(e) =>
-                      setLines((ls) =>
-                        ls.map((l, i) => (i === index ? { ...l, materialId: e.target.value } : l)),
-                      )
-                    }
-                  />
+                <div className="flex items-start gap-2">
+                  <div className="flex flex-1 flex-col gap-1">
+                    <Input
+                      aria-label={`Материал ${index + 1}`}
+                      aria-invalid={Boolean(line.text?.trim()) && !line.materialId}
+                      list="receive-materials"
+                      className="h-12 text-base"
+                      placeholder="Начните вводить материал"
+                      autoComplete="off"
+                      value={line.text ?? ""}
+                      onChange={(e) => {
+                        const text = e.target.value;
+                        const m = byName.get(text.trim().toLocaleLowerCase("ru"));
+                        setLines((ls) =>
+                          ls.map((l, i) =>
+                            i === index ? { ...l, text, materialId: m?.id ?? "" } : l,
+                          ),
+                        );
+                      }}
+                    />
+                    {line.text?.trim() && !line.materialId ? (
+                      <span className="text-xs text-destructive">
+                        Выберите из подсказок. Нового материала нет в списке — внесите его строкой в
+                        «Склад → Приход»
+                      </span>
+                    ) : null}
+                  </div>
                   <QtyInput
                     unit={unitOf.get(line.materialId) ?? ""}
                     aria-label={`Количество ${index + 1}`}
@@ -134,6 +155,13 @@ export function ReceiveForm({
           );
         })}
       </ul>
+      {!request ? (
+        <datalist id="receive-materials">
+          {(materials ?? []).map((m) => (
+            <option key={m.id} value={m.name} />
+          ))}
+        </datalist>
+      ) : null}
       {!request ? (
         <Button
           type="button"

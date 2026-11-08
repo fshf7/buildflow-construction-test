@@ -5,6 +5,9 @@ import { decimalString } from "@/lib/decimal";
 // Количества — строками из полей (запятая допустима); «0» или пусто = строку не проводить.
 const qty = z.union([decimalString({ allowZero: true, message: "Количество" }), z.literal("")]);
 
+/** Необязательный id (пустая строка — не выбрано). */
+const optionalId = z.union([z.uuid(), z.literal("")]);
+
 export const quickReceiveSchema = z.object({
   receiptId: z.uuid(),
   key: z.uuid(),
@@ -23,17 +26,20 @@ export const quickReceiveSchema = z.object({
 });
 export type QuickReceiveInput = z.infer<typeof quickReceiveSchema>;
 
-export const quickIssueSchema = z.object({
-  issueId: z.uuid(),
-  key: z.uuid(),
-  projectId: z.uuid(),
-  crewId: z.uuid({ error: "Выберите бригаду" }),
-  blockId: z.uuid({ error: "Выберите блок" }),
-  floorId: z.uuid({ error: "Выберите этаж" }),
-  stageId: z.uuid({ error: "Выберите этап работ" }),
-  receivedByName: z.string().trim().max(200),
-  lines: z.array(z.object({ materialId: z.uuid(), quantity: qty })).min(1),
-});
+export const quickIssueSchema = z
+  .object({
+    issueId: z.uuid(),
+    key: z.uuid(),
+    projectId: z.uuid(),
+    crewId: z.uuid({ error: "Выберите бригаду" }),
+    // Блок и этаж необязательны — хозрасход (перчатки, инвентарь), как в «Расходе» (Д-113).
+    blockId: optionalId,
+    floorId: optionalId,
+    stageId: z.uuid({ error: "Выберите этап работ" }),
+    receivedByName: z.string().trim().max(200),
+    lines: z.array(z.object({ materialId: z.uuid(), quantity: qty })).min(1),
+  })
+  .refine((v) => !v.floorId || v.blockId, { path: ["blockId"], message: "Этаж — вместе с блоком" });
 export type QuickIssueInput = z.infer<typeof quickIssueSchema>;
 
 export const quickReturnSchema = z.object({
@@ -80,7 +86,6 @@ export type CrewInput = z.infer<typeof crewSchema>;
 // Склад таблицами (Д-100): строки прихода, расхода, услуг; нормативы
 // ---------------------------------------------------------------------------------------
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Дата" });
-const optionalId = z.union([z.uuid(), z.literal("")]);
 
 /** Строка прихода: материал из справочника или новое наименование (тогда нужна единица). */
 export const receiptRowFields = z
