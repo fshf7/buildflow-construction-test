@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 import type { RowState } from "./sheet-kit";
 
@@ -66,11 +67,14 @@ export function useRowSheet<D extends Record<string, unknown>, P>({
     const v = validate(draft);
     if (!v.ok) {
       setStates((s) => ({ ...s, [key]: { state: "error", message: v.message, fields: v.fields } }));
+      // Причина — сообщением на экране: подсказка у значка видна только при наведении мыши.
+      toast.error(`Строка не сохранена. ${v.message}`, { id: `row-${key}` });
       return false;
     }
     setStates((s) => ({ ...s, [key]: { state: "saving" } }));
     const r = await save(v.data, id);
     if (r.ok && isNew) setPersisted((p) => new Set(p).add(id));
+    if (!r.ok) toast.error(`Строка не сохранена: ${r.error}`, { id: `row-${key}` });
     setStates((s) => ({
       ...s,
       [key]: r.ok ? { state: "saved" } : { state: "error", message: r.error },

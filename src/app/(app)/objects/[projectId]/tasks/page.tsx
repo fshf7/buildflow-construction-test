@@ -32,10 +32,12 @@ export default async function TasksPage({
   const sp = await searchParams;
   const status = one(sp.status) as TaskStatus | undefined;
   const validStatus = status && status in TASK_STATUS_LABELS ? status : undefined;
+  // Пусто — открытые (по умолчанию); «all» — все, включая выполненные и отменённые.
+  const showAll = status === ("all" as string) || one(sp.all) === "1";
   const rows = await listTasks(org.id, {
     status: validStatus,
     project: project.id,
-    open: !validStatus && one(sp.all) !== "1",
+    open: !validStatus && !showAll,
   });
   const today = businessToday();
   const overdue = rows.filter((t) => isOverdue(t.dueDate, t.status, today)).length;
@@ -58,9 +60,13 @@ export default async function TasksPage({
         fields={[
           {
             name: "status",
-            label: "Статус (по умолчанию — открытые)",
+            label: "Статус",
             type: "select",
-            options: Object.entries(TASK_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+            allLabel: "Открытые",
+            options: [
+              ...Object.entries(TASK_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+              { value: "all", label: "Все, включая закрытые" },
+            ],
           },
         ]}
       />

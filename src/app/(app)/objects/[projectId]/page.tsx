@@ -7,9 +7,28 @@ import { PageHeader } from "@/components/page-header";
 import { SectionTiles } from "@/components/section-tiles";
 import { buttonVariants } from "@/components/ui/button";
 import { requireObject } from "@/features/projects/object";
-import { hasPermission } from "@/lib/auth/access-model";
+import { hasAnyPermission, hasPermission, type OrgAccess } from "@/lib/auth/access-model";
 
 export const metadata: Metadata = { title: "Объект" };
+
+/** Подсказка плитки — по правам: не обещать то, чего у роли нет (склад: накладные без цен). */
+function hintFor(path: string, hint: string, org: OrgAccess): string {
+  if (path === "/procurement" && !hasPermission(org, "supplier_invoices.manage"))
+    return hasPermission(org, "prices.view")
+      ? "Журнал накладных, затраты"
+      : "Журнал накладных и затраты — без цен";
+  if (
+    path === "/reports" &&
+    !hasAnyPermission(org, [
+      "payables.view",
+      "cash.view",
+      "work_acts.view",
+      "work_acts.view_approved",
+    ])
+  )
+    return "Остатки и движение материалов по объекту";
+  return hint;
+}
 
 /** Главная объекта (Д-94): разделы, доступные по правам, — только по этому объекту. */
 export default async function ObjectHomePage({ params }: PageProps<"/objects/[projectId]">) {
@@ -48,7 +67,7 @@ export default async function ObjectHomePage({ params }: PageProps<"/objects/[pr
           tiles={sections.map((i) => ({
             href: itemHref(i, project.id),
             label: i.label,
-            hint: i.hint,
+            hint: hintFor(i.path, i.hint, org),
             icon: i.icon,
           }))}
         />
