@@ -3,14 +3,14 @@ import { expect, test, type Page } from "@playwright/test";
 import { LOCAL_PM, LOCAL_STOREKEEPER, login } from "./helpers/accounts";
 import { createWarehouseFixture } from "./helpers/fixture";
 
-/** Заполняет пустую строку внизу таблицы и уводит фокус — строка сохраняется (Д-100). */
+/** Заполняет строку ввода вверху таблицы (Д-114) и уводит фокус — строка сохраняется (Д-100). */
 async function fillNewRow(
   page: Page,
   values: [label: string, value: string, kind: "fill" | "select"][],
   heading: string,
 ) {
-  const rows = page.locator("tbody tr");
-  const row = rows.nth((await rows.count()) - 1); // после ввода появится новая пустая — по индексу
+  // Строка ввода — первая; после ввода над ней появится новая пустая, поэтому — по data-entry.
+  const row = page.locator("tbody tr[data-entry]").last();
   for (const [label, value, kind] of values) {
     const cell = row.getByLabel(label, { exact: true });
     if (kind === "fill") await cell.fill(value);
@@ -90,7 +90,7 @@ test("склад таблицами: приход → расход → норм�
 
   // Расход показывает остаток норматива −10; отчёт — перерасход и остаток 70.
   await wh.goto(`${base}/outgoing`);
-  await expect(wh.locator("tbody tr").first()).toContainText(/[-−]10/);
+  await expect(wh.locator("tbody tr:not([data-entry])").first()).toContainText(/[-−]10/);
   await wh.goto(`${base}/report`);
   await expect(wh.getByRole("row", { name: new RegExp(`${fx.cement}.*Кладка`) })).toContainText(
     "Перерасход",
