@@ -30,7 +30,18 @@ export function sheetNavigate(e: React.KeyboardEvent<HTMLElement>) {
   const td = target.closest<HTMLElement>("[data-col]");
   const tr = target.closest("tr");
   if (!td || !tr) return;
-  const sibling = (down ? tr.nextElementSibling : tr.previousElementSibling) as HTMLElement | null;
+  // Строка ввода сверху (data-entry-top, Д-114): Enter в новой строке — к пустой строке вверху,
+  // а не вниз, к уже сохранённым.
+  const table = tr.closest<HTMLElement>("table");
+  const entryTop =
+    e.key === "Enter" && table?.dataset.entryTop !== undefined && tr.dataset.entry !== undefined;
+  const sibling = (
+    entryTop
+      ? tr.parentElement?.firstElementChild
+      : down
+        ? tr.nextElementSibling
+        : tr.previousElementSibling
+  ) as HTMLElement | null;
   const next = sibling?.querySelector<HTMLElement>(
     `[data-col="${td.dataset.col}"] input, [data-col="${td.dataset.col}"] select`,
   );

@@ -128,9 +128,11 @@ export function OutgoingSheet({
   );
   const savedIds = new Set(rows.map((r) => r.id));
   const fresh = canEdit ? sheet.fresh.filter((d) => !savedIds.has(d.id)) : [];
-  // Д-108: по 30 строк; по умолчанию — последняя страница (новые строки внизу). Новые
-  // несохранённые строки видны на любой странице.
-  const paging = usePagination(visible.length, { last: true, scrollTarget: "outgoing-sheet" });
+  // Д-114: новые сверху — строка ввода первой, дальше от самых новых к старым (выгрузка в Excel —
+  // по порядку дат). Д-108: по 30 строк, новые несохранённые строки видны на любой странице.
+  const newestFirst = [...visible].reverse();
+  const entryRows = [...fresh].reverse();
+  const paging = usePagination(visible.length, { scrollTarget: "outgoing-sheet" });
   const pending = sheet.pendingNew(savedIds);
 
   function paste(e: React.ClipboardEvent) {
@@ -198,6 +200,7 @@ export function OutgoingSheet({
     return (
       <tr
         key={key}
+        data-entry={row ? undefined : ""}
         className={cn(
           "border-b last:border-b-0",
           !row && "bg-primary/[0.03]",
@@ -427,7 +430,11 @@ export function OutgoingSheet({
       </datalist>
       <div id="outgoing-sheet" className="max-h-[70vh] overflow-auto rounded-lg border">
         {/* Минимальная ширина: на узком экране таблица прокручивается, а не сжимает колонки. */}
-        <table className={cn(sheetTable, "min-w-[80rem]")} onKeyDown={sheetNavigate}>
+        <table
+          className={cn(sheetTable, "min-w-[80rem]")}
+          data-entry-top=""
+          onKeyDown={sheetNavigate}
+        >
           <thead className="sticky top-0 z-[2] bg-muted">
             <tr>
               <th className={cn(sheetHead, "sticky left-0 z-[3] bg-muted")}>Дата</th>
@@ -443,8 +450,8 @@ export function OutgoingSheet({
             </tr>
           </thead>
           <tbody>
-            {paging.slice(visible).map((r) => renderRow({ ...sheet.draftOf(r), id: r.id }, r))}
-            {fresh.map((d) => renderRow(d))}
+            {entryRows.map((d) => renderRow(d))}
+            {paging.slice(newestFirst).map((r) => renderRow({ ...sheet.draftOf(r), id: r.id }, r))}
           </tbody>
         </table>
       </div>
